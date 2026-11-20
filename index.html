@@ -59,6 +59,8 @@ mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
 .chk input{width:24px;height:24px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto}
 #sum{font-weight:700;text-align:right;margin-top:10px}
 #bk{min-height:150px;font:13px/1.4 ui-monospace,Menlo,monospace}
+#syncst{color:var(--mute);font-size:.8rem;margin:0 2px 6px;min-height:1.2em}
+#syncst.err{color:var(--danger)}
 nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
 nav button{flex:1;border:0;background:none;border-radius:10px;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--mute);min-height:52px;padding:6px 4px}
 nav button .ic{font-size:1.35rem;line-height:1.2}
@@ -70,6 +72,7 @@ nav button.on{color:var(--accent);font-weight:700}
 
 <section class="view on" id="v-list">
   <h1>🚗 Οι καταχωρήσεις μου</h1>
+  <div id="syncst"></div>
   <div class="next" id="next"></div>
   <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Αναζήτηση: ιμάντας, λάδια, φρένα...">
   <div class="count" id="count"></div>
@@ -102,11 +105,12 @@ nav button.on{color:var(--accent);font-weight:700}
 
 <section class="view" id="v-backup">
   <h1>Αντίγραφο ασφαλείας</h1>
-  <p class="note">Τα δεδομένα μένουν σε αυτό το κινητό. Πάτα «Δημιουργία αντιγράφου», αντίγραψε το κείμενο και κράτα το σε μια σημείωση ή στο email σου. Για επαναφορά (ή άλλη συσκευή) κάνε επικόλληση και πάτα «Επαναφορά».</p>
+  <p class="note">Τα δεδομένα συγχρονίζονται αυτόματα με τον server. Αν θέλεις, μπορείς επιπλέον να κρατήσεις ένα αντίγραφο σε κείμενο. Πάτα «Δημιουργία αντιγράφου», αντίγραψε το κείμενο και κράτα το σε μια σημείωση ή στο email σου. Για επαναφορά κάνε επικόλληση και πάτα «Επαναφορά».</p>
   <textarea id="bk" placeholder="Εδώ εμφανίζεται το αντίγραφο ή επικολλάς ένα για επαναφορά" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
   <button class="main" id="mk">Δημιουργία αντιγράφου</button>
   <button class="sec" id="cp">Αντιγραφή κειμένου</button>
   <button class="sec" id="rs">Επαναφορά από κείμενο</button>
+  <button class="sec" id="chpw">Αλλαγή κωδικού σε αυτή τη συσκευή</button>
   <p class="note" id="bkmsg" style="margin-top:12px"></p>
 </section>
 
@@ -119,14 +123,55 @@ nav button.on{color:var(--accent);font-weight:700}
 </nav>
 
 <script>
-const KEY="carServiceLog",SKEY="carServiceSettings";
+const KEY="carServiceLog",SKEY="carServiceSettings",PKEY="carServicePass";
 let items=[],settings={interval:10000,current:""},editId=null;
 const $=id=>document.getElementById(id);
 function load(){
   try{items=JSON.parse(localStorage.getItem(KEY)||"[]");if(!Array.isArray(items))items=[]}catch(e){items=[]}
   try{const s=JSON.parse(localStorage.getItem(SKEY)||"null");if(s&&typeof s==="object")settings={...settings,...s}}catch(e){}
 }
-function store(){try{localStorage.setItem(KEY,JSON.stringify(items));localStorage.setItem(SKEY,JSON.stringify(settings))}catch(e){alert("Δεν μπόρεσε να αποθηκευτεί. Αν είσαι σε Ιδιωτική περιήγηση, βγες από αυτήν.")}}
+
+/* Συγχρονισμός με server */
+function setSt(msg,err){const e=$("syncst");if(!e)return;e.textContent=msg||"";e.className=err?"err":""}
+function saveLocal(){
+  try{localStorage.setItem(KEY,JSON.stringify(items));localStorage.setItem(SKEY,JSON.stringify(settings))}
+  catch(e){alert("Δεν μπόρεσε να αποθηκευτεί. Αν είσαι σε Ιδιωτική περιήγηση, βγες από αυτήν.")}
+}
+async function push(){
+  const p=localStorage.getItem(PKEY);if(!p)return;
+  try{
+    const r=await fetch("/api/data",{method:"PUT",headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},body:JSON.stringify({items,settings})});
+    if(r.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός",true);return}
+    if(!r.ok)throw 0;
+    setSt("Συγχρονίστηκε ✓");
+  }catch(e){setSt("Δεν συγχρονίστηκε (offline;). Αποθηκεύτηκε μόνο στη συσκευή.",true)}
+}
+function store(){saveLocal();push()}
+let syncing=false;
+async function sync(){
+  if(syncing)return;syncing=true;
+  try{
+    let p=localStorage.getItem(PKEY);
+    if(!p){p=prompt("Κωδικός πρόσβασης:");if(!p)return;localStorage.setItem(PKEY,p.trim())}
+    const r=await fetch("/api/data",{headers:{Authorization:"Bearer "+localStorage.getItem(PKEY)}});
+    if(r.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός. Ξανάνοιξε τη σελίδα για να τον βάλεις ξανά.",true);return}
+    if(!r.ok)throw 0;
+    const d=await r.json();
+    if(Array.isArray(d.items)){
+      /* μην αντικαθιστάς όσο επεξεργάζεσαι μια καταχώρηση */
+      if(!editId){
+        items=d.items;
+        if(d.settings&&typeof d.settings==="object")settings={...settings,...d.settings};
+        saveLocal();render();
+      }
+      setSt("Συγχρονίστηκε ✓");
+    }else if(items.length){await push()}
+    else setSt("Συγχρονίστηκε ✓");
+  }catch(e){setSt("Δεν υπάρχει σύνδεση με τον server.",true)}
+  finally{syncing=false}
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
+
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function norm(s){return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/ς/g,"σ")}
 function num(s){const n=parseFloat(String(s==null?"":s).replace(",","."));return isNaN(n)?0:n}
@@ -255,7 +300,11 @@ $("rs").onclick=()=>{
     if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
   }catch(e){$("bkmsg").textContent="Το κείμενο δεν είναι έγκυρο αντίγραφο."}
 };
-load();resetForm();render();
+$("chpw").onclick=()=>{
+  const p=prompt("Νέος κωδικός για αυτή τη συσκευή (πρέπει να ταιριάζει με το PASSCODE στο Cloudflare):");
+  if(p&&p.trim()){localStorage.setItem(PKEY,p.trim());$("bkmsg").textContent="Ο κωδικός άλλαξε.";sync()}
+};
+load();resetForm();render();sync();
 </script>
 </body>
 </html>
