@@ -64,7 +64,7 @@ mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
 .imp .h{display:flex;gap:10px;align-items:center}
 .imp .h input[type=checkbox]{width:24px;height:24px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto}
 .imp .h input[type=date]{flex:1}
-.imp .h+*{margin-top:8px}.imp .prow{margin-top:0}
+.imp .h+*{margin-top:8px}.imp .h input[type=text]{flex:1}.imp .prow{margin-top:0}
 .imp ul{margin:8px 0 0;padding-left:18px;color:var(--ink);font-size:.95rem}
 .badge{font-size:.75rem;color:var(--warn)}
 #impTxt{min-height:180px}
@@ -91,7 +91,7 @@ nav button.on{color:var(--accent);font-weight:700}
 <section class="view" id="v-form">
   <h1 id="formTitle">Νέα καταχώρηση</h1>
   <div class="row">
-    <div><label for="date">Ημερομηνία</label><input type="date" id="date"></div>
+    <div><label for="date">Ημερομηνία</label><input type="text" id="date" inputmode="numeric" maxlength="10" placeholder="ΗΗ-ΜΜ-ΕΕΕΕ" autocomplete="off"></div>
     <div><label for="km">Χιλιόμετρα</label><input type="text" id="km" inputmode="numeric" placeholder="π.χ. 145000"></div>
   </div>
 
@@ -199,7 +199,10 @@ function num(s){const n=parseFloat(String(s==null?"":s).replace(",","."));return
 function intOf(s){return parseInt(String(s==null?"":s).replace(/\D/g,""),10)||0}
 function money(n){return n.toLocaleString("el-GR",{minimumFractionDigits:0,maximumFractionDigits:2})+" €"}
 function fmtKm(n){return Number(n).toLocaleString("el-GR")+" χλμ"}
-function fmtDate(d){if(!d)return"Χωρίς ημερομηνία";const p=d.split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d}
+function fmtDate(d){if(!d)return"Χωρίς ημερομηνία";const p=d.split("-");return p.length===3?p[2]+"-"+p[1]+"-"+p[0]:d}
+function maskDate(el){const d=el.value.replace(/\D/g,"").slice(0,8);let o=d.slice(0,2);if(d.length>2)o+="-"+d.slice(2,4);if(d.length>4)o+="-"+d.slice(4);el.value=o}
+function parseDate(s){const m=String(s||"").trim().match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2}|\d{4})$/);if(!m)return"";let y=m[3];if(y.length===2)y="20"+y;const dd=+m[1],mm=+m[2],dt=new Date(+y,mm-1,dd);if(dt.getFullYear()!==+y||dt.getMonth()!==mm-1||dt.getDate()!==dd)return"";return y+"-"+String(mm).padStart(2,"0")+"-"+String(dd).padStart(2,"0")}
+function isoDisp(d){const p=String(d||"").split("-");return p.length===3?p[2]+"-"+p[1]+"-"+p[0]:""}
 function total(it){return (it.parts||[]).reduce((a,p)=>a+num(p.cost),0)+num(it.labor)}
 function hl(text,q){
   const t=esc(text);if(!q)return t;
@@ -280,26 +283,28 @@ $("parts").oninput=updSum;$("labor").oninput=updSum;
 function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function resetForm(){
   editId=null;["km","labor","where","notes"].forEach(i=>$(i).value="");
-  $("date").value=today();$("regular").checked=true;
+  $("date").value=isoDisp(today());$("regular").checked=true;
   $("parts").innerHTML="";partRow();
   $("formTitle").textContent="Νέα καταχώρηση";$("save").textContent="Αποθήκευση";$("cancel").hidden=true;$("navAdd").textContent="Προσθήκη";updSum();
 }
 $("save").onclick=()=>{
   const parts=readParts(),notes=$("notes").value.trim();
   if(!parts.length&&!notes){const f=document.querySelector("#parts .pn");if(f)f.focus();return}
-  const rec={date:$("date").value,km:$("km").value.trim(),parts,labor:$("labor").value.trim(),where:$("where").value.trim(),notes,regular:$("regular").checked};
+  const dv=$("date").value.trim(),dIso=dv?parseDate(dv):"";
+  if(dv&&!dIso){alert("Η ημερομηνία πρέπει να είναι ΗΗ-ΜΜ-ΕΕΕΕ, π.χ. 15-03-2021");$("date").focus();return}
+  const rec={date:dIso,km:$("km").value.trim(),parts,labor:$("labor").value.trim(),where:$("where").value.trim(),notes,regular:$("regular").checked};
   if(editId){items=items.map(i=>i.id===editId?{id:i.id,...rec}:i)}else{items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),...rec})}
   store();resetForm();render();show("list");
 };
 $("cancel").onclick=()=>{resetForm();show("list")};
-$("q").oninput=render;
+$("q").oninput=render;$("date").oninput=()=>maskDate($("date"));
 $("list").onclick=e=>{
   const b=e.target.closest("button");if(!b)return;
   const d=b.dataset.d,ed=b.dataset.e;
   if(d&&confirm("Να διαγραφεί αυτή η καταχώρηση;")){items=items.filter(i=>i.id!==d);store();render()}
   if(ed){
     const it=items.find(i=>i.id===ed);if(!it)return;
-    editId=ed;$("date").value=it.date||"";$("km").value=it.km||"";$("where").value=it.where||"";
+    editId=ed;$("date").value=isoDisp(it.date);$("km").value=it.km||"";$("where").value=it.where||"";
     $("labor").value=it.labor||it.cost||"";$("notes").value=[it.what,it.notes].filter(Boolean).join("\n");
     $("regular").checked=it.regular!==false;
     $("parts").innerHTML="";const ps=it.parts&&it.parts.length?it.parts:[{name:"",cost:""}];ps.forEach(p=>partRow(p.name,p.cost));
@@ -344,7 +349,7 @@ function renderImp(){
     const dup=isDup(e);
     const prs=e.parts.map((p,j)=>`<div class="prow"><input data-f="pn" data-i="${i}" data-j="${j}" placeholder="Εξάρτημα" value="${esc(p.name)}"><input data-f="pc" data-i="${i}" data-j="${j}" inputmode="decimal" placeholder="€" value="${esc(p.cost)}"><button type="button" data-rm="${i}:${j}" aria-label="Διαγραφή γραμμής">✕</button></div>`).join("");
     return `<div class="imp${dup?" dup":""}">
-    <div class="h"><input type="checkbox" data-c="${i}"${e.on?" checked":""}><input type="date" data-f="date" data-i="${i}" value="${esc(e.date)}"></div>
+    <div class="h"><input type="checkbox" data-c="${i}"${e.on?" checked":""}><input type="text" inputmode="numeric" maxlength="10" placeholder="ΗΗ-ΜΜ-ΕΕΕΕ" data-f="date" data-i="${i}" value="${esc(isoDisp(e.date))}"></div>
     ${dup?'<div class="badge">Υπάρχει ήδη καταχώρηση με ίδια ημερομηνία και χλμ</div>':""}
     ${e.date?"":'<div class="badge">Δεν βρέθηκε ημερομηνία, συμπλήρωσέ την</div>'}
     <div class="row stack"><div><label>Χιλιόμετρα</label><input data-f="km" data-i="${i}" inputmode="numeric" value="${esc(e.km)}"></div><div><label>Συνεργείο</label><input data-f="where" data-i="${i}" value="${esc(e.where)}"></div></div>
@@ -358,6 +363,7 @@ function renderImp(){
 $("impList").addEventListener("input",e=>{
   const t=e.target,f=t.dataset.f,i=t.dataset.i;if(!f||i===undefined)return;
   const en=imported[+i];if(!en)return;
+  if(f==="date"){maskDate(t);en.date=parseDate(t.value);return}
   if(f==="pn")en.parts[+t.dataset.j].name=t.value;
   else if(f==="pc")en.parts[+t.dataset.j].cost=t.value;
   else en[f]=t.value;
