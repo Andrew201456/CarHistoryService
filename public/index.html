@@ -10,90 +10,75 @@
 <meta name="format-detection" content="telephone=no">
 <title>Service Αυτοκινήτου</title>
 <style>
-:root{--bg:#e9eef2;--card:#fff;--ink:#10212e;--mute:#5f7280;--line:#d6dfe6;--accent:#0e5a78;--accent-ink:#fff;--amber:#ffb81c;--danger:#c0392b;--hl:#ffe7a0;--ok:#1f8a4c;--warn:#c0392b;
---num:ui-rounded,"SF Pro Rounded",-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1218;--card:#142029;--ink:#e9eff3;--mute:#8fa3b0;--line:#25343f;--accent:#4fb3d9;--accent-ink:#06151c;--danger:#ff8a73;--hl:#5a4a10;--ok:#6cc58a;--warn:#ff8a73;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0b1218;--card:#142029;--ink:#e9eff3;--mute:#8fa3b0;--line:#25343f;--accent:#4fb3d9;--accent-ink:#06151c;--danger:#ff8a73;--hl:#5a4a10;--ok:#6cc58a;--warn:#ff8a73;color-scheme:dark}
+:root{--bg:#f4f5f7;--card:#fff;--ink:#1b1f24;--mute:#6b7280;--line:#e3e6ea;--accent:#1f5f7a;--accent-ink:#fff;--danger:#c0392b;--hl:#ffe7a0;--ok:#2d7a46;--warn:#c0392b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101418;--card:#1a2026;--ink:#eceff2;--mute:#97a1ab;--line:#2c353d;--accent:#5fb0cf;--accent-ink:#0d1a21;--danger:#ef8a78;--hl:#5a4a10;--ok:#6cc58a;--warn:#ef8a78;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101418;--card:#1a2026;--ink:#eceff2;--mute:#97a1ab;--line:#2c353d;--accent:#5fb0cf;--accent-ink:#0d1a21;--danger:#ef8a78;--hl:#5a4a10;--ok:#6cc58a;--warn:#ef8a78;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"SF Pro Text",system-ui,"Segoe UI",Roboto,sans-serif}
-main{max-width:700px;margin:0 auto;padding:18px 14px 130px}
-h1{font:800 1.9rem/1.15 var(--num);letter-spacing:-.02em;margin:6px 2px 4px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 100px}
+h1{font-size:1.5rem;font-weight:700;margin:4px 0 16px}
 .view{display:none}.view.on{display:block}
-label{display:block;font-size:.85rem;font-weight:600;color:var(--mute);margin:14px 0 5px}
-input,textarea{display:block;width:100%;max-width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;min-height:48px;-webkit-appearance:none;appearance:none}
+label{display:block;font-size:.85rem;color:var(--mute);margin:14px 0 6px}
+input,textarea{display:block;width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:46px;-webkit-appearance:none;appearance:none}
 textarea{min-height:84px;resize:vertical}
-input:focus,textarea:focus,button:focus-visible{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:0}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:480px){.row.stack{grid-template-columns:1fr}}
-button{font:inherit;font-size:16px;font-weight:600;cursor:pointer;border-radius:14px;padding:11px 16px;min-height:48px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);touch-action:manipulation;transition:transform .12s}
-button:active{transform:scale(.97)}
-button.main{width:100%;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;margin-top:18px}
+button{font:inherit;font-size:16px;cursor:pointer;border-radius:10px;padding:11px 16px;min-height:46px;border:1px solid var(--line);background:var(--card);color:var(--ink);touch-action:manipulation}
+button.main{width:100%;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;margin-top:20px}
 button.main:disabled{opacity:.6}
 button.sec{width:100%;margin-top:10px}
 button.del{color:var(--danger)}
-#syncst{color:var(--mute);font-size:.8rem;margin:0 2px 14px;min-height:1.2em}
+#syncst{color:var(--mute);font-size:.8rem;margin:-10px 0 14px;min-height:1.2em}
 #syncst.err{color:var(--danger)}
-.next{background:#0b3a52;color:#fff;border-radius:24px;padding:20px 18px 14px;margin-bottom:18px;box-shadow:0 18px 34px -18px rgba(11,58,82,.8)}
-.next .lbl{font-size:.88rem;font-weight:600;color:#a9c7d6}
-.odo{display:flex;align-items:center;gap:5px;margin:10px 0 16px}
-.odo b{display:inline-flex;align-items:center;justify-content:center;width:clamp(26px,9vw,36px);height:clamp(42px,14vw,54px);border-radius:8px;color:#fff;font:800 clamp(1.5rem,7vw,2rem)/1 var(--num);font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#0e3447 0 49%,#041821 50% 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
-.odo .u{margin-left:6px;color:#a9c7d6;font-weight:600}
-.odo.none{font:800 2rem var(--num);color:#a9c7d6}
-.bar{height:8px;border-radius:8px;background:rgba(255,255,255,.16);overflow:hidden}
-.bar i{display:block;height:100%;background:var(--amber);border-radius:8px}
-.bar.over i{background:#ff8a73}
-.next .left{font-weight:700;margin-top:10px}
-.next .left.ok{color:#8be6ac}.next .left.warn{color:#ffa593}
-.next .sub{color:#a9c7d6;font-size:.88rem;margin-top:4px}
-.next .cfg{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid rgba(255,255,255,.16);margin-top:16px;padding-top:2px}
-.next .cfg label{color:#a9c7d6;margin:12px 0 4px}
-.next .cfg input{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#fff}
-#q{border-radius:30px;padding-left:18px;border-color:transparent;box-shadow:0 6px 18px -12px rgba(16,33,46,.5)}
-.count{color:var(--mute);font-size:.88rem;font-weight:600;margin:16px 4px 12px}
-#list{position:relative;padding-left:24px}
-#list::before{content:"";position:absolute;left:6px;top:14px;bottom:14px;width:2px;border-radius:2px;background:var(--line)}
-.item{position:relative;background:var(--card);border-radius:20px;padding:16px;margin-bottom:12px;box-shadow:0 10px 22px -18px rgba(16,33,46,.55)}
-.item::before{content:"";position:absolute;left:-24px;top:20px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:3px solid var(--mute)}
-.item:has(.tag)::before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
-.top{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
-.date{font:800 1.12rem var(--num);letter-spacing:-.01em}
-.km{background:var(--bg);color:var(--ink);font-size:.88rem;font-weight:700;border-radius:20px;padding:2px 11px}
-.km:empty{display:none}
-.tag{display:inline-block;font-size:.72rem;font-weight:700;background:var(--accent);color:var(--accent-ink);border-radius:20px;padding:1px 9px;margin-left:8px;vertical-align:2px}
-.parts{margin:12px 0 0;padding:0;list-style:none}
-.parts li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1.5px dotted var(--line)}
+.next{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.next .small{color:var(--mute);font-size:.9rem}
+.next .big{font-size:1.8rem;font-weight:700;line-height:1.2;margin:2px 0 4px}
+.bar{height:6px;border-radius:6px;background:var(--line);overflow:hidden;margin:12px 0 8px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.over i{background:var(--warn)}
+.next .left{font-weight:600}
+.next .left.ok{color:var(--ok)}.next .left.warn{color:var(--warn)}
+.next .cfg{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--line);margin-top:14px;padding-top:2px}
+.next .cfg label{margin:12px 0 6px}
+.count{color:var(--mute);font-size:.9rem;margin:14px 2px 10px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.date{font-weight:700}
+.km{color:var(--mute);font-size:.9rem}
+.tag{display:inline-block;font-size:.72rem;color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:0 8px;margin-left:8px}
+.parts{margin:10px 0 0;padding:0;list-style:none}
+.parts li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line)}
 .parts li:first-child{border-top:0}
-.parts .c{white-space:nowrap;color:var(--mute);font-family:var(--num);font-weight:600}
-.notes{margin:10px 0 0;color:var(--mute);white-space:pre-wrap;overflow-wrap:anywhere}
-.total{display:flex;justify-content:space-between;align-items:center;font:800 1.08rem var(--num);margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:14px}
+.parts .c{white-space:nowrap;color:var(--mute)}
+.notes{margin:8px 0 0;color:var(--mute);white-space:pre-wrap;overflow-wrap:anywhere}
+.total{display:flex;justify-content:space-between;font-weight:700;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .meta{color:var(--mute);font-size:.9rem;margin-top:8px}
 .actions{display:flex;gap:8px;margin-top:12px}
-.actions button{flex:1;padding:8px;min-height:44px;border:0;background:var(--bg);font-size:.92rem}
-mark{background:var(--hl);color:inherit;border-radius:4px;padding:0 2px}
-.empty{color:var(--mute);text-align:center;padding:30px 12px;border:2px dashed var(--line);border-radius:20px}
+.actions button{flex:1;padding:8px;min-height:42px;font-size:.92rem}
+mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
+.empty{color:var(--mute);text-align:center;padding:28px 8px}
 .note{color:var(--mute);font-size:.92rem;margin:0 0 10px}
-.prow{display:grid;grid-template-columns:1fr 96px 46px;gap:8px;margin-bottom:8px}
-.prow button{padding:0;min-height:48px;color:var(--danger)}
-.chk{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:1rem;font-weight:500;color:var(--ink)}
-.chk input{width:26px;height:26px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto;accent-color:var(--accent)}
-#sum{font:800 1.2rem var(--num);text-align:right;margin-top:12px}
+.prow{display:grid;grid-template-columns:1fr 90px 46px;gap:8px;margin-bottom:8px}
+.prow button{padding:0;min-height:46px;color:var(--danger)}
+.chk{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:1rem;color:var(--ink)}
+.chk input{width:24px;height:24px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto;accent-color:var(--accent)}
+#sum{font-weight:700;text-align:right;margin-top:12px}
 #bk{min-height:150px;font:13px/1.4 ui-monospace,Menlo,monospace}
 #impTxt{min-height:180px}
-.imp{background:var(--card);border-radius:20px;padding:14px;margin-bottom:12px;box-shadow:0 10px 22px -18px rgba(16,33,46,.55)}
+.imp{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
 .imp.dup{opacity:.6}
 .imp .h{display:flex;gap:12px;align-items:center}
-.imp .h input[type=checkbox]{width:26px;height:26px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto;accent-color:var(--accent)}
-.imp .h input[type=text]{flex:1;font-weight:700}
-.imp .h+*{margin-top:8px}
-.badge{font-size:.8rem;font-weight:600;color:var(--warn)}
-nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-width:520px;margin:0 auto;z-index:10;display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:28px;padding:6px;box-shadow:0 16px 36px -12px rgba(0,0,0,.4)}
-nav button{flex:1;border:0;background:none;border-radius:22px;font-size:.72rem;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mute);min-height:54px;padding:6px 2px}
+.imp .h input[type=checkbox]{width:24px;height:24px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto;accent-color:var(--accent)}
+.imp .h input[type=text]{flex:1}
+.badge{font-size:.8rem;color:var(--warn);margin-top:6px}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+nav button{flex:1;border:0;background:none;border-radius:8px;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mute);min-height:48px;padding:4px 2px}
 nav button .ic{display:block;line-height:0}
-nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-nav button.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
-@media(prefers-reduced-motion:reduce){button{transition:none}}
+nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
@@ -245,17 +230,17 @@ function renderNext(){
   const interval=intOf(settings.interval)||10000;
   let html="";
   if(!reg.length){
-    html='<div class="lbl">Επόμενο service</div><div class="odo none">—</div><div class="sub">Θα εμφανιστεί μόλις καταχωρήσεις ένα τακτικό service με χιλιόμετρα.</div>';
+    html='<div class="small">Επόμενο service</div><div class="small">Θα εμφανιστεί μόλις καταχωρήσεις ένα τακτικό service με χιλιόμετρα.</div>';
   }else{
     const last=reg.reduce((a,b)=>intOf(b.km)>intOf(a.km)?b:a);
     const lk=intOf(last.km),next=lk+interval,cur=intOf(settings.current);
-    html='<div class="lbl">Επόμενο service στα</div><div class="odo">'+String(next).split("").map(d=>"<b>"+d+"</b>").join("")+'<span class="u">χλμ</span></div>';
+    html='<div class="small">Επόμενο service στα</div><div class="big">'+fmtKm(next)+'</div>';
     if(cur>0){
       const left=next-cur,pct=Math.max(0,Math.min(100,(cur-lk)/interval*100));
       html+='<div class="bar'+(left<0?" over":"")+'"><i style="width:'+pct+'%"></i></div>';
       html+=left>=0?'<div class="left ok">Απομένουν '+fmtKm(left)+'</div>':'<div class="left warn">Έχεις περάσει το service κατά '+fmtKm(-left)+'</div>';
     }
-    html+='<div class="sub">Τελευταίο service: '+fmtKm(lk)+', στις '+fmtDate(last.date)+'</div>';
+    html+='<div class="small" style="margin-top:6px">Τελευταίο service: '+fmtKm(lk)+', στις '+fmtDate(last.date)+'</div>';
   }
   html+='<div class="cfg"><div><label for="cur">Τώρα έχω (χλμ)</label><input id="cur" type="text" inputmode="numeric" placeholder="π.χ. 150000" value="'+esc(settings.current||"")+'"></div><div><label for="iv">Service κάθε (χλμ)</label><input id="iv" type="text" inputmode="numeric" value="'+esc(interval)+'"></div></div>';
   $("next").innerHTML=html;
