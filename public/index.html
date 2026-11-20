@@ -64,7 +64,7 @@ mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
 .imp .h{display:flex;gap:10px;align-items:center}
 .imp .h input[type=checkbox]{width:24px;height:24px;min-height:0;padding:0;flex:none;-webkit-appearance:auto;appearance:auto}
 .imp .h input[type=date]{flex:1}
-.imp .km{margin-top:6px}
+.imp .h+*{margin-top:8px}.imp .prow{margin-top:0}
 .imp ul{margin:8px 0 0;padding-left:18px;color:var(--ink);font-size:.95rem}
 .badge{font-size:.75rem;color:var(--warn)}
 #impTxt{min-height:180px}
@@ -336,26 +336,40 @@ function cleanEntry(e){
   return {date,km,parts,labor:e.labor?String(e.labor).trim():"",where:String(e.where||"").trim(),notes:String(e.notes||"").trim(),on:true};
 }
 function isDup(e){return items.some(i=>(i.date||"")===e.date&&e.date&&String(intOf(i.km))===String(intOf(e.km)))}
+function updImpCount(){const n=imported.filter(e=>e.on).length;$("impAdd").textContent="Προσθήκη επιλεγμένων ("+n+")"}
 function renderImp(){
   const L=$("impList");
   if(!imported.length){L.innerHTML="";$("impAdd").hidden=true;return}
   L.innerHTML=imported.map((e,i)=>{
     const dup=isDup(e);
-    return `<div class="imp${dup?" dup":""}"><div class="h"><input type="checkbox" data-c="${i}"${e.on?" checked":""}><input type="date" data-dt="${i}" value="${esc(e.date)}"></div>
+    const prs=e.parts.map((p,j)=>`<div class="prow"><input data-f="pn" data-i="${i}" data-j="${j}" placeholder="Εξάρτημα" value="${esc(p.name)}"><input data-f="pc" data-i="${i}" data-j="${j}" inputmode="decimal" placeholder="€" value="${esc(p.cost)}"><button type="button" data-rm="${i}:${j}" aria-label="Διαγραφή γραμμής">✕</button></div>`).join("");
+    return `<div class="imp${dup?" dup":""}">
+    <div class="h"><input type="checkbox" data-c="${i}"${e.on?" checked":""}><input type="date" data-f="date" data-i="${i}" value="${esc(e.date)}"></div>
     ${dup?'<div class="badge">Υπάρχει ήδη καταχώρηση με ίδια ημερομηνία και χλμ</div>':""}
     ${e.date?"":'<div class="badge">Δεν βρέθηκε ημερομηνία, συμπλήρωσέ την</div>'}
-    <div class="km">${e.km?fmtKm(e.km):"Χωρίς χιλιόμετρα"}${e.where?" · "+esc(e.where):""}</div>
-    ${e.parts.length?"<ul>"+e.parts.map(p=>"<li>"+esc(p.name)+(p.cost?" — "+money(num(p.cost)):"")+"</li>").join("")+"</ul>":""}
-    ${e.labor?'<div class="km">Εργασία: '+money(num(e.labor))+"</div>":""}
-    ${e.notes?'<div class="notes">'+esc(e.notes)+"</div>":""}</div>`}).join("");
-  const n=imported.filter(e=>e.on).length;
-  $("impAdd").hidden=false;$("impAdd").textContent="Προσθήκη επιλεγμένων ("+n+")";
+    <div class="row stack"><div><label>Χιλιόμετρα</label><input data-f="km" data-i="${i}" inputmode="numeric" value="${esc(e.km)}"></div><div><label>Συνεργείο</label><input data-f="where" data-i="${i}" value="${esc(e.where)}"></div></div>
+    <label>Εξαρτήματα / εργασίες και τιμή</label>
+    ${prs}
+    <button type="button" class="sec" data-ap="${i}" style="margin-top:0">+ Άλλο εξάρτημα</button>
+    <label>Εργασία / άλλα έξοδα (€)</label><input data-f="labor" data-i="${i}" inputmode="decimal" value="${esc(e.labor)}">
+    <label>Σημειώσεις</label><textarea data-f="notes" data-i="${i}">${esc(e.notes)}</textarea></div>`}).join("");
+  $("impAdd").hidden=false;updImpCount();
 }
+$("impList").addEventListener("input",e=>{
+  const t=e.target,f=t.dataset.f,i=t.dataset.i;if(!f||i===undefined)return;
+  const en=imported[+i];if(!en)return;
+  if(f==="pn")en.parts[+t.dataset.j].name=t.value;
+  else if(f==="pc")en.parts[+t.dataset.j].cost=t.value;
+  else en[f]=t.value;
+});
 $("impList").addEventListener("change",e=>{
-  const c=e.target.dataset.c,d=e.target.dataset.dt;
-  if(c!==undefined)imported[+c].on=e.target.checked;
-  if(d!==undefined)imported[+d].date=e.target.value;
-  renderImp();
+  const c=e.target.dataset.c;
+  if(c!==undefined){imported[+c].on=e.target.checked;updImpCount()}
+});
+$("impList").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.rm){const [i,j]=b.dataset.rm.split(":").map(Number);imported[i].parts.splice(j,1);renderImp()}
+  if(b.dataset.ap!==undefined){imported[+b.dataset.ap].parts.push({name:"",cost:""});renderImp()}
 });
 $("impGo").onclick=async()=>{
   const t=$("impTxt").value.trim();if(!t){setImp("Κάνε πρώτα επικόλληση κείμενο.");return}
@@ -380,7 +394,7 @@ $("impGo").onclick=async()=>{
 $("impAdd").onclick=()=>{
   const sel=imported.filter(e=>e.on);if(!sel.length)return;
   const reg=$("impReg").checked;
-  sel.forEach(e=>items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:e.date,km:e.km,parts:e.parts,labor:e.labor,where:e.where,notes:e.notes,regular:reg}));
+  sel.forEach(e=>items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:e.date,km:String(intOf(e.km)||""),parts:e.parts.map(p=>({name:p.name.trim(),cost:p.cost.trim()})).filter(p=>p.name||p.cost),labor:String(e.labor||"").trim(),where:String(e.where||"").trim(),notes:String(e.notes||"").trim(),regular:reg}));
   store();render();
   imported=[];renderImp();$("impTxt").value="";setImp("Προστέθηκαν "+sel.length+" καταχωρήσεις.");show("list");
 };
