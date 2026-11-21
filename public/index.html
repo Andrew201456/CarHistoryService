@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Service">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon.png">
@@ -80,27 +82,69 @@ nav button .ic{display:block;line-height:0}
 nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:var(--accent);font-weight:600}
 </style>
+<link rel="stylesheet" href="/ui.css">
 </head>
 <body>
 <main>
 
+
 <section class="view on" id="v-list">
-  <h1>Ιστορικό service</h1>
-  <div id="syncst"></div>
+  <header class="home-header">
+    <div><h1>Το αυτοκίνητό μου</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
+    <button type="button" id="installBtn" class="install-trigger" hidden>Εγκατάσταση</button>
+  </header>
+  <div id="syncst" role="status" aria-live="polite"></div>
   <div class="next" id="next"></div>
-  <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Αναζήτηση: ιμάντας, λάδια, φρένα...">
+  <div class="overview-grid" aria-label="Σύνοψη">
+    <div class="overview-card"><span class="overview-label">Έξοδα φέτος</span><strong id="yearSpent">—</strong><small id="yearSpentLabel"></small></div>
+    <div class="overview-card"><span class="overview-label">Επισκέψεις</span><strong id="serviceCount">—</strong><small>Συνολικές καταχωρήσεις</small></div>
+  </div>
+  <details class="extra-panel" id="reminderPanel">
+    <summary><span>Υπενθυμίσεις συντήρησης</span><span class="summary-right"><b id="reminderCount"></b><span aria-hidden="true">⌄</span></span></summary>
+    <p class="subtext">Βάλε μια εργασία και τα χιλιόμετρα που πρέπει να γίνει. Δεν χρειάζεται ξεχωριστή οθόνη.</p>
+    <div id="remindersList"></div>
+    <div id="reminderEditor" class="reminder-editor" hidden>
+      <label for="remName">Τι χρειάζεται;</label><input id="remName" placeholder="π.χ. Αλλαγή λαδιών" maxlength="110">
+      <div class="row"><div><label for="remDue">Στα χιλιόμετρα</label><input id="remDue" type="text" inputmode="numeric" placeholder="π.χ. 165000"></div>
+      <div><label for="remRepeat">Επανάληψη κάθε (χλμ)</label><input id="remRepeat" type="text" inputmode="numeric" placeholder="Προαιρετικό"></div></div>
+      <div class="reminder-buttons"><button type="button" id="remSave" class="button-primary">Αποθήκευση</button><button type="button" id="remCancel">Άκυρο</button></div>
+    </div>
+    <button class="light-add" type="button" id="remAdd">+ Νέα υπενθύμιση</button>
+  </details>
+  <details class="extra-panel" id="expensePanel">
+    <summary><span>Έξοδα &amp; στατιστικά</span><span class="summary-right" aria-hidden="true">⌄</span></summary>
+    <label for="expenseYear">Προβολή εξόδων</label>
+    <select id="expenseYear"></select>
+    <div id="expenseDetails"></div>
+  </details>
+  <div class="history-title"><h2>Ιστορικό service</h2></div>
+  <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Αναζήτηση: λάδια, φρένα, συνεργείο...">
+  <div class="filters" role="group" aria-label="Φίλτρο ιστορικού">
+    <button type="button" data-filter="all" class="selected" aria-pressed="true">Όλα</button>
+    <button type="button" data-filter="regular" aria-pressed="false">Τακτικά service</button>
+    <button type="button" data-filter="repair" aria-pressed="false">Επισκευές</button>
+  </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
 </section>
 
 <section class="view" id="v-form">
   <h1 id="formTitle">Νέα καταχώρηση</h1>
+  <div id="draftNotice" class="draft-notice" hidden><span>↺ Επαναφέρθηκε η πρόχειρη καταχώρηση.</span><button type="button" id="draftDiscard">Νέα, κενή φόρμα</button></div>
   <div class="row">
     <div><label for="date">Ημερομηνία</label><input type="text" id="date" inputmode="numeric" maxlength="10" placeholder="ΗΗ-ΜΜ-ΕΕΕΕ" autocomplete="off"></div>
     <div><label for="km">Χιλιόμετρα</label><input type="text" id="km" inputmode="numeric" placeholder="π.χ. 145000"></div>
   </div>
 
   <label>Εξαρτήματα / εργασίες και τιμή τους</label>
+  <div class="quick-actions" aria-label="Γρήγορη προσθήκη εργασίας">
+    <button type="button" data-quick="Αλλαγή λαδιών">Λάδια</button>
+    <button type="button" data-quick="Αλλαγή φίλτρων">Φίλτρα</button>
+    <button type="button" data-quick="Έλεγχος / αλλαγή φρένων">Φρένα</button>
+    <button type="button" data-quick="Αλλαγή μπουζί">Μπουζί</button>
+    <button type="button" data-quick="Αλλαγή ελαστικών">Ελαστικά</button>
+    <button type="button" data-quick="Αλλαγή μπαταρίας">Μπαταρία</button>
+  </div>
   <div id="parts"></div>
   <button class="sec" id="addPart" type="button" style="margin-top:0">+ Άλλο εξάρτημα</button>
 
@@ -141,61 +185,195 @@ nav button.on{color:var(--accent);font-weight:600}
 
 </main>
 
+<dialog id="installHelp" class="install-help" aria-labelledby="installTitle">
+  <h2 id="installTitle">Εγκατάσταση εφαρμογής</h2>
+  <p id="installHelpText"></p>
+  <button type="button" id="installDismiss">Κατάλαβα</button>
+</dialog>
+
 <nav>
-  <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Λίστα</span></button>
+  <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Αρχική</span></button>
   <button data-v="form"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span id="navAdd">Προσθήκη</span></button>
   <button data-v="import"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><span>Εισαγωγή</span></button>
   <button data-v="backup"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span>Αντίγραφο</span></button>
 </nav>
 
 <script>
-const KEY="carServiceLog",SKEY="carServiceSettings",PKEY="carServicePass";
-let items=[],settings={interval:10000,current:""},editId=null;
+const KEY="carServiceLog",SKEY="carServiceSettings",PKEY="carServicePass",RKEY="carServiceReminders",BASEKEY="carServiceSyncBaseV2",PENDINGKEY="carServiceSyncPendingV2";
+let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
 const $=id=>document.getElementById(id);
 function load(){
   try{items=JSON.parse(localStorage.getItem(KEY)||"[]");if(!Array.isArray(items))items=[]}catch(e){items=[]}
   try{const s=JSON.parse(localStorage.getItem(SKEY)||"null");if(s&&typeof s==="object")settings={...settings,...s}}catch(e){}
+  try{const r=JSON.parse(localStorage.getItem(RKEY)||"[]");if(Array.isArray(r))reminders=r}catch(e){}
 }
 
-/* Συγχρονισμός με server */
+/* Συγχρονισμός με έλεγχο εκδόσεων και συγχώνευση αλλαγών ανά εγγραφή.
+   Never discard edits made offline or in another tab/device. */
+let syncing=false,syncAgain=false,syncTimer=null,localGeneration=0;
 function setSt(msg,err){const e=$("syncst");if(!e)return;e.textContent=msg||"";e.className=err?"err":""}
+function currentData(){return {items:JSON.parse(JSON.stringify(items)),settings:JSON.parse(JSON.stringify(settings)),reminders:JSON.parse(JSON.stringify(reminders))}}
 function saveLocal(){
-  try{localStorage.setItem(KEY,JSON.stringify(items));localStorage.setItem(SKEY,JSON.stringify(settings))}
-  catch(e){alert("Δεν μπόρεσε να αποθηκευτεί. Αν είσαι σε Ιδιωτική περιήγηση, βγες από αυτήν.")}
-}
-async function push(){
-  const p=localStorage.getItem(PKEY);if(!p)return;
   try{
-    const r=await fetch("/api/data",{method:"PUT",headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},body:JSON.stringify({items,settings})});
-    if(r.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός",true);return}
-    if(!r.ok)throw 0;
-    setSt("Συγχρονίστηκε ✓");
-  }catch(e){setSt("Δεν συγχρονίστηκε (offline;). Αποθηκεύτηκε μόνο στη συσκευή.",true)}
+    localStorage.setItem(KEY,JSON.stringify(items));
+    localStorage.setItem(SKEY,JSON.stringify(settings));
+    localStorage.setItem(RKEY,JSON.stringify(reminders));
+  }catch(e){alert("Δεν μπόρεσε να αποθηκευτεί τοπικά. Έλεγξε τον διαθέσιμο χώρο ή την ιδιωτική περιήγηση.")}
 }
-function store(){saveLocal();push()}
-let syncing=false;
+function scheduleSync(delay=650){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>sync(),delay);
+}
+function store(){
+  saveLocal();
+  localStorage.setItem(PENDINGKEY,"1");
+  localGeneration++;
+  setSt("Αποθηκεύτηκε στη συσκευή · αναμονή συγχρονισμού");
+  if(syncing)syncAgain=true;
+  else scheduleSync();
+}
+async function push(){return sync()}
+function equal(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function readBase(){
+  try{
+    const data=JSON.parse(localStorage.getItem(BASEKEY)||"null");
+    return data&&Array.isArray(data.items)?data:null;
+  }catch(e){return null}
+}
+function rememberBase(data){
+  try{localStorage.setItem(BASEKEY,JSON.stringify({
+    items:data.items||[],settings:data.settings||{},reminders:data.reminders||[]
+  }))}catch(e){console.warn("Could not cache sync baseline",e)}
+}
+function freshId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,9)}
+function reconcileList(base,local,remote,kind,conflicts){
+  const map=list=>new Map((list||[]).filter(x=>x&&x.id!=null).map(x=>[String(x.id),x]));
+  const bm=map(base),lm=map(local),rm=map(remote);
+  const ids=new Set([...bm.keys(),...lm.keys(),...rm.keys()]);
+  const result=[];
+  for(const id of ids){
+    const b=bm.get(id),l=lm.get(id),r=rm.get(id);
+    const localChanged=!equal(l,b),remoteChanged=!equal(r,b);
+    if(!localChanged){if(r)result.push(r);continue}
+    if(!remoteChanged){if(l)result.push(l);continue}
+    if(equal(l,r)){if(l)result.push(l);continue}
+    if(l&&r){
+      result.push(r);
+      // Concurrent edits are both retained, with a clearly marked copy.
+      const duplicate={...l,id:freshId()};
+      if(kind==="items")duplicate.notes=[duplicate.notes,"⚠ Αντίγραφο αλλαγών από άλλη συσκευή — έλεγξε αυτή την καταχώρηση."].filter(Boolean).join("\n");
+      else duplicate.name=(duplicate.name||"Υπενθύμιση")+" (αντίγραφο)";
+      result.push(duplicate);
+    }else if(l||r){
+      // Edit vs deletion: retain the edited version rather than lose it.
+      result.push(l||r);
+    }
+    conflicts.count++;
+  }
+  return result;
+}
+function reconcileSettings(base,local,remote,conflicts){
+  const out={};
+  const keys=new Set([...Object.keys(base||{}),...Object.keys(local||{}),...Object.keys(remote||{})]);
+  for(const key of keys){
+    const b=base?.[key],l=local?.[key],r=remote?.[key];
+    // During first upgrade we lack a common baseline; preserve the
+    // existing server odometer unless there are known unsent local edits.
+    if(!base){
+      const pending=localStorage.getItem(PENDINGKEY)==="1";
+      const picked=pending&&l!==undefined?l:(r!==undefined?r:l);
+      if(picked!==undefined)out[key]=picked;
+      continue;
+    }
+    const lc=!equal(l,b),rc=!equal(r,b);
+    const picked=lc && (!rc||!equal(l,r)) ? l : r;
+    if(lc&&rc&&!equal(l,r))conflicts.count++;
+    if(picked!==undefined)out[key]=picked;
+  }
+  return out;
+}
+function reconcileData(base,local,remote){
+  const conflicts={count:0};
+  const result={
+    items:reconcileList(base?.items,local.items,remote.items,"items",conflicts),
+    reminders:reconcileList(base?.reminders,local.reminders,remote.reminders,"reminders",conflicts),
+    settings:reconcileSettings(base?.settings,local.settings,remote.settings,conflicts)
+  };
+  return {data:result,conflicts:conflicts.count};
+}
+function adopt(data){
+  items=Array.isArray(data.items)?data.items:[];
+  reminders=Array.isArray(data.reminders)?data.reminders:[];
+  settings={interval:10000,current:"",...(data.settings||{})};
+  saveLocal();render();
+}
 async function sync(){
-  if(syncing)return;syncing=true;
+  if(syncing){syncAgain=true;return}
+  const key=localStorage.getItem(PKEY);
+  let p=key;
+  if(!p){p=prompt("Κωδικός πρόσβασης:");if(!p)return;localStorage.setItem(PKEY,p.trim());p=p.trim()}
+  syncing=true;
   try{
-    let p=localStorage.getItem(PKEY);
-    if(!p){p=prompt("Κωδικός πρόσβασης:");if(!p)return;localStorage.setItem(PKEY,p.trim())}
-    const r=await fetch("/api/data",{headers:{Authorization:"Bearer "+localStorage.getItem(PKEY)}});
-    if(r.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός. Ξανάνοιξε τη σελίδα για να τον βάλεις ξανά.",true);return}
-    if(!r.ok)throw 0;
-    const d=await r.json();
-    if(Array.isArray(d.items)){
-      /* μην αντικαθιστάς όσο επεξεργάζεσαι μια καταχώρηση */
-      if(!editId){
-        items=d.items;
-        if(d.settings&&typeof d.settings==="object")settings={...settings,...d.settings};
-        saveLocal();render();
+    let synced=false,conflictCount=0;
+    for(let attempt=0;attempt<4;attempt++){
+      const resp=await fetch("/api/data",{headers:{Authorization:"Bearer "+p},cache:"no-store"});
+      if(resp.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός. Άνοιξε ξανά την εφαρμογή.",true);return}
+      if(!resp.ok)throw new Error("Αδυναμία λήψης ("+resp.status+")");
+      const raw=await resp.json();
+      const remote={items:Array.isArray(raw.items)?raw.items:[],settings:raw.settings||{},reminders:Array.isArray(raw.reminders)?raw.reminders:[]};
+      const revision=Number(raw.revision)||0;
+      const base=readBase();
+      const local=currentData();
+      const startGeneration=localGeneration;
+      // First launch on a new device: trust the existing server dataset.
+      // Do not let empty local defaults overwrite its current odometer.
+      if(!base && localStorage.getItem(PENDINGKEY)!=="1" &&
+          !local.items.length && !local.reminders.length) {
+        rememberBase(remote);adopt(remote);synced=true;break;
       }
-      setSt("Συγχρονίστηκε ✓");
-    }else if(items.length){await push()}
-    else setSt("Συγχρονίστηκε ✓");
-  }catch(e){setSt("Δεν υπάρχει σύνδεση με τον server.",true)}
-  finally{syncing=false}
+      const merged=reconcileData(base,local,remote);
+      conflictCount+=merged.conflicts;
+      const desired=merged.data;
+      rememberBase(remote);
+      if(equal(desired,remote)){
+        if(startGeneration!==localGeneration){syncAgain=true;continue}
+        adopt(remote);
+        localStorage.removeItem(PENDINGKEY);
+        synced=true;
+        break;
+      }
+      // Keep merged changes locally before any network write.
+      items=desired.items;settings=desired.settings;reminders=desired.reminders;
+      saveLocal();render();
+      localStorage.setItem(PENDINGKEY,"1");
+      const response=await fetch("/api/data",{
+        method:"PUT",
+        headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},
+        body:JSON.stringify({...desired,revision})
+      });
+      if(response.status===409)continue; // Another device updated first; merge and retry.
+      if(response.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός",true);return}
+      if(!response.ok)throw new Error("Αδυναμία αποθήκευσης ("+response.status+")");
+      const saved=await response.json();
+      rememberBase(saved);
+      if(startGeneration!==localGeneration){syncAgain=true;continue}
+      adopt(saved);localStorage.removeItem(PENDINGKEY);synced=true;break;
+    }
+    if(synced)setSt(conflictCount?"Συγχρονίστηκε ✓ · Εντοπίστηκαν διαφορετικές αλλαγές για έλεγχο":"Συγχρονίστηκε ✓");
+    else setSt("Οι αλλαγές είναι ασφαλείς στη συσκευή. Ο συγχρονισμός θα ξαναδοκιμάσει.",true);
+  }catch(error){
+    console.warn("Sync unavailable",error);
+    setSt("Εκτός σύνδεσης · οι αλλαγές παραμένουν στη συσκευή.",true);
+  }finally{
+    syncing=false;
+    if(syncAgain){
+      syncAgain=false;
+      scheduleSync(1000);
+    }
+  }
 }
+window.addEventListener("online",()=>sync());
+
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -222,7 +400,7 @@ function show(v){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   window.scrollTo(0,0);
 }
-document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.v==="form"&&editId)resetForm();show(b.dataset.v)};
+document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;show(b.dataset.v)};
 
 /* Επόμενο service */
 function renderNext(){
@@ -248,7 +426,7 @@ function renderNext(){
 $("next").addEventListener("change",e=>{
   if(e.target.id==="cur"){settings.current=intOf(e.target.value)||"";}
   if(e.target.id==="iv"){settings.interval=intOf(e.target.value)||10000;}
-  store();renderNext();
+  store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
 });
 
 /* Λίστα */
@@ -257,7 +435,8 @@ function render(){
   renderNext();
   const q=$("q").value.trim(),nq=norm(q);
   const sorted=[...items].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const res=nq?sorted.filter(it=>norm(haystack(it)).includes(nq)):sorted;
+  const relevant=sorted.filter(it=>historyFilter==="regular"?it.regular!==false:historyFilter==="repair"?it.regular===false:true);
+  const res=nq?relevant.filter(it=>norm(haystack(it)).includes(nq)):relevant;
   $("count").textContent=nq?res.length+" αποτελέσματα από "+items.length:items.length+" καταχωρήσεις";
   const L=$("list");
   if(!res.length){L.innerHTML='<div class="empty">'+(items.length?"Δεν βρέθηκε τίποτα.":"Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';return}
@@ -298,7 +477,7 @@ $("save").onclick=()=>{
   const dv=$("date").value.trim(),dIso=dv?parseDate(dv):"";
   if(dv&&!dIso){alert("Η ημερομηνία πρέπει να είναι ΗΗ-ΜΜ-ΕΕΕΕ, π.χ. 15-03-2021");$("date").focus();return}
   const rec={date:dIso,km:$("km").value.trim(),parts,labor:$("labor").value.trim(),where:$("where").value.trim(),notes,regular:$("regular").checked};
-  if(editId){items=items.map(i=>i.id===editId?{id:i.id,...rec}:i)}else{items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),...rec})}
+  if(editId&&items.some(i=>i.id===editId)){items=items.map(i=>i.id===editId?{id:i.id,...rec}:i)}else{items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),...rec})}
   store();resetForm();render();show("list");
 };
 $("cancel").onclick=()=>{resetForm();show("list")};
@@ -318,7 +497,7 @@ $("list").onclick=e=>{
 };
 
 /* Αντίγραφο */
-$("mk").onclick=()=>{$("bk").value=JSON.stringify({items,settings});$("bkmsg").textContent="Έτοιμο. Πάτα «Αντιγραφή κειμένου» και κράτα το κάπου ασφαλές."};
+$("mk").onclick=()=>{$("bk").value=JSON.stringify({items,settings,reminders});$("bkmsg").textContent="Έτοιμο. Πάτα «Αντιγραφή κειμένου» και κράτα το κάπου ασφαλές."};
 $("cp").onclick=async()=>{
   const t=$("bk").value;if(!t){$("bkmsg").textContent="Πρώτα πάτα «Δημιουργία αντιγράφου».";return}
   try{await navigator.clipboard.writeText(t);$("bkmsg").textContent="Αντιγράφηκε."}
@@ -328,7 +507,7 @@ $("rs").onclick=()=>{
   try{
     let d=JSON.parse($("bk").value),its=Array.isArray(d)?d:d.items,st=Array.isArray(d)?null:d.settings;
     if(!Array.isArray(its))throw 0;
-    if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
+    if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};if(!Array.isArray(d)&&Array.isArray(d.reminders))reminders=d.reminders;store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
   }catch(e){$("bkmsg").textContent="Το κείμενο δεν είναι έγκυρο αντίγραφο."}
 };
 $("chpw").onclick=()=>{
@@ -412,5 +591,6 @@ $("impAdd").onclick=()=>{
 
 load();resetForm();render();sync();
 </script>
+<script src="/features.js"></script>
 </body>
 </html>
