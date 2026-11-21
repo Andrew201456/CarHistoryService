@@ -317,6 +317,12 @@ async function sync(){
       const base=readBase();
       const local=currentData();
       const startGeneration=localGeneration;
+      // First launch on a new device: trust the existing server dataset.
+      // Do not let empty local defaults overwrite its current odometer.
+      if(!base && localStorage.getItem(PENDINGKEY)!=="1" &&
+          !local.items.length && !local.reminders.length) {
+        rememberBase(remote);adopt(remote);synced=true;break;
+      }
       const merged=reconcileData(base,local,remote);
       conflictCount+=merged.conflicts;
       const desired=merged.data;
@@ -345,7 +351,7 @@ async function sync(){
       if(startGeneration!==localGeneration){syncAgain=true;continue}
       adopt(saved);localStorage.removeItem(PENDINGKEY);synced=true;break;
     }
-    if(synced)setSt(conflictCount?"Συγχρονίστηκε ✓ · Διατηρήθηκαν και οι δύο εκδόσεις αλλαγών":"Συγχρονίστηκε ✓");
+    if(synced)setSt(conflictCount?"Συγχρονίστηκε ✓ · Εντοπίστηκαν διαφορετικές αλλαγές για έλεγχο":"Συγχρονίστηκε ✓");
     else setSt("Οι αλλαγές είναι ασφαλείς στη συσκευή. Ο συγχρονισμός θα ξαναδοκιμάσει.",true);
   }catch(error){
     console.warn("Sync unavailable",error);
@@ -386,7 +392,7 @@ function show(v){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
   window.scrollTo(0,0);
 }
-document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.v==="form"&&editId)resetForm();show(b.dataset.v)};
+document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;show(b.dataset.v)};
 
 /* Επόμενο service */
 function renderNext(){
@@ -412,7 +418,7 @@ function renderNext(){
 $("next").addEventListener("change",e=>{
   if(e.target.id==="cur"){settings.current=intOf(e.target.value)||"";}
   if(e.target.id==="iv"){settings.interval=intOf(e.target.value)||10000;}
-  store();renderNext();
+  store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
 });
 
 /* Λίστα */
