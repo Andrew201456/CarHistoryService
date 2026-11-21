@@ -477,7 +477,7 @@ $("save").onclick=()=>{
   const dv=$("date").value.trim(),dIso=dv?parseDate(dv):"";
   if(dv&&!dIso){alert("Η ημερομηνία πρέπει να είναι ΗΗ-ΜΜ-ΕΕΕΕ, π.χ. 15-03-2021");$("date").focus();return}
   const rec={date:dIso,km:$("km").value.trim(),parts,labor:$("labor").value.trim(),where:$("where").value.trim(),notes,regular:$("regular").checked};
-  if(editId){items=items.map(i=>i.id===editId?{id:i.id,...rec}:i)}else{items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),...rec})}
+  if(editId&&items.some(i=>i.id===editId)){items=items.map(i=>i.id===editId?{id:i.id,...rec}:i)}else{items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),...rec})}
   store();resetForm();render();show("list");
 };
 $("cancel").onclick=()=>{resetForm();show("list")};
