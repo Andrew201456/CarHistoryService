@@ -277,6 +277,14 @@ function reconcileSettings(base,local,remote,conflicts){
   const keys=new Set([...Object.keys(base||{}),...Object.keys(local||{}),...Object.keys(remote||{})]);
   for(const key of keys){
     const b=base?.[key],l=local?.[key],r=remote?.[key];
+    // During first upgrade we lack a common baseline; preserve the
+    // existing server odometer unless there are known unsent local edits.
+    if(!base){
+      const pending=localStorage.getItem(PENDINGKEY)==="1";
+      const picked=pending&&l!==undefined?l:(r!==undefined?r:l);
+      if(picked!==undefined)out[key]=picked;
+      continue;
+    }
     const lc=!equal(l,b),rc=!equal(r,b);
     const picked=lc && (!rc||!equal(l,r)) ? l : r;
     if(lc&&rc&&!equal(l,r))conflicts.count++;
