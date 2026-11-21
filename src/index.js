@@ -83,7 +83,7 @@ export default {
       return stub.fetch("https://car-data.internal/data", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: req.body
+        body: await req.text()
       });
     }
 
