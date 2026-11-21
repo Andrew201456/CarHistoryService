@@ -142,3 +142,97 @@ nav button.on {background:var(--soft);color:var(--accent);border-radius:11px}
 .install-help p {line-height:1.65;color:var(--mute)}
 .install-help button {width:100%;background:var(--accent);color:var(--accent-ink);
  font-weight:750;border-color:var(--accent)}
+
+
+/* Soft edges & smoother interactions — purely visual, no layout or logic changes. */
+:root {
+  --radius-card:20px;
+  --radius-control:14px;
+  --radius-small:11px;
+  --shadow:0 3px 10px rgba(14,32,51,.035),0 13px 34px rgba(14,32,51,.06);
+}
+
+/* Consistent rounded corners across all major surfaces. */
+.next,.item,.imp,.overview-card,.extra-panel {
+  border-radius:var(--radius-card);
+  border-color:var(--line);
+  box-shadow:var(--shadow);
+}
+.reminder-editor,.expense-stats,.draft-notice,#sum,.install-help {
+  border-radius:18px;
+}
+.next .bar,.bar,.bar i {border-radius:999px}
+.app-badge,.tag {border-radius:999px}
+.expense-entry,.reminder-line {border-color:var(--line)}
+.extra-panel summary {min-height:60px}
+.extra-panel summary .summary-right>span {transition:transform .18s ease}
+.extra-panel summary:focus-visible {outline-offset:3px;border-radius:8px}
+
+/* A comfortable, unified feel for editable fields. */
+input:not([type="checkbox"]),textarea,select,
+.extra-panel select,.reminder-editor input,.prow input {
+  border-radius:var(--radius-control);
+  border-width:1px;
+  border-style:solid;
+  border-color:var(--line);
+  background:var(--card);
+  min-height:50px;
+  transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease;
+}
+textarea {line-height:1.55;padding:14px;min-height:104px}
+#bk {min-height:170px}
+#impTxt {min-height:190px}
+#q {border-radius:16px;min-height:52px}
+.next .cfg input {min-width:0}
+input:not([type="checkbox"]):focus,textarea:focus,select:focus,
+.extra-panel select:focus {
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 17%,transparent);
+}
+input::placeholder,textarea::placeholder {opacity:.85}
+
+/* Softer controls while retaining all labels and click targets. */
+button,.actions button,.prow button,.reminder-actions button,
+.light-add,.install-trigger,.draft-notice button,.reminder-buttons button {
+  border-radius:var(--radius-control);
+  transition:background-color .18s ease,border-color .18s ease,
+    color .18s ease,box-shadow .18s ease,transform .16s ease;
+}
+button.main,button.sec,.button-primary {border-radius:16px}
+button.main {box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 18%,transparent)}
+button.main:disabled {box-shadow:none}
+.quick-actions button,.filters button {border-radius:999px}
+.filters button.selected {box-shadow:0 3px 10px color-mix(in srgb,var(--accent) 12%,transparent)}
+.reminder-actions button {border-radius:var(--radius-small)}
+.prow button {border-radius:12px}
+.draft-notice button {border-radius:11px}
+
+/* Bottom navigation is calmer and visually connected to the app. */
+nav {border-radius:20px 20px 0 0;box-shadow:0 -7px 24px rgba(0,0,0,.055)}
+nav button {border-radius:14px}
+nav button.on {border-radius:14px}
+
+/* Gentle feedback only on devices that support hover. */
+@media (hover:hover) and (pointer:fine) {
+  .item:hover,.overview-card:hover {
+    border-color:color-mix(in srgb,var(--accent) 25%,var(--line));
+    box-shadow:0 7px 22px rgba(14,32,51,.065),0 16px 38px rgba(14,32,51,.055);
+  }
+  button:not(:disabled):hover {filter:brightness(1.025)}
+  button.main:not(:disabled):hover {
+    box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 23%,transparent);
+  }
+}
+button:not(:disabled):active {transform:scale(.992)}
+.quick-actions button:active,.light-add:active {transform:scale(.98)}
+
+@media (max-width:420px) {
+  .next,.item,.imp,.overview-card,.extra-panel {border-radius:18px}
+  .reminder-editor,.expense-stats,.draft-notice,#sum {border-radius:16px}
+  input:not([type="checkbox"]),textarea,select {border-radius:13px}
+}
+@media (prefers-reduced-motion:reduce) {
+  button,input,textarea,select,.extra-panel summary .summary-right>span {transition:none!important}
+  button:active {transform:none}
+}
