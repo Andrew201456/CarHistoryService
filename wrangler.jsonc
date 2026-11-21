@@ -2,7 +2,33 @@
   "name": "carhistoryservice",
   "main": "src/index.js",
   "compatibility_date": "2025-01-01",
-  "assets": { "directory": "./public", "binding": "ASSETS" },
-  "kv_namespaces": [{ "binding": "DATA", "id": "3d1521ea06854860a25e5775775d9fce" }],
-  "ai": { "binding": "AI" }
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "DATA",
+      "id": "3d1521ea06854860a25e5775775d9fce"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CAR_DATA",
+        "class_name": "CarServiceStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "carhistory-data-v1",
+      "new_sqlite_classes": [
+        "CarServiceStore"
+      ]
+    }
+  ]
 }
