@@ -149,53 +149,167 @@ nav button.on{color:var(--accent);font-weight:600}
 </nav>
 
 <script>
-const KEY="carServiceLog",SKEY="carServiceSettings",PKEY="carServicePass";
-let items=[],settings={interval:10000,current:""},editId=null;
+const KEY="carServiceLog",SKEY="carServiceSettings",PKEY="carServicePass",RKEY="carServiceReminders",BASEKEY="carServiceSyncBaseV2",PENDINGKEY="carServiceSyncPendingV2";
+let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
 const $=id=>document.getElementById(id);
 function load(){
   try{items=JSON.parse(localStorage.getItem(KEY)||"[]");if(!Array.isArray(items))items=[]}catch(e){items=[]}
   try{const s=JSON.parse(localStorage.getItem(SKEY)||"null");if(s&&typeof s==="object")settings={...settings,...s}}catch(e){}
+  try{const r=JSON.parse(localStorage.getItem(RKEY)||"[]");if(Array.isArray(r))reminders=r}catch(e){}
 }
 
-/* Συγχρονισμός με server */
+/* Συγχρονισμός με έλεγχο εκδόσεων και συγχώνευση αλλαγών ανά εγγραφή.
+   Never discard edits made offline or in another tab/device. */
+let syncing=false,syncAgain=false,syncTimer=null,localGeneration=0;
 function setSt(msg,err){const e=$("syncst");if(!e)return;e.textContent=msg||"";e.className=err?"err":""}
+function currentData(){return {items:JSON.parse(JSON.stringify(items)),settings:JSON.parse(JSON.stringify(settings)),reminders:JSON.parse(JSON.stringify(reminders))}}
 function saveLocal(){
-  try{localStorage.setItem(KEY,JSON.stringify(items));localStorage.setItem(SKEY,JSON.stringify(settings))}
-  catch(e){alert("Δεν μπόρεσε να αποθηκευτεί. Αν είσαι σε Ιδιωτική περιήγηση, βγες από αυτήν.")}
-}
-async function push(){
-  const p=localStorage.getItem(PKEY);if(!p)return;
   try{
-    const r=await fetch("/api/data",{method:"PUT",headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},body:JSON.stringify({items,settings})});
-    if(r.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός",true);return}
-    if(!r.ok)throw 0;
-    setSt("Συγχρονίστηκε ✓");
-  }catch(e){setSt("Δεν συγχρονίστηκε (offline;). Αποθηκεύτηκε μόνο στη συσκευή.",true)}
+    localStorage.setItem(KEY,JSON.stringify(items));
+    localStorage.setItem(SKEY,JSON.stringify(settings));
+    localStorage.setItem(RKEY,JSON.stringify(reminders));
+  }catch(e){alert("Δεν μπόρεσε να αποθηκευτεί τοπικά. Έλεγξε τον διαθέσιμο χώρο ή την ιδιωτική περιήγηση.")}
 }
-function store(){saveLocal();push()}
-let syncing=false;
+function scheduleSync(delay=650){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>sync(),delay);
+}
+function store(){
+  saveLocal();
+  localStorage.setItem(PENDINGKEY,"1");
+  localGeneration++;
+  setSt("Αποθηκεύτηκε στη συσκευή · αναμονή συγχρονισμού");
+  if(syncing)syncAgain=true;
+  else scheduleSync();
+}
+async function push(){return sync()}
+function equal(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function readBase(){
+  try{
+    const data=JSON.parse(localStorage.getItem(BASEKEY)||"null");
+    return data&&Array.isArray(data.items)?data:null;
+  }catch(e){return null}
+}
+function rememberBase(data){
+  try{localStorage.setItem(BASEKEY,JSON.stringify({
+    items:data.items||[],settings:data.settings||{},reminders:data.reminders||[]
+  }))}catch(e){console.warn("Could not cache sync baseline",e)}
+}
+function freshId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,9)}
+function reconcileList(base,local,remote,kind,conflicts){
+  const map=list=>new Map((list||[]).filter(x=>x&&x.id!=null).map(x=>[String(x.id),x]));
+  const bm=map(base),lm=map(local),rm=map(remote);
+  const ids=new Set([...bm.keys(),...lm.keys(),...rm.keys()]);
+  const result=[];
+  for(const id of ids){
+    const b=bm.get(id),l=lm.get(id),r=rm.get(id);
+    const localChanged=!equal(l,b),remoteChanged=!equal(r,b);
+    if(!localChanged){if(r)result.push(r);continue}
+    if(!remoteChanged){if(l)result.push(l);continue}
+    if(equal(l,r)){if(l)result.push(l);continue}
+    if(l&&r){
+      result.push(r);
+      // Concurrent edits are both retained, with a clearly marked copy.
+      const duplicate={...l,id:freshId()};
+      if(kind==="items")duplicate.notes=[duplicate.notes,"⚠ Αντίγραφο αλλαγών από άλλη συσκευή — έλεγξε αυτή την καταχώρηση."].filter(Boolean).join("\n");
+      else duplicate.name=(duplicate.name||"Υπενθύμιση")+" (αντίγραφο)";
+      result.push(duplicate);
+    }else if(l||r){
+      // Edit vs deletion: retain the edited version rather than lose it.
+      result.push(l||r);
+    }
+    conflicts.count++;
+  }
+  return result;
+}
+function reconcileSettings(base,local,remote,conflicts){
+  const out={};
+  const keys=new Set([...Object.keys(base||{}),...Object.keys(local||{}),...Object.keys(remote||{})]);
+  for(const key of keys){
+    const b=base?.[key],l=local?.[key],r=remote?.[key];
+    const lc=!equal(l,b),rc=!equal(r,b);
+    const picked=lc && (!rc||!equal(l,r)) ? l : r;
+    if(lc&&rc&&!equal(l,r))conflicts.count++;
+    if(picked!==undefined)out[key]=picked;
+  }
+  return out;
+}
+function reconcileData(base,local,remote){
+  const conflicts={count:0};
+  const result={
+    items:reconcileList(base?.items,local.items,remote.items,"items",conflicts),
+    reminders:reconcileList(base?.reminders,local.reminders,remote.reminders,"reminders",conflicts),
+    settings:reconcileSettings(base?.settings,local.settings,remote.settings,conflicts)
+  };
+  return {data:result,conflicts:conflicts.count};
+}
+function adopt(data){
+  items=Array.isArray(data.items)?data.items:[];
+  reminders=Array.isArray(data.reminders)?data.reminders:[];
+  settings={interval:10000,current:"",...(data.settings||{})};
+  saveLocal();render();
+}
 async function sync(){
-  if(syncing)return;syncing=true;
+  if(syncing){syncAgain=true;return}
+  const key=localStorage.getItem(PKEY);
+  let p=key;
+  if(!p){p=prompt("Κωδικός πρόσβασης:");if(!p)return;localStorage.setItem(PKEY,p.trim());p=p.trim()}
+  syncing=true;
   try{
-    let p=localStorage.getItem(PKEY);
-    if(!p){p=prompt("Κωδικός πρόσβασης:");if(!p)return;localStorage.setItem(PKEY,p.trim())}
-    const r=await fetch("/api/data",{headers:{Authorization:"Bearer "+localStorage.getItem(PKEY)}});
-    if(r.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός. Ξανάνοιξε τη σελίδα για να τον βάλεις ξανά.",true);return}
-    if(!r.ok)throw 0;
-    const d=await r.json();
-    if(Array.isArray(d.items)){
-      /* μην αντικαθιστάς όσο επεξεργάζεσαι μια καταχώρηση */
-      if(!editId){
-        items=d.items;
-        if(d.settings&&typeof d.settings==="object")settings={...settings,...d.settings};
-        saveLocal();render();
+    let synced=false,conflictCount=0;
+    for(let attempt=0;attempt<4;attempt++){
+      const resp=await fetch("/api/data",{headers:{Authorization:"Bearer "+p},cache:"no-store"});
+      if(resp.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός. Άνοιξε ξανά την εφαρμογή.",true);return}
+      if(!resp.ok)throw new Error("Αδυναμία λήψης ("+resp.status+")");
+      const raw=await resp.json();
+      const remote={items:Array.isArray(raw.items)?raw.items:[],settings:raw.settings||{},reminders:Array.isArray(raw.reminders)?raw.reminders:[]};
+      const revision=Number(raw.revision)||0;
+      const base=readBase();
+      const local=currentData();
+      const startGeneration=localGeneration;
+      const merged=reconcileData(base,local,remote);
+      conflictCount+=merged.conflicts;
+      const desired=merged.data;
+      rememberBase(remote);
+      if(equal(desired,remote)){
+        if(startGeneration!==localGeneration){syncAgain=true;continue}
+        adopt(remote);
+        localStorage.removeItem(PENDINGKEY);
+        synced=true;
+        break;
       }
-      setSt("Συγχρονίστηκε ✓");
-    }else if(items.length){await push()}
-    else setSt("Συγχρονίστηκε ✓");
-  }catch(e){setSt("Δεν υπάρχει σύνδεση με τον server.",true)}
-  finally{syncing=false}
+      // Keep merged changes locally before any network write.
+      items=desired.items;settings=desired.settings;reminders=desired.reminders;
+      saveLocal();render();
+      localStorage.setItem(PENDINGKEY,"1");
+      const response=await fetch("/api/data",{
+        method:"PUT",
+        headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},
+        body:JSON.stringify({...desired,revision})
+      });
+      if(response.status===409)continue; // Another device updated first; merge and retry.
+      if(response.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός",true);return}
+      if(!response.ok)throw new Error("Αδυναμία αποθήκευσης ("+response.status+")");
+      const saved=await response.json();
+      rememberBase(saved);
+      if(startGeneration!==localGeneration){syncAgain=true;continue}
+      adopt(saved);localStorage.removeItem(PENDINGKEY);synced=true;break;
+    }
+    if(synced)setSt(conflictCount?"Συγχρονίστηκε ✓ · Διατηρήθηκαν και οι δύο εκδόσεις αλλαγών":"Συγχρονίστηκε ✓");
+    else setSt("Οι αλλαγές είναι ασφαλείς στη συσκευή. Ο συγχρονισμός θα ξαναδοκιμάσει.",true);
+  }catch(error){
+    console.warn("Sync unavailable",error);
+    setSt("Εκτός σύνδεσης · οι αλλαγές παραμένουν στη συσκευή.",true);
+  }finally{
+    syncing=false;
+    if(syncAgain){
+      syncAgain=false;
+      scheduleSync(1000);
+    }
+  }
 }
+window.addEventListener("online",()=>sync());
+
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync()});
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -257,7 +371,8 @@ function render(){
   renderNext();
   const q=$("q").value.trim(),nq=norm(q);
   const sorted=[...items].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const res=nq?sorted.filter(it=>norm(haystack(it)).includes(nq)):sorted;
+  const relevant=sorted.filter(it=>historyFilter==="regular"?it.regular!==false:historyFilter==="repair"?it.regular===false:true);
+  const res=nq?relevant.filter(it=>norm(haystack(it)).includes(nq)):relevant;
   $("count").textContent=nq?res.length+" αποτελέσματα από "+items.length:items.length+" καταχωρήσεις";
   const L=$("list");
   if(!res.length){L.innerHTML='<div class="empty">'+(items.length?"Δεν βρέθηκε τίποτα.":"Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';return}
@@ -318,7 +433,7 @@ $("list").onclick=e=>{
 };
 
 /* Αντίγραφο */
-$("mk").onclick=()=>{$("bk").value=JSON.stringify({items,settings});$("bkmsg").textContent="Έτοιμο. Πάτα «Αντιγραφή κειμένου» και κράτα το κάπου ασφαλές."};
+$("mk").onclick=()=>{$("bk").value=JSON.stringify({items,settings,reminders});$("bkmsg").textContent="Έτοιμο. Πάτα «Αντιγραφή κειμένου» και κράτα το κάπου ασφαλές."};
 $("cp").onclick=async()=>{
   const t=$("bk").value;if(!t){$("bkmsg").textContent="Πρώτα πάτα «Δημιουργία αντιγράφου».";return}
   try{await navigator.clipboard.writeText(t);$("bkmsg").textContent="Αντιγράφηκε."}
@@ -328,7 +443,7 @@ $("rs").onclick=()=>{
   try{
     let d=JSON.parse($("bk").value),its=Array.isArray(d)?d:d.items,st=Array.isArray(d)?null:d.settings;
     if(!Array.isArray(its))throw 0;
-    if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
+    if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};if(!Array.isArray(d)&&Array.isArray(d.reminders))reminders=d.reminders;store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
   }catch(e){$("bkmsg").textContent="Το κείμενο δεν είναι έγκυρο αντίγραφο."}
 };
 $("chpw").onclick=()=>{
