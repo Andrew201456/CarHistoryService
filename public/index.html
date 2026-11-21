@@ -80,27 +80,69 @@ nav button .ic{display:block;line-height:0}
 nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:var(--accent);font-weight:600}
 </style>
+<link rel="stylesheet" href="/ui.css">
 </head>
 <body>
 <main>
 
+
 <section class="view on" id="v-list">
-  <h1>Ιστορικό service</h1>
-  <div id="syncst"></div>
+  <header class="home-header">
+    <div><h1>Το αυτοκίνητό μου</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
+    <span class="app-badge">SERVICE LOG</span>
+  </header>
+  <div id="syncst" role="status" aria-live="polite"></div>
   <div class="next" id="next"></div>
-  <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Αναζήτηση: ιμάντας, λάδια, φρένα...">
+  <div class="overview-grid" aria-label="Σύνοψη">
+    <div class="overview-card"><span class="overview-label">Έξοδα φέτος</span><strong id="yearSpent">—</strong><small id="yearSpentLabel"></small></div>
+    <div class="overview-card"><span class="overview-label">Επισκέψεις</span><strong id="serviceCount">—</strong><small>Συνολικές καταχωρήσεις</small></div>
+  </div>
+  <details class="extra-panel" id="reminderPanel">
+    <summary><span>Υπενθυμίσεις συντήρησης</span><span class="summary-right"><b id="reminderCount"></b><span aria-hidden="true">⌄</span></span></summary>
+    <p class="subtext">Βάλε μια εργασία και τα χιλιόμετρα που πρέπει να γίνει. Δεν χρειάζεται ξεχωριστή οθόνη.</p>
+    <div id="remindersList"></div>
+    <div id="reminderEditor" class="reminder-editor" hidden>
+      <label for="remName">Τι χρειάζεται;</label><input id="remName" placeholder="π.χ. Αλλαγή λαδιών" maxlength="110">
+      <div class="row"><div><label for="remDue">Στα χιλιόμετρα</label><input id="remDue" type="text" inputmode="numeric" placeholder="π.χ. 165000"></div>
+      <div><label for="remRepeat">Επανάληψη κάθε (χλμ)</label><input id="remRepeat" type="text" inputmode="numeric" placeholder="Προαιρετικό"></div></div>
+      <div class="reminder-buttons"><button type="button" id="remSave" class="button-primary">Αποθήκευση</button><button type="button" id="remCancel">Άκυρο</button></div>
+    </div>
+    <button class="light-add" type="button" id="remAdd">+ Νέα υπενθύμιση</button>
+  </details>
+  <details class="extra-panel" id="expensePanel">
+    <summary><span>Έξοδα &amp; στατιστικά</span><span class="summary-right" aria-hidden="true">⌄</span></summary>
+    <label for="expenseYear">Προβολή εξόδων</label>
+    <select id="expenseYear"></select>
+    <div id="expenseDetails"></div>
+  </details>
+  <div class="history-title"><h2>Ιστορικό service</h2></div>
+  <input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Αναζήτηση: λάδια, φρένα, συνεργείο...">
+  <div class="filters" role="group" aria-label="Φίλτρο ιστορικού">
+    <button type="button" data-filter="all" class="selected" aria-pressed="true">Όλα</button>
+    <button type="button" data-filter="regular" aria-pressed="false">Τακτικά service</button>
+    <button type="button" data-filter="repair" aria-pressed="false">Επισκευές</button>
+  </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
 </section>
 
 <section class="view" id="v-form">
   <h1 id="formTitle">Νέα καταχώρηση</h1>
+  <div id="draftNotice" class="draft-notice" hidden><span>↺ Επαναφέρθηκε η πρόχειρη καταχώρηση.</span><button type="button" id="draftDiscard">Νέα, κενή φόρμα</button></div>
   <div class="row">
     <div><label for="date">Ημερομηνία</label><input type="text" id="date" inputmode="numeric" maxlength="10" placeholder="ΗΗ-ΜΜ-ΕΕΕΕ" autocomplete="off"></div>
     <div><label for="km">Χιλιόμετρα</label><input type="text" id="km" inputmode="numeric" placeholder="π.χ. 145000"></div>
   </div>
 
   <label>Εξαρτήματα / εργασίες και τιμή τους</label>
+  <div class="quick-actions" aria-label="Γρήγορη προσθήκη εργασίας">
+    <button type="button" data-quick="Αλλαγή λαδιών">Λάδια</button>
+    <button type="button" data-quick="Αλλαγή φίλτρων">Φίλτρα</button>
+    <button type="button" data-quick="Έλεγχος / αλλαγή φρένων">Φρένα</button>
+    <button type="button" data-quick="Αλλαγή μπουζί">Μπουζί</button>
+    <button type="button" data-quick="Αλλαγή ελαστικών">Ελαστικά</button>
+    <button type="button" data-quick="Αλλαγή μπαταρίας">Μπαταρία</button>
+  </div>
   <div id="parts"></div>
   <button class="sec" id="addPart" type="button" style="margin-top:0">+ Άλλο εξάρτημα</button>
 
@@ -142,7 +184,7 @@ nav button.on{color:var(--accent);font-weight:600}
 </main>
 
 <nav>
-  <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Λίστα</span></button>
+  <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Αρχική</span></button>
   <button data-v="form"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span id="navAdd">Προσθήκη</span></button>
   <button data-v="import"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><span>Εισαγωγή</span></button>
   <button data-v="backup"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span>Αντίγραφο</span></button>
@@ -527,5 +569,6 @@ $("impAdd").onclick=()=>{
 
 load();resetForm();render();sync();
 </script>
+<script src="/features.js"></script>
 </body>
 </html>
