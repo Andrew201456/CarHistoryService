@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Service">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon.png">
@@ -89,7 +91,7 @@ nav button.on{color:var(--accent);font-weight:600}
 <section class="view on" id="v-list">
   <header class="home-header">
     <div><h1>Το αυτοκίνητό μου</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
-    <span class="app-badge">SERVICE LOG</span>
+    <button type="button" id="installBtn" class="install-trigger" hidden>Εγκατάσταση</button>
   </header>
   <div id="syncst" role="status" aria-live="polite"></div>
   <div class="next" id="next"></div>
@@ -182,6 +184,12 @@ nav button.on{color:var(--accent);font-weight:600}
 </section>
 
 </main>
+
+<dialog id="installHelp" class="install-help" aria-labelledby="installTitle">
+  <h2 id="installTitle">Εγκατάσταση εφαρμογής</h2>
+  <p id="installHelpText"></p>
+  <button type="button" id="installDismiss">Κατάλαβα</button>
+</dialog>
 
 <nav>
   <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Αρχική</span></button>
