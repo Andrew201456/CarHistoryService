@@ -402,6 +402,53 @@ function show(v){
 }
 document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;show(b.dataset.v)};
 
+/* Εκτίμηση ημερομηνίας βάσει των πιο πρόσφατων τακτικών service.
+   Δεν χρησιμοποιούμε την ημερομηνία μόνο για να προβλέψουμε το όριο χλμ:
+   ο ρυθμός οδήγησης προκύπτει από πραγματικά ζεύγη ημερομηνίας/χιλιομέτρων. */
+function estimateNextServiceDate(records,currentKm,targetKm,now=new Date()){
+  const DAY=86400000;
+  if(!Number.isFinite(currentKm)||currentKm<=0||targetKm<=currentKm)return null;
+  const todayUtc=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+  const readings=[];
+  for(const item of records){
+    if(item.regular===false)continue;
+    const iso=String(item.date||"");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(iso))continue;
+    const km=intOf(item.km);
+    if(km<=0)continue;
+    const ms=Date.parse(iso+"T00:00:00Z");
+    if(!Number.isFinite(ms)||ms>todayUtc||new Date(ms).toISOString().slice(0,10)!==iso)continue;
+    readings.push({km,date:ms});
+  }
+  // Up to five recent service dates. For duplicate dates prefer the higher odometer.
+  readings.sort((a,b)=>b.date-a.date||b.km-a.km);
+  const recent=[],seen=new Set();
+  for(const reading of readings){
+    if(seen.has(reading.date))continue;
+    seen.add(reading.date);
+    recent.push(reading);
+    if(recent.length===5)break;
+  }
+  const speeds=[];
+  for(let i=0;i<recent.length-1;i++){
+    const newer=recent[i],older=recent[i+1];
+    const days=(newer.date-older.date)/DAY,km=newer.km-older.km;
+    const dailyKm=km/days;
+    // Ignore same-day edits, odometer reversals and implausible readings.
+    if(days>=14&&km>=100&&dailyKm>=1&&dailyKm<=400)speeds.push(dailyKm);
+    if(speeds.length===3)break;
+  }
+  if(!speeds.length)return null;
+  // Median of up to three recent service intervals resists a one-off outlier.
+  const sorted=speeds.sort((a,b)=>a-b);
+  const dailyKm=sorted.length===1?sorted[0]:sorted.length===2?(sorted[0]+sorted[1])/2:sorted[1];
+  const daysRemaining=Math.ceil((targetKm-currentKm)/dailyKm);
+  if(!Number.isFinite(daysRemaining)||daysRemaining<=0||daysRemaining>3650)return null;
+  const projected=new Date(todayUtc+daysRemaining*DAY);
+  if(!Number.isFinite(projected.getTime()))return null;
+  return {date:projected,dailyKm,intervals:speeds.length};
+}
+
 /* Επόμενο service */
 function renderNext(){
   const reg=items.filter(i=>i.regular!==false&&intOf(i.km)>0);
@@ -417,6 +464,25 @@ function renderNext(){
       const left=next-cur,pct=Math.max(0,Math.min(100,(cur-lk)/interval*100));
       html+='<div class="bar'+(left<0?" over":"")+'"><i style="width:'+pct+'%"></i></div>';
       html+=left>=0?'<div class="left ok">Απομένουν '+fmtKm(left)+'</div>':'<div class="left warn">Έχεις περάσει το service κατά '+fmtKm(-left)+'</div>';
+    }
+    if(cur>0){
+      const left=next-cur;
+      if(cur<lk){
+        html+='<div class="service-eta-note">Για εκτίμηση ημερομηνίας, τα τωρινά χιλιόμετρα πρέπει να είναι τουλάχιστον όσα στο τελευταίο service.</div>';
+      }else if(left<=0){
+        html+='<div class="service-eta is-due"><span class="service-eta-label">Ημερομηνία επόμενου service</span><strong>Ήρθε η ώρα για service</strong><small>Έχεις ήδη φτάσει ή ξεπεράσει το όριο χιλιομέτρων.</small></div>';
+      }else{
+        const forecast=estimateNextServiceDate(items,cur,next);
+        if(forecast){
+          const label=new Intl.DateTimeFormat("el-GR",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(forecast.date);
+          const monthly=Math.round(forecast.dailyKm*30).toLocaleString("el-GR");
+          html+='<div class="service-eta"><span class="service-eta-label">Εκτιμώμενη ημερομηνία service</span><strong>Περίπου '+esc(label)+'</strong><small>Με βάση '+(forecast.intervals+1)+' πρόσφατα service · ~'+monthly+' χλμ/μήνα</small></div>';
+        }else{
+          html+='<div class="service-eta-note">Η εκτίμηση ημερομηνίας θα εμφανιστεί όταν υπάρχουν τουλάχιστον 2 τακτικά service με έγκυρη ημερομηνία και αυξανόμενα χιλιόμετρα.</div>';
+        }
+      }
+    }else{
+      html+='<div class="service-eta-note">Συμπλήρωσε τα τωρινά χιλιόμετρα για να εκτιμηθεί η ημερομηνία του επόμενου service.</div>';
     }
     html+='<div class="small" style="margin-top:6px">Τελευταίο service: '+fmtKm(lk)+', στις '+fmtDate(last.date)+'</div>';
   }

@@ -236,3 +236,16 @@ button:not(:disabled):active {transform:scale(.992)}
   button,input,textarea,select,.extra-panel summary .summary-right>span {transition:none!important}
   button:active {transform:none}
 }
+
+
+/* Next-service date forecast: concise, visually integrated in the existing card. */
+.next .service-eta{display:flex;flex-direction:column;gap:4px;margin:15px 0 11px;
+  padding:13px 15px;border:1px solid color-mix(in srgb,var(--accent) 19%,var(--line));
+  background:var(--soft);border-radius:15px}
+.next .service-eta-label{font-size:.76rem;font-weight:750;color:var(--mute);letter-spacing:.15px}
+.next .service-eta strong{font-size:clamp(1.02rem,3.8vw,1.16rem);font-weight:760;line-height:1.4;color:var(--ink)}
+.next .service-eta small{font-size:.76rem;color:var(--mute);line-height:1.45}
+.next .service-eta.is-due{border-color:color-mix(in srgb,var(--warn) 35%,var(--line));background:var(--card)}
+.next .service-eta.is-due strong{color:var(--warn)}
+.next .service-eta-note{margin:13px 0 10px;font-size:.82rem;line-height:1.55;color:var(--mute)}
+@media(max-width:420px){.next .service-eta{padding:12px;margin-top:13px;border-radius:13px}}
