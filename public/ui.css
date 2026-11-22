@@ -247,12 +247,11 @@ button:not(:disabled):active {transform:scale(.992)}
 .next .bar.over i{background:var(--warn)}
 .next .service-remaining{display:flex;align-items:center;gap:7px;font-size:.89rem;font-weight:740;line-height:1.4}
 .next .service-remaining-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
-.next .service-eta-inline{display:flex;align-items:center;gap:7px;margin:10px 0 6px;
+.next .service-eta-inline{display:block;margin:10px 0 6px;
   padding:0;border:0;background:none;box-shadow:none;color:var(--mute);
   font-size:.83rem;line-height:1.45;min-width:0}
-.next .service-eta-inline svg{width:16px;height:16px;flex:none;color:var(--accent)}
 .next .service-eta-inline strong{font-size:.86rem;font-weight:780;color:var(--ink)}
-.next .service-eta-inline.is-due svg,.next .service-eta-inline.is-due strong{color:var(--warn)}
+.next .service-eta-inline.is-due strong{color:var(--warn)}
 .next .service-eta-note{margin:10px 0 6px;font-size:.76rem;color:var(--mute);line-height:1.45}
 .next .service-last{font-size:.75rem;line-height:1.45;color:var(--mute);margin:7px 0 0}
 .next .cfg{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:13px;padding-top:5px}
