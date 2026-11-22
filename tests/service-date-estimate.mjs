@@ -32,3 +32,6 @@ assert.equal(estimate([{date:"2026-02-31",km:140000,regular:true},{date:"2026-10
 assert.equal(estimate([...history,{id:"repair",date:"2026-11-01",km:151000,regular:false}],152000,160000,asOf).date.toISOString(),result.date.toISOString(),"Repairs do not change estimate");
 assert.ok(source.includes("Εκτιμώμενη ημερομηνία service"),"Forecast should appear in next-service card");
 console.log("PASS: recent-service pace, ETA, missing data, overdue, repairs and invalid readings");
+
+assert.ok(source.includes('service-eta-inline'),"Forecast should use compact single-line presentation");
+assert.ok(!source.includes('service-eta-body'),"Large nested ETA card should be removed");

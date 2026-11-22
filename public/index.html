@@ -468,21 +468,20 @@ function renderNext(){
     if(cur>0){
       const left=next-cur;
       if(cur<lk){
-        html+='<div class="service-eta-note">Για εκτίμηση ημερομηνίας, τα τωρινά χιλιόμετρα πρέπει να είναι τουλάχιστον όσα στο τελευταίο service.</div>';
+        html+='<div class="service-eta-note">Ενημέρωσε τα τωρινά χλμ. για σωστή εκτίμηση.</div>';
       }else if(left<=0){
-        html+='<div class="service-eta is-due"><div class="service-eta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M7 3v4m10-4v4M3 10h18m-12 5 2 2 4-4"/></svg></div><div class="service-eta-body"><span class="service-eta-label">Επόμενο service</span><strong>Ήρθε η ώρα για service</strong><small>Έχεις ήδη φτάσει ή ξεπεράσει το όριο χιλιομέτρων.</small></div></div>';
+        html+='<div class="service-eta-inline is-due"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg><span>Επόμενο service: <strong>Άμεσα</strong></span></div>';
       }else{
         const forecast=estimateNextServiceDate(items,cur,next);
         if(forecast){
-          const label=new Intl.DateTimeFormat("el-GR",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(forecast.date);
-          const monthly=Math.round(forecast.dailyKm*30).toLocaleString("el-GR");
-          html+='<div class="service-eta"><div class="service-eta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M7 3v4m10-4v4M3 10h18m-12 5h4"/></svg></div><div class="service-eta-body"><span class="service-eta-label">Εκτιμώμενη ημερομηνία</span><strong>'+esc(label)+'</strong><small>Περίπου · βάσει '+(forecast.intervals+1)+' πρόσφατων service · ~'+monthly+' χλμ/μήνα</small></div></div>';
+          const label=new Intl.DateTimeFormat("el-GR",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(forecast.date);
+          html+='<div class="service-eta-inline" aria-label="Εκτιμώμενη ημερομηνία service"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg><span>Περίπου <strong>'+esc(label)+'</strong></span></div>';
         }else{
-          html+='<div class="service-eta-note">Η εκτίμηση ημερομηνίας θα εμφανιστεί όταν υπάρχουν τουλάχιστον 2 τακτικά service με έγκυρη ημερομηνία και αυξανόμενα χιλιόμετρα.</div>';
+          html+='<div class="service-eta-note">Για ημερομηνία χρειάζονται 2 service με χλμ. και ημερομηνία.</div>';
         }
       }
     }else{
-      html+='<div class="service-eta-note">Συμπλήρωσε τα τωρινά χιλιόμετρα για να εκτιμηθεί η ημερομηνία του επόμενου service.</div>';
+      html+='<div class="service-eta-note">Βάλε τα τωρινά χλμ. για εκτίμηση ημερομηνίας.</div>';
     }
     html+='<div class="small service-last">Τελευταίο service: '+fmtKm(lk)+', στις '+fmtDate(last.date)+'</div>';
   }
