@@ -109,18 +109,6 @@ async function limitAccountLogin(req,env,code){
     })
   });
 }
-async function releaseSuccessfulLogin(req,env,code){
-  // Only failed guesses should consume the hourly login budget. A correct
-  // sign-in immediately releases its reserved attempt; failures stay counted.
-  const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-pin-login-limit"));
-  try{
-    await limiter.fetch("https://car-data.internal/login-success",{
-      method:"POST",body:JSON.stringify({
-        ip:req.headers.get("CF-Connecting-IP")||"unknown",codeHash:await sha256(code)
-      })
-    });
-  }catch{} // Don't turn an otherwise successful login into a network error.
-}
 async function getLegacyData(env){
   const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-primary"));
   let current=await stub.fetch("https://car-data.internal/data");
@@ -192,9 +180,7 @@ export default {
       if(!limit.ok)return jsonNoStore({error:"Έγιναν πολλές προσπάθειες. Δοκίμασε ξανά αργότερα."},429);
       const account=await resolveAccount(code,env);
       if(!account)return jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
-      const session=await newSession(account.stub,account.scope);
-      await releaseSuccessfulLogin(req,env,code);
-      return jsonNoStore({scope:account.scope,session});
+      return jsonNoStore({scope:account.scope,session:await newSession(account.stub,account.scope)});
     }
 
     if (url.pathname === "/api/account/session" && req.method === "POST") {
@@ -337,24 +323,6 @@ export class CarServiceStore {
         return true;
       });
       return json({ok:allowed},allowed?200:429);
-    }
-    if(url.pathname==="/login-success"&&request.method==="POST"){
-      // The client cannot call this directly; only the Worker does so after
-      // validating a real account and issuing a verified session.
-      let data={};
-      try{data=await request.json();}catch{}
-      const ip=String(data.ip||"unknown").slice(0,80);
-      const codeHash=String(data.codeHash||"");
-      if(!/^[a-f0-9]{64}$/.test(codeHash))return json({error:"invalid code"},400);
-      const now=Date.now();
-      await this.state.storage.transaction(async tx=>{
-        for(const key of ["login-ip:"+ip,"login-code:"+codeHash]){
-          const row=await tx.get(key);
-          if(!row||now-row.since>3600000)continue;
-          if(row.count>0){row.count--;await tx.put(key,row);}
-        }
-      });
-      return json({ok:true});
     }
     if(url.pathname==="/session-issue"&&request.method==="POST"){
       let secret="";
