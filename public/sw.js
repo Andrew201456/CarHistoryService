@@ -1,5 +1,5 @@
 /* Cache only the application shell; never cache authenticated /api requests. */
-const CACHE="carhistory-shell-v13";
+const CACHE="carhistory-shell-v14";
 const ASSETS=[
  "/","/index.html","/ui.css","/features.js","/ai-mechanic.js","/account.js","/manifest.webmanifest",
  "/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
@@ -21,6 +21,16 @@ self.addEventListener("fetch",event=>{
       if(response.ok)event.waitUntil(caches.open(CACHE).then(cache=>cache.put("/index.html",response.clone())));
       return response;
     }).catch(()=>caches.match("/index.html")));
+    return;
+  }
+  // A stale cache-first account.js paired with a freshly fetched index.html
+  // can break the login button. Prefer the network for app scripts/styles,
+  // while retaining cached copies for true offline operation.
+  if(["/account.js","/ui.css","/features.js","/ai-mechanic.js"].includes(url.pathname)){
+    event.respondWith(fetch(event.request).then(response=>{
+      if(response.ok)event.waitUntil(caches.open(CACHE).then(cache=>cache.put(event.request,response.clone())));
+      return response;
+    }).catch(()=>caches.match(event.request)));
     return;
   }
   event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request)));
