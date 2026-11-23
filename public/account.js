@@ -180,6 +180,7 @@
     const registering=panel==="register";
     loginPanel.hidden=registering;
     registerPanel.hidden=!registering;
+    $("accountOpenRegister").hidden=registering;
     notice("");
   }
   $("accountOpenRegister").addEventListener("click",()=>{
