@@ -15,13 +15,18 @@ assert(css.includes(".account-card [hidden]{display:none!important}"),
 assert(html.includes('id="accountRegisterPanel" class="account-panel" hidden'));
 assert(html.includes('id="accountOpenRegister"'));
 assert(!html.includes('id="accountChooseCustom"'));
+assert(html.includes('class="account-options-trigger"'),"Account options icon should be discreet");
+assert(!html.includes('Δεν έχεις λογαριασμό;'),"Account creation not displayed by default");
+assert(html.includes('id="accountLoginBtnText"'),"Loading text should be present");
 
 class Element {
   constructor(id,hidden=false) {
     this.id=id;this.hidden=hidden;this.value="";this.textContent="";
-    this.disabled=false;this.listeners={};
+    this.disabled=false;this.listeners={};this.attributes={};
     this.classList={toggle(){},remove(){}};
   }
+  setAttribute(key,value){this.attributes[key]=String(value)}
+  removeAttribute(key){delete this.attributes[key]}
   addEventListener(event,cb){(this.listeners[event]??=[]).push(cb)}
   async fire(event){for(const cb of this.listeners[event]||[])await cb({preventDefault(){}})}
   focus(){this.focused=true}
@@ -50,7 +55,10 @@ function mount() {
       }
       return {ok:true,status:200,json:async()=>({code:body.code||"5678",scope,session})};
     }
-    if(path==="/api/account/login")return {ok:true,status:200,json:async()=>({scope,session})};
+    if(path==="/api/account/login"){
+      if(body.code==="WRONG")return {ok:false,status:401,json:async()=>({error:"Λάθος κωδικός"})};
+      return {ok:true,status:200,json:async()=>({scope,session})};
+    }
     if(path==="/api/account/session")return {ok:true,status:200,json:async()=>({scope})};
     throw new Error("Unexpected URL: "+path);
   };
@@ -75,7 +83,9 @@ await e.accountOpenRegister.fire("click");
 assert.equal(e.accountLoginPanel.hidden,true);
 assert.equal(e.accountRegisterPanel.hidden,false);
 assert.equal(e.accountRegisterChoices.hidden,false);
+assert.equal(e.accountOpenRegister.hidden,true);
 await e.accountBackToLogin.fire("click");
+assert.equal(e.accountOpenRegister.hidden,false);
 assert.equal(e.accountLoginPanel.hidden,false);
 assert.equal(e.accountRegisterPanel.hidden,true);
 
@@ -107,7 +117,13 @@ assert.equal(random.els.accountCreated.hidden,false);
 
 // Existing-user login remains a single action.
 const returning=mount();
+returning.els.accountCode.value="WRONG";
+await returning.els.accountLoginForm.fire("submit");
+assert.equal(returning.els.accountLoginBtn.disabled,false);
+assert.equal(returning.els.accountLoginBtnText.textContent,"Σύνδεση");
+assert.match(returning.els.accountMessage.textContent,/Λάθος κωδικός/);
 returning.els.accountCode.value="5678";
+await returning.els.accountCode.fire("input");
 await returning.els.accountLoginForm.fire("submit");
 assert.equal(returning.started.length,1);
 assert.equal(returning.started[0].code,returning.session);
