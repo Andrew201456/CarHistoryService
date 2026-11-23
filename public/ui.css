@@ -388,3 +388,47 @@ nav button span:last-child{white-space:nowrap}
 }
 @media(max-width:320px){.ai-profile-grid{grid-template-columns:1fr}.ai-car-glyph{display:none}}
 @media(prefers-reduced-motion:reduce){.ai-send-button,.ai-car-summary{transition:none}}
+
+
+/* Secure account entry — the app is not rendered before account verification. */
+body.account-locked main,body.account-locked nav{display:none!important}
+.account-gate[hidden]{display:none!important}
+.account-gate{min-height:100dvh;padding:calc(30px + env(safe-area-inset-top,0px)) 16px 36px;
+ display:flex;align-items:center;justify-content:center}
+.account-card{width:min(100%,430px);background:var(--card);border:1px solid var(--line);
+ border-radius:22px;padding:28px 23px;box-shadow:var(--shadow)}
+.account-brand{font-size:.7rem;letter-spacing:1.6px;color:var(--accent);font-weight:850}
+.account-card h1{font-size:1.58rem;line-height:1.2;letter-spacing:-.6px;margin:9px 0}
+.account-card p{font-size:.86rem;color:var(--mute);line-height:1.55;margin:7px 0 18px}
+.account-card label{display:block;font-size:.78rem;font-weight:750;margin:14px 0 8px}
+.account-card input{display:block;min-height:49px;width:100%;font-size:16px;
+ border:1px solid var(--line);background:var(--bg);color:var(--ink);
+ padding:11px 13px;border-radius:12px;letter-spacing:.8px}
+.account-card button{display:block;width:100%;min-height:45px;border-radius:12px;
+ margin-top:11px;font-size:.85rem;font-weight:780;padding:9px 12px}
+.account-card button:disabled{opacity:.6;cursor:wait}
+.account-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.account-secondary{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.account-divider{display:flex;align-items:center;justify-content:center;gap:14px;
+ margin:19px 0 5px;color:var(--mute);font-size:.75rem}
+.account-divider:before,.account-divider:after{content:"";height:1px;flex:1;background:var(--line)}
+.account-created{margin-top:16px;padding:14px;border-radius:13px;border:1px solid var(--line);background:var(--soft)}
+.account-created[hidden]{display:none}
+.account-created strong{font-size:.85rem}
+.account-created code{display:block;margin-top:9px;font-size:.89rem;line-height:1.7;
+ font-weight:750;letter-spacing:.3px;word-break:break-all;user-select:all;-webkit-user-select:all}
+.account-created p{font-size:.77rem;margin:10px 0}
+.account-message{font-size:.79rem!important;min-height:15px;margin:13px 0 10px!important;
+ color:var(--accent)!important}
+.account-message.error{color:var(--danger)!important}
+.account-card>small{display:block;font-size:.71rem;color:var(--mute);line-height:1.5}
+.account-settings{border:1px solid var(--line);padding:15px;border-radius:14px;margin:18px 0}
+.account-settings>strong,.legacy-transfer>strong{font-weight:800;font-size:.91rem}
+.account-settings>.note{margin:8px 0 11px}
+.account-settings button{margin:6px 0}
+.legacy-transfer{margin-top:19px;padding-top:15px;border-top:1px solid var(--line)}
+.legacy-transfer .note{margin:8px 0 12px}
+.legacy-transfer label{display:block;margin:10px 0 6px;font-size:.81rem;font-weight:750}
+.legacy-transfer input{width:100%;min-height:44px;font-size:16px}
+#legacyStatus{min-height:16px}
+@media(max-width:380px){.account-card{padding:22px 16px}.account-card h1{font-size:1.4rem}}

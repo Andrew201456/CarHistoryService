@@ -1,8 +1,9 @@
 /* CarHistoryService dashboard enhancements — classic script, no framework. */
-(function () {
+(function initAfterAccount() {
   "use strict";
+  if(!window.CarHistoryAccountReady){window.addEventListener("carhistory:ready",initAfterAccount,{once:true});return;}
   const $ = id => document.getElementById(id);
-  const DRAFTKEY = "carServiceDraftV1";
+  const DRAFTKEY = "carServiceDraftV1:"+window.CarHistoryAccountScope;
   const euro = n => money(n);
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
   const yearNow = () => String(new Date().getFullYear());

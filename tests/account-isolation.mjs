@@ -1,0 +1,118 @@
+/* Run with Node 20+: node tests/account-isolation.mjs */
+import assert from "node:assert/strict";
+import {webcrypto} from "node:crypto";
+import {readFileSync} from "node:fs";
+import {dirname,resolve} from "node:path";
+import {fileURLToPath} from "node:url";
+const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
+const read=p=>readFileSync(resolve(root,p),"utf8");
+const backend=read("src/index.js")
+  .replace('import {handleDiagnosticRequest} from "./diagnostics.js";',"")
+  .replace("export default {","const Worker = {")
+  .replace("export class CarServiceStore","class CarServiceStore");
+const {Worker,CarServiceStore}=new Function(
+  "crypto","TextEncoder","Request","Response","URL","handleDiagnosticRequest",
+  backend+";return {Worker,CarServiceStore};"
+)(webcrypto,TextEncoder,Request,Response,URL,()=>{throw new Error("AI not expected")});
+const dataMap=new Map();
+const objects=new Map();
+const ns={
+  idFromName:name=>name,
+  get(id){
+    if(!objects.has(id)){
+      const data=new Map();
+      const storage={
+        async get(key){return data.get(key)},
+        async put(key,value){data.set(key,value)},
+        async transaction(fn){return fn(this)}
+      };
+      const store=new CarServiceStore({storage},{});
+      objects.set(id,{fetch:(url,opts)=>store.fetch(new Request(url,opts))});
+      dataMap.set(id,data);
+    }
+    return objects.get(id);
+  }
+};
+const env={
+  CAR_DATA:ns,
+  PASSCODE:"legacy-password-for-test",
+  DATA:{get:async()=>null},
+  AI:{run:async()=>({response:""})},
+  ASSETS:{fetch:async()=>new Response("not found",{status:404})}
+};
+const base="https://service.example";
+const call=async(path,method="GET",body=null,code=null,ip="192.0.2.5")=>{
+  const headers={"CF-Connecting-IP":ip};
+  if(body!==null)headers["Content-Type"]="application/json";
+  if(code)headers.Authorization="Bearer "+code;
+  const req=new Request(base+path,{method,headers,body:body===null?undefined:JSON.stringify(body)});
+  return Worker.fetch(req,env);
+};
+const asJSON=async response=>({status:response.status,data:await response.json()});
+const a=await asJSON(await call("/api/account/create","POST",{}));
+const b=await asJSON(await call("/api/account/create","POST",{}));
+assert.equal(a.status,200);
+assert.equal(b.status,200);
+assert.match(a.data.code,/^CS-[A-F0-9]{32}$/);
+assert.notEqual(a.data.code,b.data.code);
+assert.notEqual(a.data.scope,b.data.scope);
+assert.equal((await asJSON(await call("/api/account/login","POST",{code:a.data.code}))).data.scope,a.data.scope);
+assert.equal((await call("/api/account/login","POST",{code:"CS-"+"0".repeat(32)})).status,401);
+assert.equal((await call("/api/data")).status,401);
+assert.equal((await call("/api/diagnose","POST",{},null)).status,401);
+assert.equal((await call("/api/parse","POST",{text:"broken"},null)).status,401);
+const loginA=a.data.code,loginB=b.data.code;
+const initialA=await asJSON(await call("/api/data","GET",null,loginA));
+const initialB=await asJSON(await call("/api/data","GET",null,loginB));
+assert.deepEqual(initialA.data.items,[]);
+assert.deepEqual(initialB.data.items,[]);
+const update={
+  items:[{id:"unique-service-A",date:"2026-11-22",km:"155000",notes:"private A"}],
+  settings:{vehicleProfile:{make:"Ford",model:"Focus"}},
+  reminders:[],
+  revision:initialA.data.revision
+};
+assert.equal((await call("/api/data","PUT",update,loginA)).status,200);
+const seenA=await asJSON(await call("/api/data","GET",null,loginA));
+const seenB=await asJSON(await call("/api/data","GET",null,loginB));
+assert.equal(seenA.data.items[0].notes,"private A");
+assert.deepEqual(seenB.data.items,[]);
+assert.deepEqual(seenB.data.settings,{});
+assert.equal((await call("/api/data","PUT",{...update,revision:seenA.data.revision},loginB)).status,409);
+assert.equal((await asJSON(await call("/api/data","GET",null,loginA))).data.items.length,1);
+// Set up previous single-user data, then migrate to an unused third account.
+const legacy=ns.get("car-service-primary");
+await legacy.fetch("https://car-data.internal/bootstrap",{
+  method:"POST",body:JSON.stringify({items:[{id:"old-1",notes:"old private"}],
+  settings:{current:"160000"},reminders:[]})
+});
+const c=await asJSON(await call("/api/account/create","POST",{}));
+assert.equal(c.status,200);
+assert.equal((await call("/api/account/migrate","POST",{legacyCode:"bad"},c.data.code)).status,403);
+const migration=await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},c.data.code);
+assert.equal(migration.status,200);
+const migrated=await asJSON(await call("/api/data","GET",null,c.data.code));
+assert.equal(migrated.data.items[0].notes,"old private");
+assert.equal(migrated.data.settings.current,"160000");
+assert.deepEqual((await asJSON(await call("/api/data","GET",null,loginB))).data.items,[]);
+const again=await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},loginB);
+assert.equal(again.status,409);
+assert.equal((await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},c.data.code)).status,200);
+assert.equal((await asJSON(await call("/api/data","GET",null,loginA))).data.items[0].id,"unique-service-A");
+const html=read("public/index.html"),features=read("public/features.js"),ai=read("public/ai-mechanic.js");
+const account=read("public/account.js"),sw=read("public/sw.js");
+assert(html.includes('const ACCOUNT_SESSION_KEY="carServiceActiveAccountV3";'));
+assert(html.includes('KEY="carServiceLog:"+scope'));
+assert(html.includes('BASEKEY="carServiceSyncBaseV2:"+scope'));
+assert(html.includes('PENDINGKEY="carServiceSyncPendingV2:"+scope'));
+assert(html.includes('id="accountGate"'));
+assert(!html.includes('load();resetForm();render();sync();'));
+assert(features.includes('"carServiceDraftV1:"+window.CarHistoryAccountScope'));
+assert(ai.includes('"carServiceAiConversationV1:"+window.CarHistoryAccountScope'));
+assert(account.includes('localStorage.removeItem(ACTIVE)'));
+assert(sw.includes("carhistory-shell-v9")&&sw.includes('"/account.js"'));
+for(const script of [account,features,ai])assert.doesNotThrow(()=>new Function(script));
+for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
+  if(script[1].trim())assert.doesNotThrow(()=>new Function(script[1]));
+}
+console.log("PASS: 3 isolated accounts, protected read/write, migration exclusivity, local scoping and login gate");

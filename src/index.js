@@ -42,55 +42,130 @@ const SCHEMA = {
   required: ["entries"],
 };
 
-function authed(req, env) {
-  const auth = req.headers.get("Authorization") || "";
-  return env.PASSCODE && auth === "Bearer " + env.PASSCODE;
+// Account codes are 128-bit CSPRNG-generated secrets. A short PIN is not safe:
+// the code acts as the only credential to access and edit the owner's car history.
+const CODE_RE = /^CS-[0-9A-F]{32}$/;
+const jsonNoStore = (body, status=200) =>
+  Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
+function tokenFrom(req){return (req.headers.get("Authorization")||"").replace(/^Bearer /,"");}
+async function resolveAccount(code,env){
+  if(!CODE_RE.test(code))return null;
+  const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
+    new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
+  const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
+  const exists=await stub.fetch("https://car-data.internal/data");
+  if(!exists.ok)return null;
+  return {stub,scope:hash};
 }
+async function getAccount(req,env){return resolveAccount(tokenFrom(req),env);}
+async function getLegacyData(env){
+  const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-primary"));
+  let current=await stub.fetch("https://car-data.internal/data");
+  if(current.status===404){
+    let legacy={};
+    try{const saved=await env.DATA.get("data");if(saved)legacy=JSON.parse(saved);}
+    catch{return {error:jsonNoStore({error:"Δεν διαβάστηκε το παλιό ιστορικό."},503)};}
+    const bootstrap=await stub.fetch("https://car-data.internal/bootstrap",{
+      method:"POST",body:JSON.stringify(legacy)
+    });
+    if(!bootstrap.ok)return {error:jsonNoStore({error:"Αδυναμία προετοιμασίας ιστορικού."},503)};
+    current=await stub.fetch("https://car-data.internal/data");
+  }
+  if(!current.ok)return {error:jsonNoStore({error:"Το παλιό ιστορικό δεν είναι διαθέσιμο."},503)};
+  return {stub,dataset:await current.json()};
+}
+
+
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
 
-    if (url.pathname === "/api/data") {
-      if (!authed(req, env)) return new Response("unauthorized", { status: 401 });
-      if (req.method !== "GET" && req.method !== "PUT") {
-        return new Response("method not allowed", { status: 405 });
-      }
+    // Every account uses a separate SQLite Durable Object. A code for another
+    // account CANNOT select, read or write this account's data.
+    if (url.pathname === "/api/account/create" && req.method === "POST") {
+      // One IP cannot generate unlimited Durable Objects in one day.
+      const clientIP=req.headers.get("CF-Connecting-IP")||"unknown";
+      const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-registration-limit"));
+      const allowed=await limiter.fetch("https://car-data.internal/limit",{
+        method:"POST",body:JSON.stringify({ip:clientIP})
+      });
+      if(!allowed.ok)return jsonNoStore({error:"Πάρα πολλές δημιουργίες. Δοκίμασε αργότερα."},429);
+      const bytes=crypto.getRandomValues(new Uint8Array(16));
+      const code="CS-"+Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
+      const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
+        new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
+      const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
+      const made=await stub.fetch("https://car-data.internal/bootstrap",{
+        method:"POST",body:JSON.stringify({items:[],settings:{},reminders:[]})
+      });
+      if(!made.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
+      return jsonNoStore({code,scope:hash});
+    }
 
-      // The single-user Durable Object guarantees that simultaneous updates
-      // cannot silently overwrite each other, unlike a shared KV key.
-      const stub = env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-primary"));
-      let result = await stub.fetch("https://car-data.internal/data");
-      if (result.status === 404) {
-        // One-time, non-destructive migration: read existing KV data into DO.
-        let legacy = {};
-        try {
-          const text = await env.DATA.get("data");
-          if (text) legacy = JSON.parse(text);
-        } catch (error) {
-          console.error("Legacy KV import failed", error);
-          return new Response("legacy data could not be loaded", { status: 503 });
-        }
-        const seeded = await stub.fetch("https://car-data.internal/bootstrap", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(legacy)
-        });
-        if (!seeded.ok) return new Response("data migration failed", { status: 503 });
-        result = await stub.fetch("https://car-data.internal/data");
+    if (url.pathname === "/api/account/login" && req.method === "POST") {
+      let code="";
+      try{code=String((await req.json()).code||"").trim().toUpperCase();}catch{}
+      const account=await resolveAccount(code,env);
+      return account?jsonNoStore({scope:account.scope}):
+        jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
+    }
+
+    if (url.pathname === "/api/account/migrate" && req.method === "POST") {
+      const account=await getAccount(req,env);
+      if(!account)return jsonNoStore({error:"Πρώτα συνδέσου στον νέο σου λογαριασμό."},401);
+      const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-legacy-attempts"));
+      const limited=await limiter.fetch("https://car-data.internal/limit",{
+        method:"POST",body:JSON.stringify({ip:req.headers.get("CF-Connecting-IP")||"unknown"})
+      });
+      if(!limited.ok)return jsonNoStore({error:"Πολλές προσπάθειες μεταφοράς. Δοκίμασε αύριο."},429);
+      let oldCode="";
+      try{oldCode=String((await req.json()).legacyCode||"").trim();}catch{}
+      if(!env.PASSCODE||oldCode!==env.PASSCODE)return jsonNoStore({error:"Λάθος παλιός κωδικός."},403);
+      const legacy=await getLegacyData(env);
+      if(legacy.error)return legacy.error;
+      const claimed=await legacy.stub.fetch("https://car-data.internal/claimed");
+      if(claimed.status===200){
+        const info=await claimed.json();
+        if(info.scope===account.scope)return jsonNoStore({ok:true,already:true});
+        return jsonNoStore({error:"Το παλιό ιστορικό έχει ήδη μεταφερθεί."},409);
       }
-      if (req.method === "GET") return result;
-      // PUT carries the client's last-seen revision. The DO validates it
-      // transactionally and returns 409 on concurrent changes.
-      return stub.fetch("https://car-data.internal/data", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: await req.text()
+      const target=await account.stub.fetch("https://car-data.internal/data");
+      if(!target.ok)return jsonNoStore({error:"Ο νέος λογαριασμός δεν είναι διαθέσιμος."},503);
+      const existing=await target.json();
+      if(existing.revision!==1 || existing.items?.length || existing.reminders?.length ||
+          Object.keys(existing.settings||{}).length) {
+        return jsonNoStore({error:"Φτιάξε νέο, κενό λογαριασμό για τη μεταφορά του παλιού ιστορικού."},409);
+      }
+      // Atomically reserve the legacy snapshot for ONE destination account.
+      // Concurrent claim attempts cannot copy the same history to two users.
+      const reserved=await legacy.stub.fetch("https://car-data.internal/reserve",{
+        method:"POST",body:JSON.stringify({scope:account.scope})
+      });
+      if(!reserved.ok)return jsonNoStore({error:"Το παλιό ιστορικό έχει δεσμευτεί από άλλο λογαριασμό."},409);
+      const imported=await account.stub.fetch("https://car-data.internal/restore-legacy",{
+        method:"POST",body:JSON.stringify(legacy.dataset)
+      });
+      if(!imported.ok)return jsonNoStore({error:"Ο νέος λογαριασμός πρέπει να είναι κενός για τη μεταφορά."},409);
+      const locked=await legacy.stub.fetch("https://car-data.internal/claim",{
+        method:"POST",body:JSON.stringify({scope:account.scope})
+      });
+      if(!locked.ok)return jsonNoStore({error:"Η μεταφορά χρειάζεται έλεγχο. Το παλιό ιστορικό παραμένει ασφαλές."},409);
+      return jsonNoStore({ok:true});
+    }
+
+    if (url.pathname === "/api/data") {
+      const account=await getAccount(req,env);
+      if(!account)return jsonNoStore({error:"Δεν υπάρχει έγκυρος λογαριασμός."},401);
+      if(req.method!=="GET"&&req.method!=="PUT")return new Response("method not allowed",{status:405});
+      if(req.method==="GET")return account.stub.fetch("https://car-data.internal/data");
+      return account.stub.fetch("https://car-data.internal/data",{
+        method:"PUT",headers:{"Content-Type":"application/json"},body:await req.text()
       });
     }
 
     if (url.pathname === "/api/diagnose") {
-      if (!authed(req, env)) return new Response("unauthorized", {
+      if (!(await getAccount(req, env))) return new Response("unauthorized", {
         status: 401,
         headers: {"Cache-Control":"no-store"}
       });
@@ -102,7 +177,7 @@ export default {
     }
 
     if (url.pathname === "/api/parse" && req.method === "POST") {
-      if (!authed(req, env)) return new Response("unauthorized", { status: 401 });
+      if (!(await getAccount(req, env))) return new Response("unauthorized", { status: 401 });
       let text = "";
       try { text = String((await req.json()).text || ""); } catch {}
       if (!text.trim()) return new Response("empty", { status: 400 });
@@ -146,6 +221,60 @@ export class CarServiceStore {
     const url = new URL(request.url);
     const json = (data, status = 200) =>
       Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+
+    if(url.pathname==="/limit"&&request.method==="POST"){
+      let ip;
+      try{ip=String((await request.json()).ip||"unknown").slice(0,80);}catch{ip="unknown";}
+      const key="limit:"+ip,now=Date.now();
+      const allowed=await this.state.storage.transaction(async tx=>{
+        const record=(await tx.get(key))||{since:now,count:0};
+        if(now-record.since>86400000){record.since=now;record.count=0;}
+        if(record.count>=10)return false;
+        record.count++;await tx.put(key,record);return true;
+      });
+      return json({ok:allowed},allowed?200:429);
+    }
+    if(url.pathname==="/claimed"&&request.method==="GET"){
+      const scope=await this.state.storage.get("claimedAccount");
+      return json({claimed:Boolean(scope),scope:scope||null},scope?200:404);
+    }
+    if(url.pathname==="/reserve"&&request.method==="POST"){
+      let scope="";try{scope=String((await request.json()).scope||"");}catch{}
+      if(!/^[a-f0-9]{64}$/.test(scope))return json({error:"bad scope"},400);
+      const allowed=await this.state.storage.transaction(async tx=>{
+        if(await tx.get("claimedAccount"))return false;
+        const current=await tx.get("reservedAccount");
+        if(current && current!==scope)return false;
+        await tx.put("reservedAccount",scope);return true;
+      });
+      return json({ok:allowed},allowed?200:409);
+    }
+    if(url.pathname==="/claim"&&request.method==="POST"){
+      let scope="";try{scope=String((await request.json()).scope||"");}catch{}
+      if(!/^[a-f0-9]{64}$/.test(scope))return json({error:"bad scope"},400);
+      const saved=await this.state.storage.transaction(async tx=>{
+        const reserved=await tx.get("reservedAccount");
+        if(reserved!==scope)return false;
+        const claimed=await tx.get("claimedAccount");
+        if(claimed)return claimed===scope;
+        await tx.put("claimedAccount",scope);return true;
+      });
+      return json({ok:saved},saved?200:409);
+    }
+    if(url.pathname==="/restore-legacy"&&request.method==="POST"){
+      let data;try{data=await request.json();}catch{return json({error:"bad data"},400);}
+      if(!data||!Array.isArray(data.items)||!Array.isArray(data.reminders)||
+        !data.settings||typeof data.settings!=="object")return json({error:"invalid snapshot"},400);
+      const saved=await this.state.storage.transaction(async tx=>{
+        const current=await tx.get("dataset");
+        if(!current||current.revision!==1||current.items.length||
+            current.reminders.length||Object.keys(current.settings).length)return false;
+        await tx.put("dataset",{items:data.items,settings:data.settings,
+          reminders:data.reminders,revision:2});
+        return true;
+      });
+      return json({ok:saved},saved?200:409);
+    }
 
     if (url.pathname === "/bootstrap" && request.method === "POST") {
       let legacy;

@@ -1,8 +1,9 @@
 /* AI Mechanic — clean chat + structured, synced vehicle profile. */
-(function () {
+(function initAfterAccount() {
   "use strict";
+  if(!window.CarHistoryAccountReady){window.addEventListener("carhistory:ready",initAfterAccount,{once:true});return;}
   const $ = id => document.getElementById(id);
-  const CHAT_KEY="carServiceAiConversationV1";
+  const CHAT_KEY="carServiceAiConversationV1:"+window.CarHistoryAccountScope;
   const CHAT_LIMIT=12;
   const fieldMap={
     make:"aiCarMake",model:"aiCarModel",year:"aiCarYear",fuel:"aiCarFuel",
@@ -160,12 +161,8 @@
       setStatus("Χρειάζεται internet για την απάντηση. Το ιστορικό σου παραμένει διαθέσιμο.",true);
       return;
     }
-    let pass=localStorage.getItem(PKEY);
-    if(!pass){
-      pass=prompt("Κωδικός πρόσβασης στο CarHistoryService:");
-      if(!pass||!pass.trim())return;
-      pass=pass.trim();localStorage.setItem(PKEY,pass);
-    }
+    const pass=ACTIVE_TOKEN;
+    if(!pass||!accountIsCurrent()){setStatus("Συνδέσου στον λογαριασμό σου.",true);return;}
     const previous=messages.slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
     const payload={
       question:content,vehicle:getProfile(),currentKm:settings.current||"",
@@ -184,8 +181,8 @@
       });
       let data={};try{data=await response.json()}catch{}
       if(response.status===401){
-        localStorage.removeItem(PKEY);
-        throw new Error("Λάθος κωδικός πρόσβασης. Δοκίμασε ξανά.");
+        window.CarAccountLock?.();
+        throw new Error("Η σύνδεση έληξε.");
       }
       if(!response.ok)throw new Error(data.error||"Το AI δεν απάντησε ("+response.status+").");
       if(typeof data.answer!=="string"||!data.answer.trim())throw new Error("Το AI δεν επέστρεψε απάντηση.");
