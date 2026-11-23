@@ -125,11 +125,13 @@
       const currentKm=int(settings.current);
       const left=dueKm-currentKm;
       const state=currentKm>0?(left<=0?"overdue":left<=2000?"soon":"ok"):"ok";
-      let note=currentKm>0?
-        left<0?"Έχουν ξεπεραστεί κατά "+fmtKm(-left):
-        left===0?"Χρειάζονται έλεγχο / αλλαγή":"Απομένουν "+fmtKm(left):
-        "Προβλεπόμενη αλλαγή στα "+fmtKm(dueKm);
-      if(currentKm>0&&left>0){
+      let note=currentKm>0&&currentKm<int(tires.km)?
+        "Ενημέρωσε τα τωρινά χλμ. για σωστή εκτίμηση":
+        currentKm>0?
+          left<0?"Έχουν ξεπεραστεί κατά "+fmtKm(-left):
+          left===0?"Χρειάζονται έλεγχο / αλλαγή":"Απομένουν "+fmtKm(left):
+          "Προβλεπόμενη αλλαγή στα "+fmtKm(dueKm);
+      if(currentKm>=int(tires.km)&&left>0){
         const estimate=estimateNextServiceDate(items,currentKm,dueKm);
         if(estimate)note+=" · περ. "+new Intl.DateTimeFormat("el-GR",{
           day:"numeric",month:"short",year:"numeric",timeZone:"UTC"
@@ -138,7 +140,6 @@
       cards.push('<div class="due-chip tire-chip '+state+'"><span class="due-chip-top">'+
         '<span class="due-icon" aria-hidden="true">◉</span>Ελαστικά</span>'+
         '<strong>'+fmtKm(dueKm)+'</strong><small>'+esc(note)+'</small></div>');
-      if(state!=="ok")urgent++;
     }
     $("obligationsCount").textContent=urgent?urgent+" κοντά / ληγμένα":
       configured?configured+" ημερομηνίες":"Προσθήκη";
