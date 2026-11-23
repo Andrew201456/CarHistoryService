@@ -95,7 +95,7 @@ assert(worker.includes('url.pathname === "/api/diagnose"'));
 const aiStart=worker.indexOf('if (url.pathname === "/api/diagnose")');
 const aiEnd=worker.indexOf('if (url.pathname === "/api/parse"',aiStart);
 const route=worker.slice(aiStart,aiEnd);
-assert(route.includes('if (!authed(req, env))'),"New AI route must be authenticated");
+assert(route.includes('if (!(await getAccount(req, env)))'),"AI route must validate the caller's own account");
 assert(route.includes('req.method !== "POST"'),"AI route must only accept POST");
 assert(route.includes('return handleDiagnosticRequest(req, env)'));
 const config=read("wrangler.jsonc");
@@ -123,7 +123,7 @@ assert(css.includes(".ai-profile-dialog"),"Vehicle profile needs its own styling
 assert(css.includes(".ai-conversation"),"Conversation styling should exist");
 assert(css.includes(".ai-conversation"));
 assert(css.includes(".ai-profile-dialog"));
-assert(sw.includes('carhistory-shell-v8'));
+assert(sw.includes('carhistory-shell-v9'));
 assert(sw.includes('"/ai-mechanic.js"'));
 assert(!worker.includes("OpenAI_API_KEY"),"AI must use existing binding, not exposed API keys");
 console.log("PASS: structured car profile, legacy car field, diagnostic context, authenticated chat and redesigned UI");

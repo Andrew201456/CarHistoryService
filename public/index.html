@@ -84,7 +84,32 @@ nav button.on{color:var(--accent);font-weight:600}
 </style>
 <link rel="stylesheet" href="/ui.css">
 </head>
-<body>
+<body class="account-locked">
+<section id="accountGate" class="account-gate" aria-label="Σύνδεση λογαριασμού">
+  <div class="account-card">
+    <span class="account-brand">CAR HISTORY</span>
+    <h1>Τα service σου. Μόνο δικά σου.</h1>
+    <p>Κάθε λογαριασμός κρατά ξεχωριστό ιστορικό, αυτοκίνητο και AI Μηχανικό.</p>
+    <form id="accountLoginForm">
+      <label for="accountCode">Ο κωδικός του λογαριασμού σου</label>
+      <input id="accountCode" type="password" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CS-..." required>
+      <button class="account-primary" id="accountLoginBtn" type="submit">Σύνδεση</button>
+    </form>
+    <div class="account-divider">ή</div>
+    <button id="accountCreate" type="button" class="account-secondary">+ Δημιουργία δικού μου λογαριασμού</button>
+    <div id="accountCreated" class="account-created" hidden>
+      <strong>Ο προσωπικός σου κωδικός</strong>
+      <code id="accountNewCode"></code>
+      <p><strong>Αποθήκευσέ τον!</strong> Είναι το μοναδικό κλειδί του λογαριασμού σου. Αν χαθεί, δεν υπάρχει αυτόματη ανάκτηση.</p>
+      <button id="accountCopy" type="button" class="account-secondary">Αντιγραφή κωδικού</button>
+      <button id="accountContinue" type="button" class="account-primary">Αποθήκευσα τον κωδικό — Συνέχεια</button>
+    </div>
+    <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
+    <small>Μην μοιράζεσαι τον κωδικό σου. Ο τετραψήφιος PIN δεν είναι ασφαλής κωδικός λογαριασμού.</small>
+  </div>
+</section>
+
+
 <main>
 
 
@@ -218,7 +243,20 @@ nav button.on{color:var(--accent);font-weight:600}
   <button class="main" id="mk">Δημιουργία αντιγράφου</button>
   <button class="sec" id="cp">Αντιγραφή κειμένου</button>
   <button class="sec" id="rs">Επαναφορά από κείμενο</button>
-  <button class="sec" id="chpw">Αλλαγή κωδικού σε αυτή τη συσκευή</button>
+  <div class="account-settings">
+    <strong>Ο λογαριασμός μου</strong>
+    <p class="note">Κάθε κωδικός ανοίγει μόνο τα δικά του service. Μην κοινοποιείς τον κωδικό σου.</p>
+    <button class="sec" type="button" id="accountShowCode">Προβολή / αντιγραφή κωδικού μου</button>
+    <button class="sec" type="button" id="chpw">Αποσύνδεση / αλλαγή λογαριασμού</button>
+    <div id="legacyTransferBox" class="legacy-transfer">
+      <strong>Έχεις παλιό ιστορικό;</strong>
+      <p class="note">Αν χρησιμοποιούσες την εφαρμογή πριν αποκτήσει λογαριασμούς, μετακίνησε τα παλιά σου service ΜΙΑ φορά στον καινούργιο, κενό λογαριασμό.</p>
+      <label for="legacyAccountCode">Παλαιός κωδικός πρόσβασης</label>
+      <input id="legacyAccountCode" type="password" autocomplete="off" placeholder="Ο παλιός σου κωδικός">
+      <button class="sec" type="button" id="legacyTransfer">Μεταφορά παλιού ιστορικού</button>
+      <p class="note" id="legacyStatus" role="status"></p>
+    </div>
+  </div>
   <p class="note" id="bkmsg" style="margin-top:12px"></p>
 </section>
 
@@ -268,7 +306,65 @@ nav button.on{color:var(--accent);font-weight:600}
 </nav>
 
 <script>
-const KEY="carServiceLog",SKEY="carServiceSettings",PKEY="carServicePass",RKEY="carServiceReminders",BASEKEY="carServiceSyncBaseV2",PENDINGKEY="carServiceSyncPendingV2";
+// Per-account keys: no user's data, cache or sync revisions are shared locally.
+let KEY="",SKEY="",PKEY="",RKEY="",BASEKEY="",PENDINGKEY="";
+let ACTIVE_SCOPE="",ACTIVE_TOKEN="";
+const ACCOUNT_SESSION_KEY="carServiceActiveAccountV3";
+function configureAccount(code,scope){
+  if(!/^CS-[0-9A-F]{32}$/.test(code)||!/^[0-9a-f]{64}$/.test(scope))throw Error("Μη έγκυρα στοιχεία λογαριασμού.");
+  ACTIVE_SCOPE=scope;ACTIVE_TOKEN=code;
+  KEY="carServiceLog:"+scope;
+  SKEY="carServiceSettings:"+scope;
+  PKEY="carServicePass:"+scope;
+  RKEY="carServiceReminders:"+scope;
+  BASEKEY="carServiceSyncBaseV2:"+scope;
+  PENDINGKEY="carServiceSyncPendingV2:"+scope;
+  localStorage.setItem(PKEY,code);
+}
+function accountIsCurrent(){
+  try{return JSON.parse(localStorage.getItem(ACCOUNT_SESSION_KEY)||"null")?.scope===ACTIVE_SCOPE;}
+  catch{return false;}
+}
+function copyLegacyLocal(){
+  // Only called by the owner after a successful authorized server migration.
+  const pairs=[["carServiceLog",KEY],["carServiceSettings",SKEY],
+    ["carServiceReminders",RKEY],["carServiceSyncBaseV2",BASEKEY],
+    ["carServiceSyncPendingV2",PENDINGKEY]];
+  const existing=pairs.some(([oldName])=>localStorage.getItem(oldName)!==null);
+  if(!existing)return;
+  for(const [oldName,newName] of pairs){
+    const content=localStorage.getItem(oldName);
+    // The newly created account may already have an empty offline cache;
+    // replace it with the owner's older local data (including pending edits).
+    if(content!==null)localStorage.setItem(newName,content);
+  }
+  // Do not display historical data to the next user on the same browser.
+  for(const [oldName] of pairs)localStorage.removeItem(oldName);
+  localStorage.removeItem("carServicePass");
+  const oldChat=localStorage.getItem("carServiceAiConversationV1");
+  if(oldChat!==null){
+    localStorage.setItem("carServiceAiConversationV1:"+ACTIVE_SCOPE,oldChat);
+    localStorage.removeItem("carServiceAiConversationV1");
+  }
+  const oldDraft=localStorage.getItem("carServiceDraftV1");
+  if(oldDraft!==null){
+    localStorage.setItem("carServiceDraftV1:"+ACTIVE_SCOPE,oldDraft);
+    localStorage.removeItem("carServiceDraftV1");
+  }
+}
+function startAccount(code,scope){
+  configureAccount(code,scope);
+  items=[];reminders=[];settings={interval:10000,current:""};
+  load();
+  resetForm();render();
+  window.CarHistoryAccountReady=true;
+  window.CarHistoryAccountScope=scope;
+  window.dispatchEvent(new Event("carhistory:ready"));
+  sync();
+}
+window.CarAppStartAccount=startAccount;
+window.CarAppCopyLegacyLocal=copyLegacyLocal;
+
 let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
 const $=id=>document.getElementById(id);
 function load(){
@@ -377,16 +473,15 @@ function adopt(data){
   saveLocal();render();
 }
 async function sync(){
+  if(!ACTIVE_TOKEN||!accountIsCurrent())return;
   if(syncing){syncAgain=true;return}
-  const key=localStorage.getItem(PKEY);
-  let p=key;
-  if(!p){p=prompt("Κωδικός πρόσβασης:");if(!p)return;localStorage.setItem(PKEY,p.trim());p=p.trim()}
+  const p=ACTIVE_TOKEN;
   syncing=true;
   try{
     let synced=false,conflictCount=0;
     for(let attempt=0;attempt<4;attempt++){
       const resp=await fetch("/api/data",{headers:{Authorization:"Bearer "+p},cache:"no-store"});
-      if(resp.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός. Άνοιξε ξανά την εφαρμογή.",true);return}
+      if(resp.status===401){window.CarAccountLock?.();setSt("Η σύνδεση έληξε. Συνδέσου ξανά.",true);return}
       if(!resp.ok)throw new Error("Αδυναμία λήψης ("+resp.status+")");
       const raw=await resp.json();
       const remote={items:Array.isArray(raw.items)?raw.items:[],settings:raw.settings||{},reminders:Array.isArray(raw.reminders)?raw.reminders:[]};
@@ -421,7 +516,7 @@ async function sync(){
         body:JSON.stringify({...desired,revision})
       });
       if(response.status===409)continue; // Another device updated first; merge and retry.
-      if(response.status===401){localStorage.removeItem(PKEY);setSt("Λάθος κωδικός",true);return}
+      if(response.status===401){window.CarAccountLock?.();setSt("Η σύνδεση έληξε.",true);return}
       if(!response.ok)throw new Error("Αδυναμία αποθήκευσης ("+response.status+")");
       const saved=await response.json();
       rememberBase(saved);
@@ -644,10 +739,8 @@ $("rs").onclick=()=>{
     if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};if(!Array.isArray(d)&&Array.isArray(d.reminders))reminders=d.reminders;store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
   }catch(e){$("bkmsg").textContent="Το κείμενο δεν είναι έγκυρο αντίγραφο."}
 };
-$("chpw").onclick=()=>{
-  const p=prompt("Νέος κωδικός για αυτή τη συσκευή (πρέπει να ταιριάζει με το PASSCODE στο Cloudflare):");
-  if(p&&p.trim()){localStorage.setItem(PKEY,p.trim());$("bkmsg").textContent="Ο κωδικός άλλαξε.";sync()}
-};
+$("chpw").onclick=()=>window.CarAccountLogout?.();
+$("accountShowCode").onclick=()=>window.CarAccountShowCode?.();
 /* Εισαγωγή με AI */
 let imported=[];
 function setImp(m){$("impMsg").textContent=m||""}
@@ -697,14 +790,14 @@ $("impList").addEventListener("click",e=>{
 });
 $("impGo").onclick=async()=>{
   const t=$("impTxt").value.trim();if(!t){setImp("Κάνε πρώτα επικόλληση κείμενο.");return}
-  const p=localStorage.getItem(PKEY);if(!p){setImp("Χρειάζεται κωδικός. Ξανάνοιξε τη σελίδα και βάλε τον.");return}
+  const p=ACTIVE_TOKEN;if(!p||!accountIsCurrent()){setImp("Συνδέσου πρώτα στον λογαριασμό σου.");return}
   const chunks=chunkText(t,5000);let all=[];
   $("impGo").disabled=true;imported=[];renderImp();
   try{
     for(let i=0;i<chunks.length;i++){
       setImp("Ανάλυση "+(i+1)+" από "+chunks.length+"...");
       const r=await fetch("/api/parse",{method:"POST",headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},body:JSON.stringify({text:chunks[i]})});
-      if(r.status===401){localStorage.removeItem(PKEY);throw new Error("Λάθος κωδικός")}
+      if(r.status===401){window.CarAccountLock?.();throw new Error("Η σύνδεση έληξε.")}
       if(!r.ok)throw new Error("Σφάλμα server ("+r.status+")");
       const d=await r.json();all=all.concat(Array.isArray(d.entries)?d.entries:[]);
     }
@@ -723,8 +816,9 @@ $("impAdd").onclick=()=>{
   imported=[];renderImp();$("impTxt").value="";setImp("Προστέθηκαν "+sel.length+" καταχωρήσεις.");show("list");
 };
 
-load();resetForm();render();sync();
+// Account gate initializes the app after credential verification.
 </script>
+<script src="/account.js"></script>
 <script src="/features.js"></script>
 <script src="/ai-mechanic.js"></script>
 </body>
