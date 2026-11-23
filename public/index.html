@@ -89,14 +89,11 @@ nav button.on{color:var(--accent);font-weight:600}
   <div class="account-card">
     <div class="account-identity">
       <div class="account-lockup">
-        <img src="/app-icon-192.png" alt="" class="account-logo" width="48" height="48">
-        <div class="account-brand-stack">
-          <span class="account-brand">CAR HISTORY</span>
-          <span class="account-brand-caption">MY SERVICE LOG</span>
-        </div>
+        <img src="/app-icon-192.png" alt="" class="account-logo" width="42" height="42">
+        <span class="account-brand">CAR HISTORY</span>
       </div>
       <button id="accountOpenRegister" class="account-options-trigger" type="button"
-        aria-label="Επιλογές λογαριασμού" aria-controls="accountRegisterPanel"
+        aria-label="Δημιουργία λογαριασμού" aria-controls="accountRegisterPanel"
         aria-expanded="false" title="Νέος λογαριασμός">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -108,30 +105,15 @@ nav button.on{color:var(--accent);font-weight:600}
     </div>
 
     <div id="accountLoginPanel" class="account-panel">
-      <div class="account-login-eyebrow"><span class="account-online-dot" aria-hidden="true"></span>Το ψηφιακό σου βιβλίο service</div>
-      <h1>Καλώς ήρθες<span class="account-heading-dot">.</span></h1>
-      <p>Ο κωδικός σου είναι το κλειδί για το ιστορικό του αυτοκινήτου σου.</p>
-
+      <h1>Σύνδεση</h1>
       <form id="accountLoginForm" novalidate>
         <label for="accountCode">Κωδικός πρόσβασης</label>
-        <div class="account-input-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="4.8" y="10.4" width="14.4" height="10.1" rx="2.5"></rect>
-            <path d="M8 10.3V7.4a4 4 0 0 1 8 0v2.9"></path>
-          </svg>
-          <input id="accountCode" type="password" autocomplete="off" spellcheck="false"
-            enterkeyhint="go" placeholder="Γράψε τον κωδικό σου"
-            aria-describedby="accountMessage" required>
-        </div>
+        <input id="accountCode" type="password" autocomplete="off" spellcheck="false"
+          enterkeyhint="go" placeholder="Γράψε τον κωδικό σου"
+          aria-describedby="accountMessage" required>
         <button class="account-primary account-login-button" id="accountLoginBtn"
           type="submit" aria-busy="false">
           <span id="accountLoginBtnText">Σύνδεση</span>
-          <svg class="account-login-arrow" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14m-6-6 6 6-6 6"></path>
-          </svg>
         </button>
       </form>
     </div>

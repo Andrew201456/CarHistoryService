@@ -390,181 +390,139 @@ nav button span:last-child{white-space:nowrap}
 @media(prefers-reduced-motion:reduce){.ai-send-button,.ai-car-summary{transition:none}}
 
 
-/* Account entry: quiet, compact and independent from the service UI. */
+/* Login / registration — compact, quiet, and consistent with the app. */
 body.account-locked main,
 body.account-locked nav{display:none!important}
 .account-gate[hidden],.account-card [hidden]{display:none!important}
 .account-gate{
   min-height:100dvh;display:flex;align-items:center;justify-content:center;
-  padding:calc(30px + env(safe-area-inset-top,0px)) 17px
-    calc(35px + env(safe-area-inset-bottom,0px));
-  background:
-    radial-gradient(ellipse 80% 52% at 47% 10%,color-mix(in srgb,var(--accent) 11%,transparent),transparent 76%),
-    var(--bg);
+  padding:24px 16px;
+  background:var(--bg);
 }
 .account-card{
-  width:min(100%,420px);position:relative;overflow:hidden;
-  border-radius:25px;padding:clamp(22px,6vw,33px);
-  background:var(--card);border:1px solid var(--line);
-  box-shadow:0 22px 75px rgba(12,33,49,.12),0 3px 13px rgba(12,33,49,.025);
-}
-.account-card:before{
-  content:"";position:absolute;inset:0 0 auto;height:3px;pointer-events:none;
-  background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 25%,var(--card)));
+  width:min(100%,395px);background:var(--card);
+  border:1px solid var(--line);border-radius:16px;
+  padding:28px 24px;
+  box-shadow:0 5px 22px rgba(12,33,49,.035);
 }
 .account-card button{font:inherit;cursor:pointer}
-.account-card button:disabled{cursor:wait;opacity:.75}
-.account-card button:focus-visible,
-.account-card input:focus-visible{
-  outline:3px solid color-mix(in srgb,var(--accent) 52%,transparent);outline-offset:3px;
+.account-card button:disabled{cursor:wait;opacity:.72}
+.account-card input:focus-visible,.account-card button:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
 }
 .account-identity{
   display:flex;align-items:center;justify-content:space-between;
-  gap:14px;margin:0 0 38px;min-width:0;
+  gap:12px;margin:0 0 29px;
 }
-.account-lockup{display:flex;align-items:center;gap:11px;min-width:0}
-.account-logo{display:block;width:47px;height:47px;border-radius:13px;object-fit:contain}
-.account-brand-stack{display:flex;flex-direction:column;gap:0;min-width:0}
-.account-brand{
-  color:var(--ink);font-size:.79rem;font-weight:850;
-  letter-spacing:1.05px;line-height:1.35;
-}
-.account-brand-caption{font-size:.61rem;font-weight:750;letter-spacing:1.5px;color:var(--mute);line-height:1.65}
+.account-lockup{display:flex;align-items:center;gap:10px;min-width:0}
+.account-logo{display:block;width:40px;height:40px;object-fit:contain;border-radius:10px}
+.account-brand{font-size:.84rem;font-weight:800;letter-spacing:.45px;color:var(--ink)}
 .account-card .account-options-trigger{
-  width:44px;height:44px;min-height:44px;min-width:44px;flex:none;
-  display:inline-flex;align-items:center;justify-content:center;
-  border-radius:14px;border:1px solid var(--line);background:var(--bg);
-  color:var(--accent);padding:10px;margin:0;box-shadow:none;
-  transition:transform .16s ease,border-color .16s ease,background-color .16s ease;
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;min-width:40px;min-height:40px;
+  padding:9px;margin:0;
+  color:var(--mute);background:transparent;
+  border:1px solid var(--line);border-radius:10px;
+  box-shadow:none;
 }
-.account-options-trigger svg{width:23px;height:23px;display:block;pointer-events:none}
+.account-options-trigger svg{display:block;width:21px;height:21px;pointer-events:none}
 .account-card .account-options-trigger:hover{
-  transform:translateY(-1px);
-  background:var(--soft);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));
-}
-.account-card .account-options-trigger:active{transform:translateY(0)}
-.account-login-eyebrow{
-  color:var(--accent);display:flex;align-items:center;gap:8px;
-  font-size:.7rem;font-weight:780;letter-spacing:.3px;margin-bottom:10px;
-}
-.account-online-dot{
-  width:7px;height:7px;border-radius:50%;display:inline-block;flex:none;
-  background:var(--accent);box-shadow:0 0 0 4px var(--soft);
+  color:var(--accent);background:var(--soft);
 }
 .account-card #accountLoginPanel h1{
-  font-size:clamp(1.92rem,6.2vw,2.33rem);font-weight:850;
-  letter-spacing:-1.15px;line-height:1.12;margin:0 0 12px;color:var(--ink);
-}
-.account-heading-dot{color:var(--accent)}
-.account-card #accountLoginPanel>p{
-  color:var(--mute);font-size:.9rem;line-height:1.65;max-width:290px;
-  margin:0 0 31px;font-weight:450;
+  margin:0 0 22px;font-size:1.45rem;line-height:1.2;
+  font-weight:780;letter-spacing:-.4px;color:var(--ink);
 }
 .account-card #accountLoginForm label,
 .account-card #accountRegisterPanel .account-custom-form label{
-  display:block;font-size:.8rem;font-weight:760;line-height:1.5;
-  margin:0 0 10px;color:var(--ink);
+  display:block;margin:0 0 8px;
+  font-size:.8rem;font-weight:720;color:var(--ink);
 }
-.account-input-wrap{position:relative;display:flex;align-items:center;width:100%}
-.account-input-wrap>svg{
-  position:absolute;left:15px;top:50%;transform:translateY(-50%);
-  color:var(--mute);width:21px;height:21px;pointer-events:none;
+.account-card #accountLoginForm input,
+.account-card #accountRegisterPanel .account-custom-form input{
+  display:block;width:100%;min-height:51px;
+  padding:12px 13px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--ink);
+  font-size:16px;font-weight:500;
 }
-.account-card #accountLoginForm .account-input-wrap input{
-  width:100%;height:57px;min-height:57px;padding:12px 15px 12px 47px;
-  border:1.5px solid var(--line);border-radius:14px;
-  color:var(--ink);background:var(--bg);font-size:16px;
-  font-weight:580;letter-spacing:.05px;transition:border-color .16s ease,box-shadow .16s ease;
+.account-card #accountLoginForm input:focus,
+.account-card #accountRegisterPanel .account-custom-form input:focus{
+  border-color:var(--accent);
+  box-shadow:none;
 }
-.account-card #accountLoginForm .account-input-wrap:focus-within input{
-  border-color:var(--accent);box-shadow:0 0 0 4px var(--soft);outline:none;
-}
-.account-card #accountLoginForm .account-input-wrap:focus-within>svg{color:var(--accent)}
 .account-card #accountLoginForm input[aria-invalid="true"]{border-color:var(--danger)}
-.account-card #accountLoginForm input::placeholder{color:var(--mute);font-weight:400;letter-spacing:0;opacity:.8}
+.account-card #accountLoginForm input::placeholder{opacity:.7;font-weight:400}
 .account-card .account-login-button{
-  width:100%;min-height:56px;height:56px;
-  border-radius:14px;margin:17px 0 0;
-  display:flex;align-items:center;justify-content:center;gap:12px;
-  padding:13px 20px;background:var(--accent);color:var(--accent-ink);
-  border:1px solid var(--accent);font-size:.97rem;font-weight:810;
-  letter-spacing:.15px;transition:filter .15s ease,transform .15s ease;
+  display:block;width:100%;min-height:51px;
+  margin:14px 0 0;padding:12px 14px;
+  border:1px solid var(--accent);border-radius:10px;
+  color:var(--accent-ink);background:var(--accent);
+  font-size:.91rem;font-weight:780;text-align:center;
+  box-shadow:none;
 }
-.account-card .account-login-button:not(:disabled):hover{filter:brightness(1.075);transform:translateY(-1px)}
-.account-card .account-login-button:not(:disabled):active{transform:translateY(0)}
-.account-login-arrow{display:block;width:20px;height:20px;pointer-events:none}
-.account-login-button.is-loading .account-login-arrow{animation:account-wait 1s linear infinite}
-@keyframes account-wait{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.account-card #accountLoginPanel .account-entry-footnote{
-  color:var(--mute);font-size:.72rem;line-height:1.6;max-width:none;
-  text-align:center;margin:20px 0 0;
-}
+.account-card .account-login-button:not(:disabled):hover{filter:brightness(1.05)}
 .account-card .account-message{
-  color:var(--accent);font-size:.81rem!important;line-height:1.55;
-  min-height:0;margin:14px 0 0!important;font-weight:500;
+  font-size:.79rem!important;font-weight:520;line-height:1.5;
+  margin:14px 0 0!important;min-height:0;color:var(--accent);
 }
 .account-card .account-message:empty{display:none}
 .account-card .account-message.error{color:var(--danger)}
 .account-card .account-back{
-  display:inline-flex;align-items:center;width:auto;min-height:36px;
-  margin:0 0 18px;padding:4px 0;border:0;background:transparent;
-  color:var(--mute);font-size:.78rem;font-weight:680;box-shadow:none;
+  display:inline-flex;align-items:center;width:auto;min-height:34px;
+  margin:0 0 16px;padding:3px 0;
+  color:var(--mute);background:transparent;border:0;
+  font-size:.78rem;font-weight:670;box-shadow:none;
 }
-.account-card .account-back:hover{color:var(--ink)}
 .account-card #accountRegisterPanel h2{
-  font-size:1.58rem;font-weight:830;letter-spacing:-.6px;
-  color:var(--ink);margin:0 0 7px;line-height:1.28;
+  margin:0 0 6px;font-size:1.38rem;font-weight:790;
+  line-height:1.25;color:var(--ink);
 }
 .account-card #accountRegisterPanel #accountRegisterChoices>p{
-  color:var(--mute);font-size:.86rem;line-height:1.6;margin:0 0 22px;
+  color:var(--mute);font-size:.84rem;line-height:1.55;margin:0 0 19px;
 }
 .account-card #accountRegisterPanel .account-custom-form{
-  border:0;border-radius:0;margin:0;padding:0;background:transparent;
-}
-.account-card #accountRegisterPanel .account-custom-form input{
-  width:100%;height:52px;min-height:52px;border-radius:13px;
-  color:var(--ink);background:var(--bg);border:1.5px solid var(--line);
-  padding:12px 14px;font-size:16px;font-weight:520;
-}
-.account-card #accountRegisterPanel .account-custom-form input:focus{
-  border-color:var(--accent);box-shadow:0 0 0 4px var(--soft);outline:none;
+  margin:0;padding:0;border:0;background:transparent;
 }
 .account-card #accountRegisterPanel .account-helper{
-  color:var(--mute);font-size:.74rem;line-height:1.6;margin:10px 0 0;
+  margin:7px 0 0;font-size:.73rem;color:var(--mute);line-height:1.5;
 }
 .account-card #accountRegisterPanel .account-primary,
 .account-card #accountRegisterPanel .account-secondary{
-  display:block;width:100%;min-height:49px;margin:14px 0 0;
-  border-radius:13px;padding:11px 13px;
-  font-size:.86rem;font-weight:760;
+  display:block;width:100%;min-height:47px;
+  margin:12px 0 0;padding:10px 12px;
+  border-radius:10px;font-size:.84rem;font-weight:730;
 }
 .account-card #accountRegisterPanel .account-primary{
   background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);
 }
 .account-card #accountRegisterPanel .account-secondary{
-  background:var(--soft);color:var(--ink);border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);border:1px solid var(--line);
 }
 .account-card .account-divider{
-  display:flex;align-items:center;gap:12px;margin:17px 0 2px;
-  color:var(--mute);font-size:.72rem;justify-content:center;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  margin:17px 0 3px;color:var(--mute);font-size:.72rem;
 }
-.account-card .account-divider:before,.account-card .account-divider:after{
+.account-card .account-divider:before,
+.account-card .account-divider:after{
   content:"";height:1px;flex:1;background:var(--line);
 }
 .account-card .account-safety-note{
-  display:block;margin-top:17px;color:var(--mute);font-size:.72rem;line-height:1.58;
+  display:block;margin-top:15px;
+  color:var(--mute);font-size:.72rem;line-height:1.5;
 }
 .account-card .account-created{
-  padding:15px;border-radius:14px;border:1px solid var(--line);
-  background:var(--soft);overflow:hidden;
+  padding:14px;border-radius:11px;
+  border:1px solid var(--line);background:var(--bg);
 }
-.account-created strong{color:var(--ink);font-size:.85rem;font-weight:800}
+.account-created strong{color:var(--ink);font-size:.85rem;font-weight:770}
 .account-created code{
-  display:block;margin:10px 0;font-weight:800;font-size:.88rem;
-  letter-spacing:.3px;word-break:break-all;user-select:all;-webkit-user-select:all;
+  display:block;margin:10px 0;font-weight:800;
+  font-size:.9rem;word-break:break-all;user-select:all;-webkit-user-select:all;
 }
-.account-card .account-created p{margin:10px 0;color:var(--mute);font-size:.78rem;line-height:1.55}
-.account-card #accountCreated button{width:100%;min-height:48px;border-radius:12px;margin:9px 0 0;font-weight:730}
+.account-card .account-created p{
+  margin:10px 0;font-size:.78rem;line-height:1.5;color:var(--mute);
+}
+.account-card #accountCreated button{min-height:47px;margin:9px 0 0}
 .account-card #accountCopy{background:var(--card);color:var(--ink);border:1px solid var(--line)}
 .account-card #accountContinue{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
 .account-settings{border:1px solid var(--line);padding:15px;border-radius:14px;margin:18px 0}
@@ -577,17 +535,9 @@ body.account-locked nav{display:none!important}
 .legacy-transfer input{width:100%;min-height:44px;font-size:16px}
 #legacyStatus{min-height:16px}
 @media(max-width:380px){
-  .account-card{padding:23px 19px;border-radius:20px}
-  .account-identity{margin-bottom:31px}
-  .account-card #accountLoginPanel h1{font-size:1.88rem}
+  .account-card{padding:23px 19px}
+  .account-identity{margin-bottom:24px}
 }
-@media(prefers-reduced-motion:reduce){
-  .account-card .account-login-button,
-  .account-card .account-options-trigger,
-  .account-card #accountLoginForm input{transition:none}
-  .account-login-button.is-loading .account-login-arrow{animation:none}
-}
-
 
 /* Car obligations and tire life: small, readable status cards. */
 .due-summary{margin:-4px 0 17px}
