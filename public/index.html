@@ -501,18 +501,39 @@ window.CarAppCopyLegacyLocal=copyLegacyLocal;
 
 let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
 const $=id=>document.getElementById(id);
-const itemKind=it=>it.kind==="tires"?"tires":it.regular===false?"repair":"regular";
+const HISTORY_KINDS=["regular","repair","tires","improvements"];
+const itemKind=it=>it.kind==="improvements"?"improvements":
+  it.kind==="tires"?"tires":it.regular===false?"repair":"regular";
+const isKindVisible=kind=>settings.homeVisibleKinds?.[kind]!==false;
+function renderAccountPreferences(){
+  document.querySelectorAll("[data-visible-kind]").forEach(box=>{
+    box.checked=isKindVisible(box.dataset.visibleKind);
+  });
+  $("accountEntriesCount").textContent=String(items.length);
+}
+$("accountCategorySettings").addEventListener("change",event=>{
+  const input=event.target;
+  const kind=input.dataset.visibleKind;
+  if(!HISTORY_KINDS.includes(kind))return;
+  settings.homeVisibleKinds={...(settings.homeVisibleKinds||{}),[kind]:input.checked};
+  store();
+  render();
+});
 function setServiceKind(kind){
-  const selected=["regular","repair","tires"].includes(kind)?kind:"regular";
+  const selected=HISTORY_KINDS.includes(kind)?kind:"regular";
   $("serviceKind").value=selected;
   $("kmFieldLabel").textContent=selected==="tires"?"Χιλιόμετρα τοποθέτησης":"Χιλιόμετρα";
   $("regular").checked=selected==="regular";
   $("tireFields").hidden=selected!=="tires";
+  $("improvementQuickActions").hidden=selected!=="improvements";
+  $("regularQuickActions").hidden=selected==="improvements";
   $("serviceKindHint").textContent=selected==="regular"
     ?"Τα τακτικά service μετράνε για τον υπολογισμό του επόμενου."
     :selected==="repair"
       ?"Οι επισκευές δεν επηρεάζουν το επόμενο τακτικό service."
-      :"Οι αλλαγές ελαστικών εμφανίζονται χωριστά και υπολογίζουν πότε χρειάζεται η επόμενη.";
+      :selected==="tires"
+        ?"Οι αλλαγές ελαστικών εμφανίζονται χωριστά και υπολογίζουν πότε χρειάζεται η επόμενη."
+        :"Κράτησε όλες τις αναβαθμίσεις σου, όπως Stage 1, εξάτμιση ή ανάρτηση. Δεν αλλάζουν το επόμενο τακτικό service.";
 }
 $("serviceKind").addEventListener("change",()=>setServiceKind($("serviceKind").value));
 function load(){
@@ -723,7 +744,7 @@ function estimateNextServiceDate(records,currentKm,targetKm,now=new Date()){
   const todayUtc=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
   const readings=[];
   for(const item of records){
-    if(item.regular===false||item.kind==="tires")continue;
+    if(itemKind(item)!=="regular")continue;
     const iso=String(item.date||"");
     if(!/^\d{4}-\d{2}-\d{2}$/.test(iso))continue;
     const km=intOf(item.km);
@@ -811,17 +832,36 @@ function haystack(it){return [fmtDate(it.date),it.date,it.km,it.where,it.notes,i
 function render(){
   renderNext();
   const q=$("q").value.trim(),nq=norm(q);
+  if(historyFilter!=="all"&&!isKindVisible(historyFilter))historyFilter="all";
+  document.querySelectorAll("[data-filter]").forEach(button=>{
+    const kind=button.dataset.filter;
+    button.hidden=kind!=="all"&&!isKindVisible(kind);
+    const active=historyFilter===kind;
+    button.classList.toggle("selected",active);
+    button.setAttribute("aria-pressed",String(active));
+  });
+  renderAccountPreferences();
   const sorted=[...items].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const relevant=sorted.filter(it=>historyFilter==="all"||itemKind(it)===historyFilter);
+  const visible=sorted.filter(it=>isKindVisible(itemKind(it)));
+  const relevant=visible.filter(it=>historyFilter==="all"||itemKind(it)===historyFilter);
   const res=nq?relevant.filter(it=>norm(haystack(it)).includes(nq)):relevant;
-  $("count").textContent=nq?res.length+" αποτελέσματα από "+items.length:items.length+" καταχωρήσεις";
+  $("count").textContent=nq?res.length+" αποτελέσματα από "+visible.length+
+    (visible.length!==items.length?" ορατές εγγραφές": " καταχωρήσεις"):
+    visible.length+" από "+items.length+" καταχωρήσεις";
   const L=$("list");
-  if(!res.length){L.innerHTML='<div class="empty">'+(items.length?"Δεν βρέθηκε τίποτα.":"Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';return}
+  if(!res.length){
+    const allHidden=HISTORY_KINDS.every(kind=>!isKindVisible(kind));
+    L.innerHTML='<div class="empty">'+(allHidden?
+      "Έχεις κρύψει όλες τις κατηγορίες. Μπορείς να τις εμφανίσεις ξανά από το Account.":
+      items.length?"Δεν βρέθηκε τίποτα στις ορατές κατηγορίες.":
+      "Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';
+    return;
+  }
   L.innerHTML=res.map(it=>{
     const parts=(it.parts||[]).filter(p=>p.name||p.cost);
     const t=total(it);
     const noteTxt=[it.what,it.notes].filter(Boolean).join("\n");
-    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
+    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":itemKind(it)==="improvements"?"βελτίωση":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
     ${parts.length?`<ul class="parts">${parts.map(p=>`<li><span>${hl(p.name||"",q)}</span><span class="c">${p.cost?hl(money(num(p.cost)),q):""}</span></li>`).join("")}</ul>`:""}
     ${itemKind(it)==="tires"&&intOf(it.km)>0&&intOf(it.tireLifeKm)>0?`<div class="tire-history-note"><strong>${esc(it.tireName||"Ελαστικά")}</strong> · Εκτιμώμενη αλλαγή στα ${fmtKm(intOf(it.km)+intOf(it.tireLifeKm))}${intOf(settings.current)>0?" · "+(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)>=0?"Απομένουν "+fmtKm(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)):"Έχουν ξεπεραστεί κατά "+fmtKm(intOf(settings.current)-intOf(it.km)-intOf(it.tireLifeKm))):""}</div>`:""}
     ${noteTxt?`<div class="notes">${hl(noteTxt,q)}</div>`:""}
