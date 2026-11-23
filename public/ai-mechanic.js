@@ -147,7 +147,7 @@
       return words(haystack).some(w=>terms.has(w));
     }).slice(0,40);
     return [...recent,...older].map(it=>({
-      date:it.date||"",km:it.km||"",regular:it.regular!==false,
+      date:it.date||"",km:it.km||"",regular:it.regular!==false,kind:itemKind(it),
       parts:(Array.isArray(it.parts)?it.parts:[]).slice(0,12)
         .map(p=>({name:String(p.name||"").slice(0,115)})),
       what:String(it.what||"").slice(0,250),notes:String(it.notes||"").slice(0,450)
