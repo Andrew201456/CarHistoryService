@@ -815,3 +815,24 @@ body.account-locked nav{display:none!important}
 @media(prefers-reduced-motion:reduce){
   .account-switch,.account-switch:after{transition:none}
 }
+
+/* Service remaining: readable semantic colours in both light and dark themes.
+   Progress bar, dot and label always agree on the same urgency. */
+.next .service-remaining.service-good {color:#15803d}
+.next .service-remaining.service-warning {color:#b45309}
+.next .service-remaining.service-critical {color:#dc2626}
+.next .service-remaining.service-overdue {color:#881337}
+.next .service-progress.service-good i {background:#16a34a}
+.next .service-progress.service-warning i {background:#f59e0b}
+.next .service-progress.service-critical i {background:#ef4444}
+.next .service-progress.service-overdue i {background:#881337}
+.next .service-progress.service-overdue {background:rgba(136,19,55,.16)}
+.next .service-remaining.service-good,.next .service-remaining.service-warning,
+.next .service-remaining.service-critical,.next .service-remaining.service-overdue {font-weight:800}
+@media(prefers-color-scheme:dark) {
+  .next .service-remaining.service-good {color:#4ade80}
+  .next .service-remaining.service-warning {color:#fbbf24}
+  .next .service-remaining.service-critical {color:#f87171}
+  .next .service-remaining.service-overdue {color:#fb7185}
+  .next .service-progress.service-overdue i {background:#be123c}
+}
