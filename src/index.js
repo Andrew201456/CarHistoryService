@@ -42,19 +42,20 @@ const SCHEMA = {
   required: ["entries"],
 };
 
-// A code is the ONLY credential to view/edit an account. Keep old CS- codes
-// working, and allow a new memorable custom code or a generated prefix-free one.
-// Custom codes need at least 12 characters and a letter + digit; avoid short PINs.
-const LEGACY_CODE_RE = /^CS-[0-9A-F]{32}$/;
-const CUSTOM_CODE_RE = /^[A-Z0-9][A-Z0-9_-]{11,63}$/;
-const CODE_RE = /^(?:CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+// Four digits are convenient but weak. Never accept a bare PIN to read/write
+// records: login exchanges it for an unpredictable, expiring bearer session.
+// Preserve previously issued CS-* and long alphanumeric credentials.
+const PIN_RE = /^[0-9]{4}$/;
+const CODE_RE = /^(?:[0-9]{4}|CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+const SESSION_RE = /^ST-([0-9a-f]{64})-([A-F0-9]{48})$/;
 const normalizeAccountCode = value => String(value||"").trim().toUpperCase();
-const isValidNewCode = code => CUSTOM_CODE_RE.test(code) && /[A-Z]/.test(code) && /[0-9]/.test(code);
+const isValidNewCode = code => PIN_RE.test(code);
 const generatedCode = () => {
-  // 20 random chars from a 32-character alphabet (100 bits of entropy).
-  const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const random=crypto.getRandomValues(new Uint8Array(20));
-  return Array.from(random,b=>alphabet[b&31]).join("");
+  // Uniform random integer from 0000 to 9999, including leading zeroes.
+  const limit=Math.floor(0x100000000/10000)*10000;
+  let n;
+  do{n=crypto.getRandomValues(new Uint32Array(1))[0];}while(n>=limit);
+  return String(n%10000).padStart(4,"0");
 };
 const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
@@ -68,7 +69,37 @@ async function resolveAccount(code,env){
   if(!exists.ok)return null;
   return {stub,scope:hash};
 }
-async function getAccount(req,env){return resolveAccount(tokenFrom(req),env);}
+async function newSession(stub,scope){
+  const secret=Array.from(crypto.getRandomValues(new Uint8Array(24)),
+    b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
+  const result=await stub.fetch("https://car-data.internal/session-issue",{
+    method:"POST",body:JSON.stringify({secret})
+  });
+  if(!result.ok)throw new Error("Session could not be created");
+  return "ST-"+scope+"-"+secret;
+}
+async function getAccount(req,env){
+  const bearer=tokenFrom(req);
+  const session=SESSION_RE.exec(bearer);
+  if(session){
+    const scope=session[1],secret=session[2];
+    const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+scope));
+    const result=await stub.fetch("https://car-data.internal/session-verify",{
+      method:"POST",body:JSON.stringify({secret})
+    });
+    return result.ok?{stub,scope}:null;
+  }
+  if(PIN_RE.test(bearer))return null; // PIN is accepted ONLY at login, never on data endpoints.
+  return resolveAccount(bearer,env); // Backward compatibility for existing long codes.
+}
+async function limitPinLogin(req,env,code){
+  const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-pin-login-limit"));
+  return limiter.fetch("https://car-data.internal/login-check",{
+    method:"POST",body:JSON.stringify({
+      ip:req.headers.get("CF-Connecting-IP")||"unknown",code
+    })
+  });
+}
 async function getLegacyData(env){
   const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-primary"));
   let current=await stub.fetch("https://car-data.internal/data");
@@ -103,7 +134,7 @@ export default {
           return jsonNoStore({error:"Ο κωδικός πρέπει να είναι κείμενο."},400);
       } catch {return jsonNoStore({error:"Μη έγκυρα στοιχεία λογαριασμού."},400);}
       if(requestedCode&&!isValidNewCode(requestedCode)){
-        return jsonNoStore({error:"Βάλε 12–64 χαρακτήρες: λατινικά γράμματα, αριθμούς, - ή _, με τουλάχιστον ένα γράμμα και έναν αριθμό."},400);
+        return jsonNoStore({error:"Ο κωδικός πρέπει να έχει ακριβώς 4 ψηφία, π.χ. 1234."},400);
       }
       // One IP cannot generate unlimited Durable Objects in one day.
       const clientIP=req.headers.get("CF-Connecting-IP")||"unknown";
@@ -112,7 +143,7 @@ export default {
         method:"POST",body:JSON.stringify({ip:clientIP})
       });
       if(!allowed.ok)return jsonNoStore({error:"Πάρα πολλές δημιουργίες. Δοκίμασε αργότερα."},429);
-      for(let attempt=0;attempt<3;attempt++){
+      for(let attempt=0;attempt<40;attempt++){
         const code=requestedCode||generatedCode();
         const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
           new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
@@ -127,7 +158,7 @@ export default {
           continue;
         }
         if(!made.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
-        return jsonNoStore({code,scope:hash});
+        return jsonNoStore({code,scope:hash,session:await newSession(stub,hash)});
       }
       return jsonNoStore({error:"Δεν δημιουργήθηκε μοναδικός κωδικός. Δοκίμασε ξανά."},503);
     }
@@ -135,9 +166,19 @@ export default {
     if (url.pathname === "/api/account/login" && req.method === "POST") {
       let code="";
       try{code=normalizeAccountCode((await req.json()).code);}catch{}
+      if(PIN_RE.test(code)){
+        const limit=await limitPinLogin(req,env,code);
+        if(!limit.ok)return jsonNoStore({error:"Έγιναν πολλές προσπάθειες. Δοκίμασε ξανά αργότερα."},429);
+      }
       const account=await resolveAccount(code,env);
+      if(!account)return jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
+      return jsonNoStore({scope:account.scope,session:await newSession(account.stub,account.scope)});
+    }
+
+    if (url.pathname === "/api/account/session" && req.method === "POST") {
+      const account=await getAccount(req,env);
       return account?jsonNoStore({scope:account.scope}):
-        jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
+        jsonNoStore({error:"Η σύνδεση έχει λήξει. Συνδέσου ξανά."},401);
     }
 
     if (url.pathname === "/api/account/migrate" && req.method === "POST") {
@@ -251,6 +292,50 @@ export class CarServiceStore {
     const json = (data, status = 200) =>
       Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 
+    if(url.pathname==="/login-check"&&request.method==="POST"){
+      let data={};
+      try{data=await request.json();}catch{}
+      const ip=String(data.ip||"unknown").slice(0,80);
+      const pin=String(data.code||"");
+      if(!PIN_RE.test(pin))return json({error:"invalid pin"},400);
+      const now=Date.now();
+      const allowed=await this.state.storage.transaction(async tx=>{
+        const checks=[
+          {key:"login-ip:"+ip,max:12},
+          {key:"login-pin:"+pin,max:15}
+        ];
+        const pending=[];
+        for(const check of checks){
+          const row=(await tx.get(check.key))||{since:now,count:0};
+          if(now-row.since>3600000){row.since=now;row.count=0;}
+          if(row.count>=check.max)return false;
+          row.count++;pending.push([check.key,row]);
+        }
+        for(const [key,row] of pending)await tx.put(key,row);
+        return true;
+      });
+      return json({ok:allowed},allowed?200:429);
+    }
+    if(url.pathname==="/session-issue"&&request.method==="POST"){
+      let secret="";
+      try{secret=String((await request.json()).secret||"");}catch{}
+      if(!/^[A-F0-9]{48}$/.test(secret))return json({error:"invalid session"},400);
+      const existing=await this.state.storage.get("dataset");
+      if(!existing)return json({error:"account missing"},404);
+      const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
+        new TextEncoder().encode(secret))),b=>b.toString(16).padStart(2,"0")).join("");
+      await this.state.storage.put("session:"+digest,Date.now()+30*86400000);
+      return json({ok:true});
+    }
+    if(url.pathname==="/session-verify"&&request.method==="POST"){
+      let secret="";
+      try{secret=String((await request.json()).secret||"");}catch{}
+      if(!/^[A-F0-9]{48}$/.test(secret))return json({error:"invalid session"},401);
+      const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
+        new TextEncoder().encode(secret))),b=>b.toString(16).padStart(2,"0")).join("");
+      const expires=await this.state.storage.get("session:"+digest);
+      return json({ok:!!expires&&expires>Date.now()},expires&&expires>Date.now()?200:401);
+    }
     if(url.pathname==="/limit"&&request.method==="POST"){
       let ip;
       try{ip=String((await request.json()).ip||"unknown").slice(0,80);}catch{ip="unknown";}

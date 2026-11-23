@@ -53,7 +53,8 @@ const a=await asJSON(await call("/api/account/create","POST",{}));
 const b=await asJSON(await call("/api/account/create","POST",{}));
 assert.equal(a.status,200);
 assert.equal(b.status,200);
-assert.match(a.data.code,/^[A-Z2-9]{20}$/);
+assert.match(a.data.code,/^[0-9]{4}$/);
+assert.match(a.data.session,/^ST-[a-f0-9]{64}-[A-F0-9]{48}$/);
 assert(!a.data.code.startsWith("CS-"),"Generated codes do not require CS-");
 assert.notEqual(a.data.code,b.data.code);
 assert.notEqual(a.data.scope,b.data.scope);
@@ -62,21 +63,27 @@ assert.equal((await call("/api/account/login","POST",{code:"CS-"+"0".repeat(32)}
 assert.equal((await call("/api/data")).status,401);
 assert.equal((await call("/api/diagnose","POST",{},null)).status,401);
 assert.equal((await call("/api/parse","POST",{text:"broken"},null)).status,401);
-const loginA=a.data.code,loginB=b.data.code;
+const loginA=a.data.session,loginB=b.data.session;
+assert.equal((await call("/api/data","GET",null,a.data.code)).status,401,
+  "A bare four-digit PIN must not authorize the data API");
+assert.equal((await call("/api/account/session","POST",{},loginA)).status,200);
 // A chosen code must be unique: creating again must NOT grant access to its owner.
-const custom="FOCUS-2007-HISTORY";
+const custom="1234";
 const own=await asJSON(await call("/api/account/create","POST",{code:custom}));
 assert.equal(own.status,200);
 assert.equal(own.data.code,custom);
 assert.notEqual(own.data.scope,a.data.scope);
 assert.equal((await asJSON(await call("/api/account/login","POST",{code:custom.toLowerCase()}))).data.scope,own.data.scope);
+const customAuth=own.data.session;
+assert.equal((await call("/api/data","GET",null,custom)).status,401);
+assert.equal((await call("/api/data","GET",null,customAuth)).status,200);
 const hijack=await asJSON(await call("/api/account/create","POST",{code:custom}));
 assert.equal(hijack.status,409,"Existing code cannot create/login to another account");
 assert.notEqual(hijack.data.scope,own.data.scope);
-assert.equal((await call("/api/account/create","POST",{code:"1234"})).status,400);
+assert.equal((await call("/api/account/create","POST",{code:"123"})).status,400);
 assert.equal((await call("/api/account/create","POST",{code:"ONLYLETTERSAREHERE"})).status,400);
 assert.equal((await call("/api/data","GET",null,"1234")).status,401);
-assert.equal((await call("/api/data","GET",null,custom)).status,200);
+assert.equal((await call("/api/data","GET",null,customAuth)).status,200);
 // Old CS- accounts created by v9 must continue working without migration.
 const legacyGenerated="CS-"+"A".repeat(32);
 const digest=await webcrypto.subtle.digest("SHA-256",new TextEncoder().encode(legacyGenerated));
@@ -107,13 +114,13 @@ const seenB=await asJSON(await call("/api/data","GET",null,loginB));
 assert.equal(seenA.data.items[0].notes,"private A");
 assert.deepEqual(seenB.data.items,[]);
 assert.deepEqual(seenB.data.settings,{});
-const seenCustom=await asJSON(await call("/api/data","GET",null,custom));
+const seenCustom=await asJSON(await call("/api/data","GET",null,customAuth));
 assert.deepEqual(seenCustom.data.items,[],"A user-created code must have its own empty dataset");
 // New custom account cannot write into or overwrite other users' history.
 const customInitial=seenCustom.data.revision;
 const customWrite={items:[{id:"custom-1",notes:"private custom"}],
   settings:{current:"123000"},reminders:[],revision:customInitial};
-assert.equal((await call("/api/data","PUT",customWrite,custom)).status,200);
+assert.equal((await call("/api/data","PUT",customWrite,customAuth)).status,200);
 assert.equal((await asJSON(await call("/api/data","GET",null,loginA))).data.items[0].notes,"private A");
 assert.equal((await asJSON(await call("/api/data","GET",null,loginB))).data.items.length,0);
 assert.equal((await call("/api/data","PUT",{...update,revision:seenA.data.revision},loginB)).status,409);
@@ -126,17 +133,33 @@ await legacy.fetch("https://car-data.internal/bootstrap",{
 });
 const c=await asJSON(await call("/api/account/create","POST",{}));
 assert.equal(c.status,200);
-assert.equal((await call("/api/account/migrate","POST",{legacyCode:"bad"},c.data.code)).status,403);
-const migration=await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},c.data.code);
+assert.equal((await call("/api/account/migrate","POST",{legacyCode:"bad"},c.data.session)).status,403);
+const migration=await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},c.data.session);
 assert.equal(migration.status,200);
-const migrated=await asJSON(await call("/api/data","GET",null,c.data.code));
+const migrated=await asJSON(await call("/api/data","GET",null,c.data.session));
 assert.equal(migrated.data.items[0].notes,"old private");
 assert.equal(migrated.data.settings.current,"160000");
 assert.deepEqual((await asJSON(await call("/api/data","GET",null,loginB))).data.items,[]);
 const again=await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},loginB);
 assert.equal(again.status,409);
-assert.equal((await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},c.data.code)).status,200);
+assert.equal((await call("/api/account/migrate","POST",{legacyCode:env.PASSCODE},c.data.session)).status,200);
 assert.equal((await asJSON(await call("/api/data","GET",null,loginA))).data.items[0].id,"unique-service-A");
+
+// PINs cannot bypass the login flow by being passed directly to any endpoint.
+assert.equal((await call("/api/parse","POST",{text:"hello"},"1234")).status,401);
+assert.equal((await call("/api/diagnose","POST",{},"1234")).status,401);
+const secondPin=await asJSON(await call("/api/account/create","POST",{code:"5678"}));
+assert.equal(secondPin.status,200);
+assert.notEqual(secondPin.data.scope,own.data.scope);
+assert.deepEqual((await asJSON(await call("/api/data","GET",null,secondPin.data.session))).data.items,[]);
+// A different client's guessing is throttled without disabling valid sessions.
+let throttled;
+for(let i=0;i<14;i++){
+  throttled=await call("/api/account/login","POST",{code:String(6000+i)},null,"203.0.113.99");
+}
+assert.equal(throttled.status,429);
+assert.equal((await call("/api/data","GET",null,customAuth)).status,200);
+
 const html=read("public/index.html"),features=read("public/features.js"),ai=read("public/ai-mechanic.js");
 const account=read("public/account.js"),sw=read("public/sw.js");
 assert(html.includes('const ACCOUNT_SESSION_KEY="carServiceActiveAccountV3";'));
@@ -153,11 +176,13 @@ assert(account.includes('newCodeFormat'));
 assert(html.includes('id="accountCustomCode"'));
 assert(html.includes('id="accountChooseCustom"'));
 assert(html.includes('id="accountCustomCreate"'));
-assert(html.includes('type="password" autocomplete="off" autocapitalize="characters"'));
+assert(html.includes('type="password" inputmode="numeric" autocomplete="off"'));
+assert(html.includes('id="accountLegacyMode"'),"Old long-code login must remain accessible");
+assert(html.includes('minlength="4" maxlength="4" pattern="[0-9]{4}"'));
 assert(html.includes('id="accountCustomForm"'));
-assert(sw.includes("carhistory-shell-v9")&&sw.includes('"/account.js"'));
+assert(sw.includes("carhistory-shell-v11")&&sw.includes('"/account.js"'));
 for(const script of [account,features,ai])assert.doesNotThrow(()=>new Function(script));
 for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
   if(script[1].trim())assert.doesNotThrow(()=>new Function(script[1]));
 }
-console.log("PASS: generated and custom account codes, collision prevention, 4 isolated accounts, migration, local scoping");
+console.log("PASS: four-digit PIN creation, uniqueness, sessions, login throttling, isolation and legacy migration");
