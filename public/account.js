@@ -8,13 +8,13 @@
     codeInput=$("accountCode"),create=$("accountCreate"),created=$("accountCreated");
   if(!gate)return;
   let busy=false,pendingAccount=null,current=null;
-  // Existing CS- credentials remain valid; new accounts need no prefix.
-  const codeFormat=/^(?:CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
-  const newCodeFormat=/^[A-Z0-9][A-Z0-9_-]{11,63}$/;
+  // 4-digit PINs, plus older CS- and long custom codes.
+  const codeFormat=/^(?:[0-9]{4}|CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+  const newCodeFormat=/^[0-9]{4}$/;
+  const sessionFormat=/^ST-[a-f0-9]{64}-[A-F0-9]{48}$/;
   function customCode(raw){
-    const value=String(raw||"").trim().toUpperCase();
-    if(!newCodeFormat.test(value)||!/[A-Z]/.test(value)||!/[0-9]/.test(value))
-      throw new Error("Ο δικός σου κωδικός χρειάζεται 12–64 χαρακτήρες, με λατινικά γράμματα και αριθμούς.");
+    const value=String(raw||"").trim();
+    if(!newCodeFormat.test(value))throw new Error("Βάλε ακριβώς 4 αριθμούς, π.χ. 1234.");
     return value;
   }
   const scopeFormat=/^[a-f0-9]{64}$/;
@@ -47,25 +47,34 @@
     return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
   }
   function start(data){
-    if(!valid(data))throw new Error("Μη έγκυρος λογαριασμός.");
+    if(!valid(data) || (newCodeFormat.test(data.code)&&!sessionFormat.test(data.session||"")))
+      throw new Error("Η σύνδεση χρειάζεται επαλήθευση από τον server.");
     current=data;
     localStorage.setItem(ACTIVE,JSON.stringify(data));
     gate.hidden=true;
     document.body.classList.remove("account-locked");
-    window.CarAppStartAccount(data.code,data.scope);
+    window.CarAppStartAccount(data.session||data.code,data.scope);
   }
   async function verify(code,silent=false){
     const formatted=String(code||"").trim().toUpperCase();
-    if(!codeFormat.test(formatted))throw new Error("Συμπλήρωσε τον προσωπικό κωδικό του λογαριασμού σου.");
-    const saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");
+    if(!codeFormat.test(formatted))throw new Error("Συμπλήρωσε έγκυρο 4ψήφιο κωδικό ή τον παλιό σου κωδικό.");
+    let saved=null;
+    try{saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
     try{
+      // A saved session does not use up PIN login attempts on each app launch.
+      if(valid(saved)&&saved.code===formatted&&sessionFormat.test(saved.session||"")){
+        try{
+          const checked=await api("/api/account/session",{},saved.session);
+          if(checked.scope===saved.scope){start(saved);return;}
+        }catch{ /* Expired session: perform a fresh PIN login below. */ }
+      }
       const result=await api("/api/account/login",{code:formatted});
-      start({code:formatted,scope:result.scope});
+      start({code:formatted,scope:result.scope,session:result.session});
     }catch(error){
-      // Offline access is allowed only on the already authenticated device,
-      // never for a fresh code or a different account.
-      if(!navigator.onLine&&valid(saved)&&saved.code===formatted &&
-          (await scopeOf(formatted))===saved.scope){
+      // Offline access is limited to a session already authenticated on this device.
+      if(!navigator.onLine&&valid(saved)&&saved.code===formatted&&
+          (await scopeOf(formatted))===saved.scope&&
+          (sessionFormat.test(saved.session||"")||!newCodeFormat.test(formatted))){
         start(saved);return;
       }
       if(!silent)throw error;
@@ -73,6 +82,14 @@
       notice("Συνδέσου με τον προσωπικό σου κωδικό.",true);
     }
   }
+  $("accountLegacyMode").addEventListener("click",()=>{
+    const oldMode=$("accountLegacyMode").getAttribute("aria-pressed")!=="true";
+    $("accountLegacyMode").setAttribute("aria-pressed",String(oldMode));
+    $("accountLegacyMode").textContent=oldMode?"Χρήση 4ψήφιου κωδικού":"Έχω παλιό μεγάλο κωδικό";
+    codeInput.setAttribute("inputmode",oldMode?"text":"numeric");
+    codeInput.setAttribute("placeholder",oldMode?"Παλιός κωδικός CS-…":"π.χ. 1234");
+    codeInput.focus();
+  });
   login.addEventListener("submit",async event=>{
     event.preventDefault();if(busy)return;
     setBusy(true);notice("Έλεγχος λογαριασμού…");
@@ -164,7 +181,7 @@
     if(!confirm("Να μεταφερθεί το παλιό ιστορικό στον ΤΩΡΙΝΟ λογαριασμό; Βεβαιώσου ότι έχεις φυλάξει τον νέο προσωπικό κωδικό."))return;
     busy=true;$("legacyTransfer").disabled=true;$("legacyStatus").textContent="Μεταφέρεται το παλιό ιστορικό…";
     try{
-      await api("/api/account/migrate",{legacyCode},current.code);
+      await api("/api/account/migrate",{legacyCode},current.session||current.code);
       window.CarAppCopyLegacyLocal();
       $("legacyAccountCode").value="";
       $("legacyStatus").textContent="Η μεταφορά ολοκληρώθηκε. Επαναφόρτωση…";
