@@ -42,14 +42,17 @@ const SCHEMA = {
   required: ["entries"],
 };
 
-// Four digits are convenient but weak. Never accept a bare PIN to read/write
-// records: login exchanges it for an unpredictable, expiring bearer session.
-// Preserve previously issued CS-* and long alphanumeric credentials.
-const PIN_RE = /^[0-9]{4}$/;
-const CODE_RE = /^(?:[0-9]{4}|CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+// A user may choose any visible code (digits, Greek, Latin, symbols), without
+// fixed length or CS- prefix. Short codes are weak; all NEW accounts must use
+// rate-limited login and expiring sessions, never the raw code on data routes.
 const SESSION_RE = /^ST-([0-9a-f]{64})-([A-F0-9]{48})$/;
-const normalizeAccountCode = value => String(value||"").trim().toUpperCase();
-const isValidNewCode = code => PIN_RE.test(code);
+const normalizeAccountCode = value => String(value??"").trim().normalize("NFKC").toUpperCase();
+const isValidNewCode = code =>
+  typeof code==="string" && code.length>0 && [...code].length<=64 &&
+  code.length<=128 && !/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(code);
+const sha256 = async value =>
+  Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
+    new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,"0")).join("");
 const generatedCode = () => {
   // Uniform random integer from 0000 to 9999, including leading zeroes.
   const limit=Math.floor(0x100000000/10000)*10000;
@@ -61,9 +64,8 @@ const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 function tokenFrom(req){return (req.headers.get("Authorization")||"").replace(/^Bearer /,"");}
 async function resolveAccount(code,env){
-  if(!CODE_RE.test(code))return null;
-  const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
-    new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
+  if(!isValidNewCode(code))return null;
+  const hash=await sha256(code);
   const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
   const exists=await stub.fetch("https://car-data.internal/data");
   if(!exists.ok)return null;
@@ -89,14 +91,21 @@ async function getAccount(req,env){
     });
     return result.ok?{stub,scope}:null;
   }
-  if(PIN_RE.test(bearer))return null; // PIN is accepted ONLY at login, never on data endpoints.
-  return resolveAccount(bearer,env); // Backward compatibility for existing long codes.
+  // Keep compatibility ONLY for historical long-form codes. Older four-digit
+  // accounts (from v11) lack sessionRequired too, so explicitly exclude them.
+  // New accounts of any length still require session via their DO marker.
+  const OLD_RAW_RE=/^(?:CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+  if(!OLD_RAW_RE.test(bearer))return null;
+  const account=await resolveAccount(normalizeAccountCode(bearer),env);
+  if(!account)return null;
+  const legacy=await account.stub.fetch("https://car-data.internal/legacy-auth");
+  return legacy.ok?account:null;
 }
-async function limitPinLogin(req,env,code){
+async function limitAccountLogin(req,env,code){
   const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-pin-login-limit"));
   return limiter.fetch("https://car-data.internal/login-check",{
     method:"POST",body:JSON.stringify({
-      ip:req.headers.get("CF-Connecting-IP")||"unknown",code
+      ip:req.headers.get("CF-Connecting-IP")||"unknown",codeHash:await sha256(code)
     })
   });
 }
@@ -126,15 +135,16 @@ export default {
     // Every account uses a separate SQLite Durable Object. A code for another
     // account CANNOT select, read or write this account's data.
     if (url.pathname === "/api/account/create" && req.method === "POST") {
-      let requestedCode="";
-      try {
+      let requestedCode="",manual=false;
+      try{
         const payload=await req.json();
-        requestedCode=normalizeAccountCode(payload?.code);
-        if(typeof payload?.code!=="undefined"&&typeof payload.code!=="string")
+        manual=Object.prototype.hasOwnProperty.call(payload||{},"code");
+        if(manual&&typeof payload.code!=="string")
           return jsonNoStore({error:"Ο κωδικός πρέπει να είναι κείμενο."},400);
-      } catch {return jsonNoStore({error:"Μη έγκυρα στοιχεία λογαριασμού."},400);}
-      if(requestedCode&&!isValidNewCode(requestedCode)){
-        return jsonNoStore({error:"Ο κωδικός πρέπει να έχει ακριβώς 4 ψηφία, π.χ. 1234."},400);
+        if(manual)requestedCode=normalizeAccountCode(payload.code);
+      }catch{return jsonNoStore({error:"Μη έγκυρα στοιχεία λογαριασμού."},400);}
+      if(manual&&!isValidNewCode(requestedCode)){
+        return jsonNoStore({error:"Βάλε έναν κωδικό 1–64 χαρακτήρων, χωρίς κρυφούς χαρακτήρες."},400);
       }
       // One IP cannot generate unlimited Durable Objects in one day.
       const clientIP=req.headers.get("CF-Connecting-IP")||"unknown";
@@ -145,8 +155,7 @@ export default {
       if(!allowed.ok)return jsonNoStore({error:"Πάρα πολλές δημιουργίες. Δοκίμασε αργότερα."},429);
       for(let attempt=0;attempt<40;attempt++){
         const code=requestedCode||generatedCode();
-        const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
-          new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
+        const hash=await sha256(code);
         const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
         // Must be atomic: the existing /bootstrap returns 200 even if the
         // dataset already exists. Never grant access to someone else's account!
@@ -154,7 +163,7 @@ export default {
           method:"POST",body:JSON.stringify({items:[],settings:{},reminders:[]})
         });
         if(made.status===409){
-          if(requestedCode)return jsonNoStore({error:"Ο κωδικός χρησιμοποιείται ήδη. Διάλεξε άλλον."},409);
+          if(manual)return jsonNoStore({error:"Ο κωδικός χρησιμοποιείται ήδη. Διάλεξε άλλον."},409);
           continue;
         }
         if(!made.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
@@ -166,10 +175,9 @@ export default {
     if (url.pathname === "/api/account/login" && req.method === "POST") {
       let code="";
       try{code=normalizeAccountCode((await req.json()).code);}catch{}
-      if(PIN_RE.test(code)){
-        const limit=await limitPinLogin(req,env,code);
-        if(!limit.ok)return jsonNoStore({error:"Έγιναν πολλές προσπάθειες. Δοκίμασε ξανά αργότερα."},429);
-      }
+      if(!isValidNewCode(code))return jsonNoStore({error:"Μη έγκυρος κωδικός."},401);
+      const limit=await limitAccountLogin(req,env,code);
+      if(!limit.ok)return jsonNoStore({error:"Έγιναν πολλές προσπάθειες. Δοκίμασε ξανά αργότερα."},429);
       const account=await resolveAccount(code,env);
       if(!account)return jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
       return jsonNoStore({scope:account.scope,session:await newSession(account.stub,account.scope)});
@@ -296,13 +304,13 @@ export class CarServiceStore {
       let data={};
       try{data=await request.json();}catch{}
       const ip=String(data.ip||"unknown").slice(0,80);
-      const pin=String(data.code||"");
-      if(!PIN_RE.test(pin))return json({error:"invalid pin"},400);
+      const codeHash=String(data.codeHash||"");
+      if(!/^[a-f0-9]{64}$/.test(codeHash))return json({error:"invalid code"},400);
       const now=Date.now();
       const allowed=await this.state.storage.transaction(async tx=>{
         const checks=[
           {key:"login-ip:"+ip,max:12},
-          {key:"login-pin:"+pin,max:15}
+          {key:"login-code:"+codeHash,max:15}
         ];
         const pending=[];
         for(const check of checks){
@@ -390,10 +398,18 @@ export class CarServiceStore {
       return json({ok:saved},saved?200:409);
     }
 
+    if(url.pathname==="/legacy-auth"&&request.method==="GET"){
+      const dataset=await this.state.storage.get("dataset");
+      const requiresSession=await this.state.storage.get("sessionRequired");
+      return json({legacy:!!dataset&&!requiresSession},
+        dataset&&!requiresSession?200:401);
+    }
+
     if (url.pathname === "/create-account" && request.method === "POST") {
       const created=await this.state.storage.transaction(async tx=>{
         if(await tx.get("dataset"))return false;
         await tx.put("dataset",{items:[],settings:{},reminders:[],revision:1});
+        await tx.put("sessionRequired",true);
         return true;
       });
       return json({ok:created},created?201:409);

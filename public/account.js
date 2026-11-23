@@ -8,13 +8,14 @@
     codeInput=$("accountCode"),create=$("accountCreate"),created=$("accountCreated");
   if(!gate)return;
   let busy=false,pendingAccount=null,current=null;
-  // 4-digit PINs, plus older CS- and long custom codes.
-  const codeFormat=/^(?:[0-9]{4}|CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
-  const newCodeFormat=/^[0-9]{4}$/;
+  // Match the Worker: accept custom visible text, including Greek characters.
+  const normalizeCode=raw=>String(raw??"").trim().normalize("NFKC").toUpperCase();
+  const codeValid=code=>code.length>0 && [...code].length<=64 &&
+    code.length<=128 && !/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(code);
   const sessionFormat=/^ST-[a-f0-9]{64}-[A-F0-9]{48}$/;
   function customCode(raw){
-    const value=String(raw||"").trim();
-    if(!newCodeFormat.test(value))throw new Error("Βάλε ακριβώς 4 αριθμούς, π.χ. 1234.");
+    const value=normalizeCode(raw);
+    if(!codeValid(value))throw new Error("Γράψε έναν κωδικό έως 64 χαρακτήρες.");
     return value;
   }
   const scopeFormat=/^[a-f0-9]{64}$/;
@@ -39,7 +40,8 @@
     return data;
   }
   function valid(data){
-    return data&&codeFormat.test(data.code)&&scopeFormat.test(data.scope);
+    return data&&typeof data.code==="string"&&codeValid(data.code)&&
+      scopeFormat.test(data.scope)&&sessionFormat.test(data.session||"");
   }
   async function scopeOf(code){
     const bytes=new TextEncoder().encode(code);
@@ -47,8 +49,7 @@
     return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
   }
   function start(data){
-    if(!valid(data) || (newCodeFormat.test(data.code)&&!sessionFormat.test(data.session||"")))
-      throw new Error("Η σύνδεση χρειάζεται επαλήθευση από τον server.");
+    if(!valid(data))throw new Error("Η σύνδεση χρειάζεται επαλήθευση από τον server.");
     current=data;
     localStorage.setItem(ACTIVE,JSON.stringify(data));
     gate.hidden=true;
@@ -56,8 +57,8 @@
     window.CarAppStartAccount(data.session||data.code,data.scope);
   }
   async function verify(code,silent=false){
-    const formatted=String(code||"").trim().toUpperCase();
-    if(!codeFormat.test(formatted))throw new Error("Συμπλήρωσε έγκυρο 4ψήφιο κωδικό ή τον παλιό σου κωδικό.");
+    const formatted=normalizeCode(code);
+    if(!codeValid(formatted))throw new Error("Συμπλήρωσε τον προσωπικό σου κωδικό.");
     let saved=null;
     try{saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
     try{
@@ -74,7 +75,7 @@
       // Offline access is limited to a session already authenticated on this device.
       if(!navigator.onLine&&valid(saved)&&saved.code===formatted&&
           (await scopeOf(formatted))===saved.scope&&
-          (sessionFormat.test(saved.session||"")||!newCodeFormat.test(formatted))){
+          sessionFormat.test(saved.session||"")){
         start(saved);return;
       }
       if(!silent)throw error;
@@ -82,14 +83,6 @@
       notice("Συνδέσου με τον προσωπικό σου κωδικό.",true);
     }
   }
-  $("accountLegacyMode").addEventListener("click",()=>{
-    const oldMode=$("accountLegacyMode").getAttribute("aria-pressed")!=="true";
-    $("accountLegacyMode").setAttribute("aria-pressed",String(oldMode));
-    $("accountLegacyMode").textContent=oldMode?"Χρήση 4ψήφιου κωδικού":"Έχω παλιό μεγάλο κωδικό";
-    codeInput.setAttribute("inputmode",oldMode?"text":"numeric");
-    codeInput.setAttribute("placeholder",oldMode?"Παλιός κωδικός CS-…":"π.χ. 1234");
-    codeInput.focus();
-  });
   login.addEventListener("submit",async event=>{
     event.preventDefault();if(busy)return;
     setBusy(true);notice("Έλεγχος λογαριασμού…");
