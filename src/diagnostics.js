@@ -10,6 +10,7 @@ export const DIAGNOSTIC_SYSTEM = [
   "Δεν μπορείς να επιβεβαιώσεις βλάβη εξ αποστάσεως. Δώσε 2-4 λογικές πιθανές αιτίες, απλούς ασφαλείς ελέγχους και τι να ζητήσει ο χρήστης από συνεργείο. Αν λείπουν κρίσιμα στοιχεία, κάνε έως 2 συγκεκριμένες ερωτήσεις.",
   "Για ενδείξεις βλάβης φρένων, διεύθυνσης, ελαστικών, διαρροή καυσίμου, υπερθέρμανση, πίεση λαδιού, σοβαρό καπνό, φωτιά ή έντονο θόρυβο κινητήρα, δώσε σαφή προειδοποίηση να σταματήσει με ασφάλεια και να αναζητήσει έλεγχο ή οδική βοήθεια πριν συνεχίσει.",
   "Μην καθοδηγείς σε επικίνδυνες επισκευές ή δοκιμές στον δρόμο, παράκαμψη ασφαλιστικών συστημάτων ή οδήγηση με πιθανώς επικίνδυνη βλάβη.",
+  "Τα στοιχεία αυτοκινήτου μπορεί να είναι δομημένο αντικείμενο (make, model, year, engine, cc, power, fuel, gearbox, trim, notes). Χρησιμοποίησε μόνο τα συμπληρωμένα πεδία, χωρίς να προσθέτεις προδιαγραφές που δεν υπάρχουν.",
   "Αν απουσιάζει μοντέλο/κινητήρας, μην τα μαντεύεις. Ζήτησέ τα αν βοηθούν στη διάγνωση.",
   "Μην εφευρίσκεις ακριβή κόστη ή κωδικούς βλάβης. Δώσε μικρές σαφείς ενότητες: Ιστορικό, Πιθανές αιτίες, Επόμενα βήματα. Απόφυγε Markdown σύμβολα (#, **). Σύντομη αναφορά σε συνεργείο όταν απαιτείται."
 ].join("\n");
@@ -33,6 +34,32 @@ function simplifyEntry(entry) {
     works: parts,
     notes: clean([entry.what, entry.notes].filter(Boolean).join("; "), 550)
   };
+}
+
+// New vehicle profile is deliberately restricted to car specifications, not
+// arbitrary object properties. Legacy free-text vehicle descriptions still work.
+export function sanitizeVehicleProfile(value) {
+  if (typeof value === "string") {
+    return clean(value, 150) || "Δεν δηλώθηκαν στοιχεία αυτοκινήτου";
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "Δεν δηλώθηκαν στοιχεία αυτοκινήτου";
+  }
+  const fields = {
+    make:70, model:70, year:4, fuel:25, engine:100,
+    cc:5, power:4, gearbox:30, trim:100, notes:350
+  };
+  const cleaned = {};
+  for (const [key, max] of Object.entries(fields)) {
+    const text=clean(value[key],max);
+    if (!text) continue;
+    if (["year","cc","power"].includes(key) && !/^\d+$/.test(text)) continue;
+    if (key==="year" && (Number(text)<1886 || Number(text)>new Date().getFullYear()+1)) continue;
+    if (key==="cc" && (Number(text)<1 || Number(text)>16000)) continue;
+    if (key==="power" && (Number(text)<1 || Number(text)>3000)) continue;
+    cleaned[key]=text;
+  }
+  return Object.keys(cleaned).length ? cleaned : "Δεν δηλώθηκαν στοιχεία αυτοκινήτου";
 }
 
 export function buildDiagnosticMessages(payload) {
@@ -59,7 +86,7 @@ export function buildDiagnosticMessages(payload) {
       atKm: kmValue(r?.dueKm),
       repeatEveryKm: kmValue(r?.repeatKm)
     })).filter(r => r.work);
-  const car = clean(payload.vehicle, 150);
+  const car = sanitizeVehicleProfile(payload.vehicle);
   const context = {
     car: car || "Δεν δηλώθηκαν στοιχεία αυτοκινήτου",
     currentOdometerKm: kmValue(payload.currentKm),

@@ -1,56 +1,136 @@
-/* AI Mechanic chat: local conversation, history shared only on user request. */
-(function(){
+/* AI Mechanic — clean chat + structured, synced vehicle profile. */
+(function () {
   "use strict";
-  const $=id=>document.getElementById(id);
+  const $ = id => document.getElementById(id);
   const CHAT_KEY="carServiceAiConversationV1";
+  const CHAT_LIMIT=12;
+  const fieldMap={
+    make:"aiCarMake",model:"aiCarModel",year:"aiCarYear",fuel:"aiCarFuel",
+    engine:"aiCarEngine",cc:"aiCarCc",power:"aiCarPower",gearbox:"aiCarGearbox",
+    trim:"aiCarTrim",notes:"aiCarNotes"
+  };
+  const fieldMax={make:70,model:70,year:4,fuel:25,engine:100,cc:5,power:4,gearbox:30,trim:100,notes:350};
   const chat=$("aiMessages"),welcome=$("aiWelcome"),form=$("aiForm"),
-    question=$("aiQuestion"),status=$("aiStatus"),send=$("aiSend");
-  if(!chat||!welcome||!form||!question||!status||!send)return;
+    question=$("aiQuestion"),status=$("aiStatus"),send=$("aiSend"),
+    profileDialog=$("aiVehicleDialog"),profileForm=$("aiVehicleForm");
+  if(!chat||!welcome||!form||!question||!status||!send||!profileDialog||!profileForm)return;
   let messages=[],busy=false;
 
-  function savedMessages(){
+  function loadMessages(){
     try{
-      const saved=JSON.parse(localStorage.getItem(CHAT_KEY)||"[]");
-      if(!Array.isArray(saved))return [];
-      return saved.filter(m=>m&&["user","assistant"].includes(m.role)&&typeof m.content==="string")
-        .slice(-12).map(m=>({role:m.role,content:m.content.slice(0,9000)}));
-    }catch{return [];}
+      const data=JSON.parse(localStorage.getItem(CHAT_KEY)||"[]");
+      if(!Array.isArray(data))return [];
+      return data.filter(m=>m&&["user","assistant"].includes(m.role)&&typeof m.content==="string")
+        .slice(-CHAT_LIMIT).map(m=>({
+          role:m.role,content:m.content.slice(0,9000),
+          usedEntries:Number.isInteger(m.usedEntries)?Math.max(0,m.usedEntries):null
+        }));
+    }catch{return []}
   }
   function persist(){
-    try{localStorage.setItem(CHAT_KEY,JSON.stringify(messages.slice(-12)));}
-    catch(e){console.warn("AI conversation not saved locally",e);}
+    try{localStorage.setItem(CHAT_KEY,JSON.stringify(messages.slice(-CHAT_LIMIT)))}
+    catch(e){console.warn("AI conversation not saved locally",e)}
   }
   function setStatus(message,error=false){
     status.textContent=message||"";
     status.classList.toggle("error",error);
   }
+  function setBusy(active){
+    busy=active;send.disabled=active;
+    send.classList.toggle("is-busy",active);
+    send.setAttribute("aria-label",active?"Αναμονή απάντησης AI":"Αποστολή ερώτησης");
+  }
+  function makeIcon(){
+    const icon=document.createElement("span");
+    icon.className="ai-message-logo";
+    icon.setAttribute("aria-hidden","true");
+    icon.textContent="✦";
+    return icon;
+  }
   function render(){
     chat.replaceChildren();
     welcome.hidden=messages.length>0;
     for(const msg of messages){
-      const line=document.createElement("div");
-      line.className="ai-bubble "+(msg.role==="user"?"is-user":"is-assistant");
-      const heading=document.createElement("span");
-      heading.className="ai-bubble-author";
-      heading.textContent=msg.role==="user"?"Εσύ":"AI Μηχανικός";
+      const line=document.createElement("article");
+      line.className="ai-message "+(msg.role==="user"?"is-user":"is-assistant");
+      if(msg.role==="assistant")line.append(makeIcon());
+      const body=document.createElement("div");
+      body.className="ai-message-body";
       const content=document.createElement("div");
-      content.className="ai-bubble-content";
-      // Never inject AI text or user questions as HTML.
-      content.textContent=msg.content;
-      line.append(heading,content);
+      content.className="ai-message-text";
+      content.textContent=msg.content; // No AI or user HTML execution.
+      body.append(content);
+      if(msg.role==="assistant"&&Number.isInteger(msg.usedEntries)){
+        const meta=document.createElement("small");
+        meta.className="ai-message-meta";
+        meta.textContent="Με βάση "+msg.usedEntries+" καταχωρήσεις ιστορικού";
+        body.append(meta);
+      }
+      line.append(body);
       chat.append(line);
     }
     if(messages.length)chat.scrollTop=chat.scrollHeight;
   }
-  function updateVehicle(){
-    const vehicle=String(settings.vehicleInfo||"").trim();
-    $("aiVehicle").value=vehicle;
-    $("aiVehicleSummary").textContent=vehicle?"Συμπληρωμένα":"Προαιρετικά";
-    $("aiHistoryCount").textContent=items.length+" καταχωρήσεις service/επισκευών";
-    const km=intOf(settings.current);
-    $("aiCurrentKm").textContent=km?fmtKm(km):"Χιλιόμετρα: μη δηλωμένα";
+  function safeField(value,key){
+    return String(value==null?"":value).trim().slice(0,fieldMax[key]);
   }
-  function normalizedWords(value){
+  function getProfile(){
+    // vehicleProfile is part of the existing synced settings, no database change.
+    if(settings.vehicleProfile&&typeof settings.vehicleProfile==="object"&&!Array.isArray(settings.vehicleProfile)){
+      return Object.fromEntries(Object.keys(fieldMap).map(k=>[k,safeField(settings.vehicleProfile[k],k)]));
+    }
+    // Bring forward free-text vehicle data from the previous version without losing it.
+    const legacy=String(settings.vehicleInfo||"").trim();
+    return Object.fromEntries(Object.keys(fieldMap).map(k=>[k,k==="notes"?legacy.slice(0,350):""]));
+  }
+  function hasProfile(profile){
+    return Object.values(profile).some(v=>String(v).trim());
+  }
+  function updateVehicle(){
+    const p=getProfile();
+    const title=[p.make,p.model,p.year].filter(Boolean).join(" ");
+    $("aiVehicleSummary").textContent=title||"Πρόσθεσε το αυτοκίνητό σου";
+    const details=[p.engine,p.fuel,p.trim].filter(Boolean);
+    $("aiVehicleSubtitle").textContent=details.join(" · ")||(
+      hasProfile(p)?"Άνοιξε για επεξεργασία":"Μάρκα, μοντέλο, χρονιά, κινητήρας…"
+    );
+    $("aiHistoryCount").textContent=items.length+" καταχωρήσεις";
+    const km=intOf(settings.current);
+    $("aiCurrentKm").textContent=km?fmtKm(km):"Χλμ. μη δηλωμένα";
+  }
+  function openProfile(){
+    const p=getProfile();
+    for(const [key,id] of Object.entries(fieldMap))$(id).value=p[key];
+    for(const key of ["year","cc","power"])$(fieldMap[key]).setCustomValidity("");
+    profileDialog.showModal();
+  }
+  function closeProfile(){profileDialog.close();}
+  function saveProfile(event){
+    event.preventDefault();
+    const values=Object.fromEntries(Object.entries(fieldMap)
+      .map(([key,id])=>[key,safeField($(id).value,key)]));
+    const year=values.year;
+    if(year && (!/^\d{4}$/.test(year)||Number(year)<1886||Number(year)>new Date().getFullYear()+1)){
+      $("aiCarYear").setCustomValidity("Βάλε έγκυρη χρονολογία αυτοκινήτου.");
+      $("aiCarYear").reportValidity();
+      return;
+    }
+    $("aiCarYear").setCustomValidity("");
+    for(const key of ["cc","power"]){
+      const input=$(fieldMap[key]),value=values[key];
+      if(value && (!/^\d+$/.test(value)||Number(value)<1||
+        Number(value)>(key==="cc"?16000:3000))){
+        input.setCustomValidity("Συμπλήρωσε μόνο έγκυρο αριθμό.");
+        input.reportValidity();return;
+      }
+    }
+    settings.vehicleProfile=values;
+    store(); // existing local storage + authenticated cross-device sync
+    updateVehicle();
+    closeProfile();
+    setStatus("Τα στοιχεία του αυτοκινήτου αποθηκεύτηκαν.");
+  }
+  function words(value){
     return String(value||"").toLowerCase().normalize("NFD")
       .replace(/[\u0300-\u036f]/g,"")
       .split(/[^a-z0-9\u0370-\u03ff]+/g).filter(w=>w.length>=4);
@@ -59,41 +139,41 @@
     const sorted=[...items].filter(x=>x&&typeof x==="object")
       .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||intOf(b.km)-intOf(a.km));
     const recent=sorted.slice(0,80);
-    const terms=new Set(normalizedWords(questionText));
+    const terms=new Set(words(questionText));
     const older=sorted.slice(80).filter(it=>{
       if(!terms.size)return false;
-      const haystack=[it.notes,it.what,...(it.parts||[]).map(p=>p.name)].join(" ");
-      return normalizedWords(haystack).some(w=>terms.has(w));
+      const haystack=[it.notes,it.what,...(Array.isArray(it.parts)?it.parts:[]).map(p=>p.name)].join(" ");
+      return words(haystack).some(w=>terms.has(w));
     }).slice(0,40);
     return [...recent,...older].map(it=>({
       date:it.date||"",km:it.km||"",regular:it.regular!==false,
-      parts:(Array.isArray(it.parts)?it.parts:[]).slice(0,12).map(p=>({name:String(p.name||"").slice(0,115)})),
+      parts:(Array.isArray(it.parts)?it.parts:[]).slice(0,12)
+        .map(p=>({name:String(p.name||"").slice(0,115)})),
       what:String(it.what||"").slice(0,250),notes:String(it.notes||"").slice(0,450)
     }));
   }
   async function ask(text){
     if(busy)return;
     const content=String(text||"").trim();
-    if(content.length<5){setStatus("Περιέγραψε λίγο πιο αναλυτικά το σύμπτωμα.",true);return;}
-    if(!navigator.onLine){setStatus("Χρειάζεται internet για την απάντηση του AI. Το ιστορικό σου παραμένει διαθέσιμο.",true);return;}
+    if(content.length<5){setStatus("Περιέγραψε λίγο πιο αναλυτικά το σύμπτωμα.",true);return}
+    if(!navigator.onLine){
+      setStatus("Χρειάζεται internet για την απάντηση. Το ιστορικό σου παραμένει διαθέσιμο.",true);
+      return;
+    }
     let pass=localStorage.getItem(PKEY);
     if(!pass){
       pass=prompt("Κωδικός πρόσβασης στο CarHistoryService:");
       if(!pass||!pass.trim())return;
-      pass=pass.trim();
-      localStorage.setItem(PKEY,pass);
+      pass=pass.trim();localStorage.setItem(PKEY,pass);
     }
-    const prior=messages.slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
+    const previous=messages.slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
     const payload={
-      question:content,
-      vehicle:String(settings.vehicleInfo||""),
-      currentKm:settings.current||"",
-      serviceIntervalKm:settings.interval||"",
-      history:relatedHistory(content),
+      question:content,vehicle:getProfile(),currentKm:settings.current||"",
+      serviceIntervalKm:settings.interval||"",history:relatedHistory(content),
       reminders:reminders.slice(0,30).map(r=>({name:r.name,dueKm:r.dueKm,repeatKm:r.repeatKm})),
-      conversation:prior
+      conversation:previous
     };
-    busy=true;send.disabled=true;send.textContent="Σκέφτεται…";setStatus("Αναλύει τα service και τις πιθανές αιτίες…");
+    setBusy(true);setStatus("Αναλύω το ιστορικό…");
     messages.push({role:"user",content});
     render();
     try{
@@ -102,53 +182,44 @@
         headers:{"Authorization":"Bearer "+pass,"Content-Type":"application/json"},
         body:JSON.stringify(payload)
       });
-      let data={};
-      try{data=await response.json();}catch{}
+      let data={};try{data=await response.json()}catch{}
       if(response.status===401){
         localStorage.removeItem(PKEY);
-        throw new Error("Ο κωδικός πρόσβασης δεν είναι σωστός. Δοκίμασε ξανά.");
+        throw new Error("Λάθος κωδικός πρόσβασης. Δοκίμασε ξανά.");
       }
-      if(!response.ok)throw new Error(data.error||"Η υπηρεσία AI δεν απάντησε ("+response.status+").");
+      if(!response.ok)throw new Error(data.error||"Το AI δεν απάντησε ("+response.status+").");
       if(typeof data.answer!=="string"||!data.answer.trim())throw new Error("Το AI δεν επέστρεψε απάντηση.");
-      messages.push({role:"assistant",content:data.answer.trim().slice(0,9000)});
-      messages=messages.slice(-12);
-      persist();render();question.value="";
-      setStatus("Η απάντηση αξιοποίησε "+data.usedEntries+" καταχωρήσεις ιστορικού. Δεν είναι τελική διάγνωση.");
+      messages.push({role:"assistant",content:data.answer.trim().slice(0,9000),
+        usedEntries:Number.isInteger(data.usedEntries)?data.usedEntries:null});
+      messages=messages.slice(-CHAT_LIMIT);
+      persist();render();question.value="";setStatus("");
     }catch(error){
-      messages.pop();render();
-      setStatus(error.message||"Προέκυψε σφάλμα. Δοκίμασε ξανά.",true);
-    }finally{
-      busy=false;send.disabled=false;
-      send.replaceChildren(document.createTextNode("Ρώτησε "));
-      const icon=document.createElement("span");
-      icon.setAttribute("aria-hidden","true");icon.textContent="↑";send.append(icon);
-    }
+      messages.pop();render();setStatus(error.message||"Προέκυψε σφάλμα. Δοκίμασε ξανά.",true);
+    }finally{setBusy(false)}
   }
 
-  messages=savedMessages();
+  messages=loadMessages();
   render();updateVehicle();
-  form.addEventListener("submit",event=>{event.preventDefault();ask(question.value);});
+  form.addEventListener("submit",event=>{event.preventDefault();ask(question.value)});
   $("aiClear").addEventListener("click",()=>{
     if(busy)return;
     messages=[];persist();render();setStatus("");question.value="";question.focus();
   });
-  $("aiSaveVehicle").addEventListener("click",()=>{
-    const info=$("aiVehicle").value.trim().slice(0,150);
-    if(String(settings.vehicleInfo||"")!==info){
-      settings.vehicleInfo=info;store();
-    }
-    $("aiVehicleSummary").textContent=info?"Συμπληρωμένα":"Προαιρετικά";
-    $("aiVehiclePanel").open=false;
-    setStatus("Τα στοιχεία αυτοκινήτου αποθηκεύτηκαν.");
+  $("aiProfileOpen").addEventListener("click",openProfile);
+  $("aiProfileClose").addEventListener("click",closeProfile);
+  $("aiProfileCancel").addEventListener("click",closeProfile);
+  profileForm.addEventListener("submit",saveProfile);
+  for(const key of ["year","cc","power"]){
+    $(fieldMap[key]).addEventListener("input",event=>event.target.setCustomValidity(""));
+  }
+  profileDialog.addEventListener("click",event=>{
+    if(event.target===profileDialog)closeProfile();
   });
   welcome.addEventListener("click",event=>{
     const button=event.target.closest("button[data-ai-example]");
     if(!button)return;
-    question.value=button.dataset.aiExample||"";
-    question.focus();
+    question.value=button.dataset.aiExample||"";question.focus();
   });
-  document.querySelector('nav button[data-v="ai"]').addEventListener("click",()=>{
-    updateVehicle();
-  });
-  window.CarHistoryAi={selectHistory:relatedHistory};
+  document.querySelector('nav button[data-v="ai"]').addEventListener("click",updateVehicle);
+  window.CarHistoryAi={selectHistory:relatedHistory,updateVehicle,getProfile};
 })();
