@@ -9,8 +9,8 @@ const source=readFileSync(resolve(root,"public/index.html"),"utf8");
 const features=readFileSync(resolve(root,"public/features.js"),"utf8");
 const styles=readFileSync(resolve(root,"public/ui.css"),"utf8");
 const required=["regular","repair","tires","improvements"];
-const gate=source.slice(source.indexOf('<section id="accountGate"'),
-  source.indexOf('<section class="view" id="v-list">'));
+const gateStart=source.indexOf('<section id="accountGate"');
+const gate=source.slice(gateStart,source.indexOf('</section>',gateStart)+10);
 assert(gate.includes("account-login-subtitle"),"Login should have a small welcome subtitle");
 assert(source.includes('id="v-account"'),"Account must replace backup tab");
 assert(source.includes('data-v="account"'));
@@ -56,9 +56,9 @@ let settings={current:"150000",interval:10000};
 let saveCount=0,renderCount=0;
 const helperSource=source.slice(source.indexOf('const HISTORY_KINDS='),
   source.indexOf('$("serviceKind").addEventListener'));
-const helpers=new Function("settings","document","$","store","render",helperSource+
+const helpers=new Function("settings","document","$","store","render","items",helperSource+
   ";return {itemKind,isKindVisible,renderAccountPreferences,setServiceKind};")(
-  settings,document,id=>fields[id],()=>saveCount++,()=>renderCount++
+  settings,document,id=>fields[id],()=>saveCount++,()=>renderCount++,[]
 );
 const kinds=[
   {regular:true},                 // legacy maintenance
