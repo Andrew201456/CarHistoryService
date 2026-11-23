@@ -782,6 +782,15 @@ function estimateNextServiceDate(records,currentKm,targetKm,now=new Date()){
   return {date:projected,dailyKm,intervals:speeds.length};
 }
 
+/* Status colours scale with the configured service interval.
+   Green: >25% away, Orange: 10–25%, Red: 0–10%, Burgundy: overdue. */
+function serviceRemainingStatus(left,interval){
+  if(left<0)return "service-overdue";
+  if(left<=Math.max(1,Math.round(interval*0.10)))return "service-critical";
+  if(left<=Math.max(1,Math.round(interval*0.25)))return "service-warning";
+  return "service-good";
+}
+
 /* Επόμενο service */
 function renderNext(){
   const reg=items.filter(i=>itemKind(i)==="regular"&&intOf(i.km)>0);
@@ -795,8 +804,11 @@ function renderNext(){
     html='<div class="small service-next-caption">Επόμενο service στα</div><div class="big service-next-km">'+fmtKm(next)+'</div>';
     if(cur>0){
       const left=next-cur,pct=Math.max(0,Math.min(100,(cur-lk)/interval*100));
-      html+='<div class="bar'+(left<0?" over":"")+'"><i style="width:'+pct+'%"></i></div>';
-      html+=left>=0?'<div class="left ok service-remaining"><span class="service-remaining-dot" aria-hidden="true"></span>Απομένουν '+fmtKm(left)+'</div>':'<div class="left warn service-remaining"><span class="service-remaining-dot" aria-hidden="true"></span>Έχεις περάσει το service κατά '+fmtKm(-left)+'</div>';
+      const urgency=serviceRemainingStatus(left,interval);
+      html+='<div class="bar service-progress '+urgency+'"><i style="width:'+pct+'%"></i></div>';
+      const message=left<0?'Έχεις περάσει το service κατά '+fmtKm(-left):
+        left===0?'Ήρθε η ώρα για service (0 χλμ. απομένουν)':'Απομένουν '+fmtKm(left);
+      html+='<div class="left service-remaining '+urgency+'"><span class="service-remaining-dot" aria-hidden="true"></span>'+message+'</div>';
     }
     if(cur>0){
       const left=next-cur;
