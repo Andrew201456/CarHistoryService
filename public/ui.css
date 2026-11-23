@@ -432,3 +432,16 @@ body.account-locked main,body.account-locked nav{display:none!important}
 .legacy-transfer input{width:100%;min-height:44px;font-size:16px}
 #legacyStatus{min-height:16px}
 @media(max-width:380px){.account-card{padding:22px 16px}.account-card h1{font-size:1.4rem}}
+
+
+/* Optional human-chosen account codes, without an imposed CS- prefix. */
+.account-custom-form[hidden]{display:none!important}
+.account-card .account-custom-form{
+  margin-top:13px;padding:14px;border:1px solid var(--line);border-radius:13px;
+  background:var(--soft)
+}
+.account-card .account-custom-form label{margin:0 0 7px}
+.account-card .account-custom-form input{background:var(--card);letter-spacing:.3px}
+.account-card .account-custom-form p{font-size:.72rem;line-height:1.55;margin:8px 0;color:var(--mute)}
+.account-card .account-custom-form button{margin:12px 0 0}
+.account-card #accountChooseCustom{margin-top:8px}
