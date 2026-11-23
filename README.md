@@ -11,6 +11,7 @@ A mobile-first service history app (Greek) built on Cloudflare Workers, Static A
 - Automatically saved, device-local draft entries.
 - Installable PWA (Android install prompt, Safari instructions) and offline-cached static shell.
 - Authenticated server sync with revision checks and three-way merge of concurrent edits.
+- Fifth bottom-tab "AI Μηχανικός" with a private service-history-aware diagnostic conversation.
 
 ## Storage / first deployment
 
@@ -32,3 +33,14 @@ npx wrangler deploy
 ```
 
 The static shell can load offline after a successful initial visit. The AI import and cross-device synchronization require a connection. The service worker intentionally does not cache authenticated API responses.
+
+
+## AI Μηχανικός — νέο πέμπτο tab
+
+Ο χρήστης ανοίγει την καρτέλα **AI** και περιγράφει συμπτώματα ή νέα βλάβη (π.χ. μεταλλικό θόρυβο, τρέμουλο στο φρενάρισμα). Η εφαρμογή στέλνει μέσω του **εξουσιοδοτημένου** endpoint `POST /api/diagnose` την ερώτηση μαζί με τα καταχωρημένα service/επισκευές (έως 80 πρόσφατες και 40 σχετικές παλαιότερες), τις υπενθυμίσεις, τα τωρινά χιλιόμετρα και προαιρετικά το μοντέλο/κινητήρα του αυτοκινήτου. Η καρτέλα διαβάζει τα **πραγματικά δεδομένα** της εφαρμογής (και τυχόν ακόμα μη συγχρονισμένες τοπικές εγγραφές), όχι στατικές υποθέσεις.
+
+Το endpoint απαιτεί τον ίδιο `PASSCODE` που προστατεύει ήδη τον συγχρονισμό και τη λειτουργία εισαγωγής. Χρησιμοποιεί το **υπάρχον Cloudflare Workers AI binding** από το `wrangler.jsonc` και το μοντέλο `@cf/meta/llama-3.3-70b-instruct-fp8-fast`. Δεν απαιτείται νέο API key ή ρύθμιση provider εφόσον η υπάρχουσα υπηρεσία Workers AI λειτουργεί. Η εφαρμογή δεν αποθηκεύει τα αιτήματα/απαντήσεις στον server, αλλά το ιστορικό συνομιλίας κρατιέται τοπικά στο `localStorage` της συσκευής. Το μοντέλο επεξεργάζεται τις πληροφορίες που του στέλνονται όταν ο χρήστης πατήσει «Ρώτησε». Η σελίδα δεν αποστέλλει στοιχεία στο AI αυτόματα, ούτε τροποποιεί service.
+
+Οι απαντήσεις είναι **υποθέσεις και πρακτικές κατευθύνσεις**, όχι εξ αποστάσεως επιβεβαιωμένη διάγνωση. Το system prompt απαιτεί αναφορές σε πραγματικές εγγραφές, διαχωρισμό βεβαιωμένων εργασιών από πιθανές αιτίες, σαφείς προειδοποιήσεις για κινδύνους (φρένα, τιμόνι, καύσιμα, υπερθέρμανση κ.λπ.) και παραπομπή σε συνεργείο όταν απαιτείται.
+
+Η **καρτέλα AI απαιτεί internet**. Το ιστορικό, οι καταχωρήσεις και η offline-cached εφαρμογή συνεχίζουν να λειτουργούν χωρίς σύνδεση. Η πέμπτη καρτέλα είναι σε στενή διάταξη για οθόνες iPhone. Εάν δεν εμφανίζεται μετά το deployment, κλείσε/άνοιξε την εγκατεστημένη εφαρμογή ώστε να ανανεωθεί η PWA cache.

@@ -172,6 +172,44 @@ nav button.on{color:var(--accent);font-weight:600}
   <button class="main" id="impAdd" hidden>Προσθήκη επιλεγμένων</button>
 </section>
 
+<section class="view" id="v-ai" aria-label="AI Μηχανικός">
+  <div class="ai-head">
+    <div><span class="ai-eyebrow">ΒΟΗΘΟΣ ΣΥΝΤΗΡΗΣΗΣ</span><h1>AI Μηχανικός</h1>
+      <p>Περιέγραψε έναν θόρυβο, σύμπτωμα ή βλάβη. Θα εξετάσει τα service που έχεις καταχωρήσει.</p></div>
+    <button type="button" class="ai-reset" id="aiClear">Νέα συνομιλία</button>
+  </div>
+  <div class="ai-context-info" aria-label="Στοιχεία που θα ληφθούν υπόψη">
+    <span id="aiHistoryCount">Ιστορικό: —</span>
+    <span id="aiCurrentKm">Χιλιόμετρα: —</span>
+  </div>
+  <details class="ai-vehicle-details" id="aiVehiclePanel">
+    <summary>Στοιχεία αυτοκινήτου <span id="aiVehicleSummary">Προαιρετικά</span></summary>
+    <label for="aiVehicle">Μάρκα, μοντέλο, χρονολογία και κινητήρας</label>
+    <input id="aiVehicle" type="text" maxlength="150" autocomplete="off" placeholder="π.χ. Ford Focus 2007, 1.6 βενζίνη">
+    <button type="button" id="aiSaveVehicle">Αποθήκευση στοιχείων</button>
+  </details>
+  <div id="aiWelcome" class="ai-welcome">
+    <strong>Τι θέλεις να εξετάσουμε;</strong>
+    <p>Μπορείς να περιγράψεις το πρόβλημα όπως το παρατηρείς. Αν υπάρχει σχετικό παλαιότερο service, θα το συνδέσουμε με τις πιθανές αιτίες.</p>
+    <div class="ai-suggestions">
+      <button type="button" data-ai-example="Ακούγεται μεταλλικός θόρυβος στις 2.000 στροφές. Τι μπορεί να φταίει;">Μεταλλικός θόρυβος</button>
+      <button type="button" data-ai-example="Το αυτοκίνητο τρέμει όταν φρενάρω. Τι πρέπει να ελέγξω;">Τρέμουλο στα φρένα</button>
+      <button type="button" data-ai-example="Τι χρειάζεται να προσέξω στο επόμενο service με βάση τις εργασίες που έχουν ήδη γίνει;">Επόμενο service</button>
+    </div>
+  </div>
+  <div id="aiMessages" class="ai-messages" role="log" aria-live="polite" aria-label="Συνομιλία με AI Μηχανικό"></div>
+  <p id="aiStatus" class="ai-status" role="status" aria-live="polite"></p>
+  <form id="aiForm" class="ai-question-form">
+    <label for="aiQuestion">Ρώτησε τον AI Μηχανικό</label>
+    <textarea id="aiQuestion" maxlength="1800" rows="3" enterkeyhint="send" placeholder="π.χ. Όταν αφήνω το γκάζι στη 2α κάνει ένα τίναγμα. Από τι μπορεί να είναι;" required></textarea>
+    <div class="ai-form-bottom">
+      <small>Το ιστορικό αποστέλλεται στο Workers AI μόνο όταν πατήσεις «Ρώτησε».</small>
+      <button type="submit" id="aiSend">Ρώτησε <span aria-hidden="true">↑</span></button>
+    </div>
+  </form>
+  <p class="ai-disclaimer">Οι απαντήσεις είναι ενδεικτικές, όχι διάγνωση συνεργείου. Για φρένα, τιμόνι, διαρροή καυσίμου ή υπερθέρμανση, προέχει η ασφάλεια.</p>
+</section>
+
 <section class="view" id="v-backup">
   <h1>Αντίγραφο ασφαλείας</h1>
   <p class="note">Τα δεδομένα συγχρονίζονται αυτόματα με τον server. Αν θέλεις, μπορείς επιπλέον να κρατήσεις ένα αντίγραφο σε κείμενο. Πάτα «Δημιουργία αντιγράφου», αντίγραψε το κείμενο και κράτα το σε μια σημείωση ή στο email σου. Για επαναφορά κάνε επικόλληση και πάτα «Επαναφορά».</p>
@@ -195,6 +233,7 @@ nav button.on{color:var(--accent);font-weight:600}
   <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Αρχική</span></button>
   <button data-v="form"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span id="navAdd">Προσθήκη</span></button>
   <button data-v="import"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><span>Εισαγωγή</span></button>
+  <button data-v="ai" type="button" aria-label="AI Μηχανικός" title="AI Μηχανικός"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M18.4 5.6l-2.1 2.1m-8.6 8.6-2.1 2.1"/><rect x="7" y="7" width="10" height="10" rx="3"/><path d="M10 11h.01M14 11h.01M10 14c1.2 1 2.8 1 4 0"/></svg></span><span>AI</span></button>
   <button data-v="backup"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span>Αντίγραφο</span></button>
 </nav>
 
@@ -657,5 +696,6 @@ $("impAdd").onclick=()=>{
 load();resetForm();render();sync();
 </script>
 <script src="/features.js"></script>
+<script src="/ai-mechanic.js"></script>
 </body>
 </html>
