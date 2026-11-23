@@ -28,7 +28,10 @@ self.addEventListener("fetch",event=>{
   // while retaining cached copies for true offline operation.
   if(["/account.js","/ui.css","/features.js","/ai-mechanic.js"].includes(url.pathname)){
     event.respondWith(fetch(event.request).then(response=>{
-      if(response.ok)event.waitUntil(caches.open(CACHE).then(cache=>cache.put(event.request,response.clone())));
+      if(response.ok){
+        const cachedCopy=response.clone();
+        event.waitUntil(caches.open(CACHE).then(cache=>cache.put(event.request,cachedCopy)));
+      }
       return response;
     }).catch(()=>caches.match(event.request)));
     return;
