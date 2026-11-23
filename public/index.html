@@ -805,10 +805,17 @@ function renderNext(){
     if(cur>0){
       const left=next-cur,pct=Math.max(0,Math.min(100,(cur-lk)/interval*100));
       const urgency=serviceRemainingStatus(left,interval);
-      html+='<div class="bar service-progress '+urgency+'"><i style="width:'+pct+'%"></i></div>';
+      // Inline colour ensures the status stays visible even with a stale /ui.css PWA cache.
+      const darkTheme=document.documentElement.dataset.theme==="dark"||
+        (document.documentElement.dataset.theme!=="light"&&window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+      const colors=darkTheme?
+        {"service-good":"#4ade80","service-warning":"#fbbf24","service-critical":"#f87171","service-overdue":"#fb7185"}:
+        {"service-good":"#15803d","service-warning":"#b45309","service-critical":"#dc2626","service-overdue":"#881337"};
+      const statusColor=colors[urgency];
+      html+='<div class="bar service-progress '+urgency+'"><i style="width:'+pct+'%;background-color:'+statusColor+'"></i></div>';
       const message=left<0?'Έχεις περάσει το service κατά '+fmtKm(-left):
         left===0?'Ήρθε η ώρα για service (0 χλμ. απομένουν)':'Απομένουν '+fmtKm(left);
-      html+='<div class="left service-remaining '+urgency+'"><span class="service-remaining-dot" aria-hidden="true"></span>'+message+'</div>';
+      html+='<div class="left service-remaining '+urgency+'" style="color:'+statusColor+';font-weight:800"><span class="service-remaining-dot" aria-hidden="true"></span>'+message+'</div>';
     }
     if(cur>0){
       const left=next-cur;
