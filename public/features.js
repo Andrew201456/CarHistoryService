@@ -70,7 +70,112 @@
     }).join("");
   }
 
-  function renderExtras() { updateOverview(); renderExpenses(); renderReminders(); }
+  const obligationKinds=[
+    {field:"dueInsurance",name:"Ασφάλεια",icon:"🛡️"},
+    {field:"dueKteo",name:"ΚΤΕΟ",icon:"🔧"},
+    {field:"dueTax",name:"Τέλη",icon:"📄"},
+    {field:"dueEmissions",name:"Κάρτα καυσαερίων",icon:"🌿"}
+  ];
+  const DAY=86400000;
+  function dateInfo(value,now=new Date()){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||"")))return null;
+    const [y,m,d]=value.split("-").map(Number);
+    const date=new Date(Date.UTC(y,m-1,d));
+    if(date.getUTCFullYear()!==y||date.getUTCMonth()!==m-1||date.getUTCDate()!==d)return null;
+    const today=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+    const days=Math.round((date.getTime()-today)/DAY);
+    return {
+      days,
+      date:new Intl.DateTimeFormat("el-GR",{
+        day:"numeric",month:"short",year:"numeric",timeZone:"UTC"
+      }).format(date)
+    };
+  }
+  function obligationState(days){
+    return days<0?{className:"overdue",text:"Έληξε πριν "+(-days)+" ημέρες"}:
+      days===0?{className:"overdue",text:"Λήγει σήμερα"}:
+      days<=30?{className:"soon",text:days===1?"Λήγει αύριο":"Σε "+days+" ημέρες"}:
+      {className:"ok",text:null};
+  }
+  function latestTires(){
+    return items.filter(it=>itemKind(it)==="tires"&&int(it.km)>0&&int(it.tireLifeKm)>0)
+      .sort((a,b)=>int(b.km)-int(a.km)||(b.date||"").localeCompare(a.date||""))[0]||null;
+  }
+  function renderDueSummary(){
+    const cards=[];
+    let urgent=0,configured=0;
+    for(const kind of obligationKinds){
+      const info=dateInfo(settings[kind.field]);
+      const field=$(kind.field);
+      if(field&&field.value!==(info?settings[kind.field]:"")){
+        field.value=info?settings[kind.field]:"";
+      }
+      if(!info)continue;
+      configured++;
+      const state=obligationState(info.days);
+      if(state.className!=="ok")urgent++;
+      cards.push('<div class="due-chip '+state.className+'"><span class="due-chip-top">'+
+        '<span class="due-icon" aria-hidden="true">'+kind.icon+'</span><span>'+
+        esc(kind.name)+'</span></span><strong>'+esc(info.date)+'</strong>'+
+        '<small>'+esc(state.text||"Προγραμματισμένη λήξη")+'</small></div>');
+    }
+    const tires=latestTires();
+    if(tires){
+      const dueKm=int(tires.km)+int(tires.tireLifeKm);
+      const currentKm=int(settings.current);
+      const left=dueKm-currentKm;
+      const state=currentKm>0?(left<=0?"overdue":left<=2000?"soon":"ok"):"ok";
+      let note=currentKm>0&&currentKm<int(tires.km)?
+        "Ενημέρωσε τα τωρινά χλμ. για σωστή εκτίμηση":
+        currentKm>0?
+          left<0?"Έχουν ξεπεραστεί κατά "+fmtKm(-left):
+          left===0?"Χρειάζονται έλεγχο / αλλαγή":"Απομένουν "+fmtKm(left):
+          "Προβλεπόμενη αλλαγή στα "+fmtKm(dueKm);
+      if(currentKm>=int(tires.km)&&left>0){
+        const estimate=estimateNextServiceDate(items,currentKm,dueKm);
+        if(estimate)note+=" · περ. "+new Intl.DateTimeFormat("el-GR",{
+          day:"numeric",month:"short",year:"numeric",timeZone:"UTC"
+        }).format(estimate.date);
+      }
+      cards.push('<div class="due-chip tire-chip '+state+'"><span class="due-chip-top">'+
+        '<span class="due-icon" aria-hidden="true">◉</span>Ελαστικά</span>'+
+        '<strong>'+fmtKm(dueKm)+'</strong><small>'+esc(note)+'</small></div>');
+    }
+    $("obligationsCount").textContent=urgent?urgent+" κοντά / ληγμένα":
+      configured?configured+" ημερομηνίες":"Προσθήκη";
+    const target=$("dueSummary");
+    if(!cards.length){
+      target.innerHTML='<div class="due-empty"><div><strong>Κράτα τις προθεσμίες σου οργανωμένες</strong>'+
+        '<span>Ασφάλεια, ΚΤΕΟ, τέλη και αλλαγή ελαστικών, όλα εδώ.</span></div>'+
+        '<button type="button" data-due-settings>Προσθήκη ημερομηνιών</button></div>';
+      return;
+    }
+    target.innerHTML='<div class="due-summary-heading"><strong>ΠΡΟΘΕΣΜΙΕΣ &amp; ΕΛΑΣΤΙΚΑ</strong>'+
+      '<button type="button" data-due-settings aria-label="Επεξεργασία ημερομηνιών">Ημερομηνίες ⚙</button></div>'+
+      '<div class="due-cards">'+cards.join("")+'</div>';
+  }
+  $("obligationsPanel").addEventListener("change",event=>{
+    const field=event.target.id;
+    if(!obligationKinds.some(kind=>kind.field===field))return;
+    const value=event.target.value;
+    if(value&&!dateInfo(value)){
+      alert("Διάλεξε έγκυρη ημερομηνία.");
+      event.target.value=settings[field]||"";
+      return;
+    }
+    settings[field]=value;
+    store();
+    renderDueSummary();
+  });
+  $("dueSummary").addEventListener("click",event=>{
+    const trigger=event.target.closest("[data-due-settings]");
+    if(!trigger)return;
+    const panel=$("obligationsPanel");
+    panel.open=true;
+    panel.scrollIntoView({behavior:"smooth",block:"center"});
+  });
+
+  function renderExtras() { updateOverview(); renderExpenses(); renderReminders(); renderDueSummary(); }
   window.renderExtras = renderExtras;
   const originalRender = render;
   render = function () { const output = originalRender(); renderExtras(); return output; };
@@ -148,6 +253,8 @@
     const d={
       editId:editId||null,
       date:$("date").value,km:$("km").value,
+      kind:$("serviceKind").value,tireName:$("tireName").value,
+      tireLifeKm:$("tireLifeKm").value,
       parts:readParts(),labor:$("labor").value,
       where:$("where").value,notes:$("notes").value,regular:$("regular").checked
     };
@@ -168,7 +275,10 @@
     $("labor").value=initialDraft.labor||"";
     $("where").value=initialDraft.where||"";
     $("notes").value=initialDraft.notes||"";
-    $("regular").checked=initialDraft.regular!==false;
+    setServiceKind(initialDraft.kind==="tires"?"tires":
+      initialDraft.kind==="repair"||initialDraft.regular===false?"repair":"regular");
+    $("tireName").value=initialDraft.tireName||"";
+    $("tireLifeKm").value=initialDraft.tireLifeKm||"";
     $("parts").innerHTML="";
     (initialDraft.parts.length?initialDraft.parts:[{name:"",cost:""}]).forEach(p=>partRow(p.name,p.cost));
     $("formTitle").textContent=editId?"Επεξεργασία":"Νέα καταχώρηση";

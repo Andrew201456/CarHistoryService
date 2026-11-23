@@ -390,38 +390,183 @@ nav button span:last-child{white-space:nowrap}
 @media(prefers-reduced-motion:reduce){.ai-send-button,.ai-car-summary{transition:none}}
 
 
-/* Secure account entry — the app is not rendered before account verification. */
-body.account-locked main,body.account-locked nav{display:none!important}
-.account-gate[hidden]{display:none!important}
-.account-gate{min-height:100dvh;padding:calc(30px + env(safe-area-inset-top,0px)) 16px 36px;
- display:flex;align-items:center;justify-content:center}
-.account-card{width:min(100%,430px);background:var(--card);border:1px solid var(--line);
- border-radius:22px;padding:28px 23px;box-shadow:var(--shadow)}
-.account-brand{font-size:.7rem;letter-spacing:1.6px;color:var(--accent);font-weight:850}
-.account-card h1{font-size:1.58rem;line-height:1.2;letter-spacing:-.6px;margin:9px 0}
-.account-card p{font-size:.86rem;color:var(--mute);line-height:1.55;margin:7px 0 18px}
-.account-card label{display:block;font-size:.78rem;font-weight:750;margin:14px 0 8px}
-.account-card input{display:block;min-height:49px;width:100%;font-size:16px;
- border:1px solid var(--line);background:var(--bg);color:var(--ink);
- padding:11px 13px;border-radius:12px;letter-spacing:.8px}
-.account-card button{display:block;width:100%;min-height:45px;border-radius:12px;
- margin-top:11px;font-size:.85rem;font-weight:780;padding:9px 12px}
-.account-card button:disabled{opacity:.6;cursor:wait}
-.account-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.account-secondary{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
-.account-divider{display:flex;align-items:center;justify-content:center;gap:14px;
- margin:19px 0 5px;color:var(--mute);font-size:.75rem}
-.account-divider:before,.account-divider:after{content:"";height:1px;flex:1;background:var(--line)}
-.account-created{margin-top:16px;padding:14px;border-radius:13px;border:1px solid var(--line);background:var(--soft)}
-.account-created[hidden]{display:none}
-.account-created strong{font-size:.85rem}
-.account-created code{display:block;margin-top:9px;font-size:.89rem;line-height:1.7;
- font-weight:750;letter-spacing:.3px;word-break:break-all;user-select:all;-webkit-user-select:all}
-.account-created p{font-size:.77rem;margin:10px 0}
-.account-message{font-size:.79rem!important;min-height:15px;margin:13px 0 10px!important;
- color:var(--accent)!important}
-.account-message.error{color:var(--danger)!important}
-.account-card>small{display:block;font-size:.71rem;color:var(--mute);line-height:1.5}
+/* Account entry: quiet, compact and independent from the service UI. */
+body.account-locked main,
+body.account-locked nav{display:none!important}
+.account-gate[hidden],.account-card [hidden]{display:none!important}
+.account-gate{
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  padding:calc(30px + env(safe-area-inset-top,0px)) 17px
+    calc(35px + env(safe-area-inset-bottom,0px));
+  background:
+    radial-gradient(ellipse 80% 52% at 47% 10%,color-mix(in srgb,var(--accent) 11%,transparent),transparent 76%),
+    var(--bg);
+}
+.account-card{
+  width:min(100%,420px);position:relative;overflow:hidden;
+  border-radius:25px;padding:clamp(22px,6vw,33px);
+  background:var(--card);border:1px solid var(--line);
+  box-shadow:0 22px 75px rgba(12,33,49,.12),0 3px 13px rgba(12,33,49,.025);
+}
+.account-card:before{
+  content:"";position:absolute;inset:0 0 auto;height:3px;pointer-events:none;
+  background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 25%,var(--card)));
+}
+.account-card button{font:inherit;cursor:pointer}
+.account-card button:disabled{cursor:wait;opacity:.75}
+.account-card button:focus-visible,
+.account-card input:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--accent) 52%,transparent);outline-offset:3px;
+}
+.account-identity{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:14px;margin:0 0 38px;min-width:0;
+}
+.account-lockup{display:flex;align-items:center;gap:11px;min-width:0}
+.account-logo{display:block;width:47px;height:47px;border-radius:13px;object-fit:contain}
+.account-brand-stack{display:flex;flex-direction:column;gap:0;min-width:0}
+.account-brand{
+  color:var(--ink);font-size:.79rem;font-weight:850;
+  letter-spacing:1.05px;line-height:1.35;
+}
+.account-brand-caption{font-size:.61rem;font-weight:750;letter-spacing:1.5px;color:var(--mute);line-height:1.65}
+.account-card .account-options-trigger{
+  width:44px;height:44px;min-height:44px;min-width:44px;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:14px;border:1px solid var(--line);background:var(--bg);
+  color:var(--accent);padding:10px;margin:0;box-shadow:none;
+  transition:transform .16s ease,border-color .16s ease,background-color .16s ease;
+}
+.account-options-trigger svg{width:23px;height:23px;display:block;pointer-events:none}
+.account-card .account-options-trigger:hover{
+  transform:translateY(-1px);
+  background:var(--soft);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));
+}
+.account-card .account-options-trigger:active{transform:translateY(0)}
+.account-login-eyebrow{
+  color:var(--accent);display:flex;align-items:center;gap:8px;
+  font-size:.7rem;font-weight:780;letter-spacing:.3px;margin-bottom:10px;
+}
+.account-online-dot{
+  width:7px;height:7px;border-radius:50%;display:inline-block;flex:none;
+  background:var(--accent);box-shadow:0 0 0 4px var(--soft);
+}
+.account-card #accountLoginPanel h1{
+  font-size:clamp(1.92rem,6.2vw,2.33rem);font-weight:850;
+  letter-spacing:-1.15px;line-height:1.12;margin:0 0 12px;color:var(--ink);
+}
+.account-heading-dot{color:var(--accent)}
+.account-card #accountLoginPanel>p{
+  color:var(--mute);font-size:.9rem;line-height:1.65;max-width:290px;
+  margin:0 0 31px;font-weight:450;
+}
+.account-card #accountLoginForm label,
+.account-card #accountRegisterPanel .account-custom-form label{
+  display:block;font-size:.8rem;font-weight:760;line-height:1.5;
+  margin:0 0 10px;color:var(--ink);
+}
+.account-input-wrap{position:relative;display:flex;align-items:center;width:100%}
+.account-input-wrap>svg{
+  position:absolute;left:15px;top:50%;transform:translateY(-50%);
+  color:var(--mute);width:21px;height:21px;pointer-events:none;
+}
+.account-card #accountLoginForm .account-input-wrap input{
+  width:100%;height:57px;min-height:57px;padding:12px 15px 12px 47px;
+  border:1.5px solid var(--line);border-radius:14px;
+  color:var(--ink);background:var(--bg);font-size:16px;
+  font-weight:580;letter-spacing:.05px;transition:border-color .16s ease,box-shadow .16s ease;
+}
+.account-card #accountLoginForm .account-input-wrap:focus-within input{
+  border-color:var(--accent);box-shadow:0 0 0 4px var(--soft);outline:none;
+}
+.account-card #accountLoginForm .account-input-wrap:focus-within>svg{color:var(--accent)}
+.account-card #accountLoginForm input[aria-invalid="true"]{border-color:var(--danger)}
+.account-card #accountLoginForm input::placeholder{color:var(--mute);font-weight:400;letter-spacing:0;opacity:.8}
+.account-card .account-login-button{
+  width:100%;min-height:56px;height:56px;
+  border-radius:14px;margin:17px 0 0;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:13px 20px;background:var(--accent);color:var(--accent-ink);
+  border:1px solid var(--accent);font-size:.97rem;font-weight:810;
+  letter-spacing:.15px;transition:filter .15s ease,transform .15s ease;
+}
+.account-card .account-login-button:not(:disabled):hover{filter:brightness(1.075);transform:translateY(-1px)}
+.account-card .account-login-button:not(:disabled):active{transform:translateY(0)}
+.account-login-arrow{display:block;width:20px;height:20px;pointer-events:none}
+.account-login-button.is-loading .account-login-arrow{animation:account-wait 1s linear infinite}
+@keyframes account-wait{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.account-card #accountLoginPanel .account-entry-footnote{
+  color:var(--mute);font-size:.72rem;line-height:1.6;max-width:none;
+  text-align:center;margin:20px 0 0;
+}
+.account-card .account-message{
+  color:var(--accent);font-size:.81rem!important;line-height:1.55;
+  min-height:0;margin:14px 0 0!important;font-weight:500;
+}
+.account-card .account-message:empty{display:none}
+.account-card .account-message.error{color:var(--danger)}
+.account-card .account-back{
+  display:inline-flex;align-items:center;width:auto;min-height:36px;
+  margin:0 0 18px;padding:4px 0;border:0;background:transparent;
+  color:var(--mute);font-size:.78rem;font-weight:680;box-shadow:none;
+}
+.account-card .account-back:hover{color:var(--ink)}
+.account-card #accountRegisterPanel h2{
+  font-size:1.58rem;font-weight:830;letter-spacing:-.6px;
+  color:var(--ink);margin:0 0 7px;line-height:1.28;
+}
+.account-card #accountRegisterPanel #accountRegisterChoices>p{
+  color:var(--mute);font-size:.86rem;line-height:1.6;margin:0 0 22px;
+}
+.account-card #accountRegisterPanel .account-custom-form{
+  border:0;border-radius:0;margin:0;padding:0;background:transparent;
+}
+.account-card #accountRegisterPanel .account-custom-form input{
+  width:100%;height:52px;min-height:52px;border-radius:13px;
+  color:var(--ink);background:var(--bg);border:1.5px solid var(--line);
+  padding:12px 14px;font-size:16px;font-weight:520;
+}
+.account-card #accountRegisterPanel .account-custom-form input:focus{
+  border-color:var(--accent);box-shadow:0 0 0 4px var(--soft);outline:none;
+}
+.account-card #accountRegisterPanel .account-helper{
+  color:var(--mute);font-size:.74rem;line-height:1.6;margin:10px 0 0;
+}
+.account-card #accountRegisterPanel .account-primary,
+.account-card #accountRegisterPanel .account-secondary{
+  display:block;width:100%;min-height:49px;margin:14px 0 0;
+  border-radius:13px;padding:11px 13px;
+  font-size:.86rem;font-weight:760;
+}
+.account-card #accountRegisterPanel .account-primary{
+  background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);
+}
+.account-card #accountRegisterPanel .account-secondary{
+  background:var(--soft);color:var(--ink);border:1px solid var(--line);
+}
+.account-card .account-divider{
+  display:flex;align-items:center;gap:12px;margin:17px 0 2px;
+  color:var(--mute);font-size:.72rem;justify-content:center;
+}
+.account-card .account-divider:before,.account-card .account-divider:after{
+  content:"";height:1px;flex:1;background:var(--line);
+}
+.account-card .account-safety-note{
+  display:block;margin-top:17px;color:var(--mute);font-size:.72rem;line-height:1.58;
+}
+.account-card .account-created{
+  padding:15px;border-radius:14px;border:1px solid var(--line);
+  background:var(--soft);overflow:hidden;
+}
+.account-created strong{color:var(--ink);font-size:.85rem;font-weight:800}
+.account-created code{
+  display:block;margin:10px 0;font-weight:800;font-size:.88rem;
+  letter-spacing:.3px;word-break:break-all;user-select:all;-webkit-user-select:all;
+}
+.account-card .account-created p{margin:10px 0;color:var(--mute);font-size:.78rem;line-height:1.55}
+.account-card #accountCreated button{width:100%;min-height:48px;border-radius:12px;margin:9px 0 0;font-weight:730}
+.account-card #accountCopy{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.account-card #accountContinue{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
 .account-settings{border:1px solid var(--line);padding:15px;border-radius:14px;margin:18px 0}
 .account-settings>strong,.legacy-transfer>strong{font-weight:800;font-size:.91rem}
 .account-settings>.note{margin:8px 0 11px}
@@ -431,89 +576,144 @@ body.account-locked main,body.account-locked nav{display:none!important}
 .legacy-transfer label{display:block;margin:10px 0 6px;font-size:.81rem;font-weight:750}
 .legacy-transfer input{width:100%;min-height:44px;font-size:16px}
 #legacyStatus{min-height:16px}
-@media(max-width:380px){.account-card{padding:22px 16px}.account-card h1{font-size:1.4rem}}
-
-
-/* Optional human-chosen account codes, without an imposed CS- prefix. */
-.account-custom-form[hidden]{display:none!important}
-.account-card .account-custom-form{
-  margin-top:13px;padding:14px;border:1px solid var(--line);border-radius:13px;
-  background:var(--soft)
-}
-.account-card .account-custom-form label{margin:0 0 7px}
-.account-card .account-custom-form input{background:var(--card);letter-spacing:.3px}
-.account-card .account-custom-form p{font-size:.72rem;line-height:1.55;margin:8px 0;color:var(--mute)}
-.account-card .account-custom-form button{margin:12px 0 0}
-.account-card #accountChooseCustom{margin-top:8px}
-
-/* Focused sign-in first; registration remains a separate, optional screen. */
-.account-card [hidden]{display:none!important}
-.account-gate{
-  background:radial-gradient(ellipse at 50% 0%,
-    color-mix(in srgb,var(--accent) 7%,var(--bg)),var(--bg) 66%);
-}
-.account-card{
-  width:min(100%,405px);
-  padding:clamp(23px,5vw,31px);
-  box-shadow:0 16px 45px rgba(20,42,70,.08);
-}
-.account-identity{display:flex;align-items:center;gap:11px;margin-bottom:25px}
-.account-logo{display:block;width:44px;height:44px;object-fit:contain;border-radius:12px}
-.account-identity .account-brand{font-size:.75rem;letter-spacing:1.25px}
-.account-card #accountLoginPanel h1{
-  margin:0 0 5px;font-size:clamp(1.75rem,5.8vw,2rem);
-  letter-spacing:-.8px;line-height:1.16
-}
-.account-card #accountLoginPanel>p{margin:0 0 26px;font-size:.88rem;line-height:1.55}
-.account-card #accountLoginForm label{font-size:.8rem;margin:0 0 9px}
-.account-card #accountLoginForm input{
-  min-height:54px;border-radius:13px;font-size:16px;padding:13px 15px
-}
-.account-card #accountLoginForm .account-primary{margin-top:14px;min-height:51px}
-.account-card .account-join{
-  border-top:1px solid var(--line);margin-top:25px;padding-top:19px;
-  display:flex;flex-wrap:wrap;gap:4px 7px;align-items:center;justify-content:center;
-  text-align:center;font-size:.78rem;color:var(--mute)
-}
-.account-card .account-link{
-  width:auto;min-height:0;display:inline-block;margin:0;padding:4px 0;
-  border:0;box-shadow:none;background:transparent;color:var(--accent);
-  font-size:.78rem;font-weight:780;text-decoration:none
-}
-.account-card .account-link:hover{text-decoration:underline;text-underline-offset:3px}
-.account-card .account-back{
-  width:auto;min-height:0;margin:0 0 21px;padding:4px 0;
-  background:transparent;border:0;box-shadow:none;
-  color:var(--mute);font-size:.79rem;font-weight:660;
-  text-align:left
-}
-.account-card .account-back:hover{color:var(--ink)}
-.account-card #accountRegisterPanel h2{
-  margin:0 0 6px;font-size:1.48rem;letter-spacing:-.5px;line-height:1.3
-}
-.account-card #accountRegisterPanel #accountRegisterChoices>p{
-  font-size:.85rem;line-height:1.55;margin:0 0 22px
-}
-.account-card #accountRegisterPanel .account-custom-form{
-  border:0;background:transparent;margin:0;padding:0;border-radius:0
-}
-.account-card #accountRegisterPanel .account-custom-form label{font-size:.8rem;margin:0 0 9px}
-.account-card #accountRegisterPanel .account-custom-form input{
-  min-height:52px;padding:12px 14px;background:var(--bg);font-size:16px
-}
-.account-card #accountRegisterPanel .account-custom-form .account-helper{
-  margin:9px 0 0;font-size:.75rem;line-height:1.5;color:var(--mute)
-}
-.account-card #accountRegisterPanel .account-custom-form .account-primary{min-height:50px;margin:16px 0 0}
-.account-card #accountRegisterPanel .account-divider{margin:20px 0 9px}
-.account-card #accountRegisterPanel #accountCreate{min-height:48px}
-.account-card .account-safety-note{
-  display:block;margin-top:17px;font-size:.72rem;
-  color:var(--mute);line-height:1.55
-}
-.account-card .account-message:empty{display:none}
-.account-card .account-message{margin:14px 0 0!important;line-height:1.5}
 @media(max-width:380px){
-  .account-card{padding:24px 19px}
-  .account-join{font-size:.75rem}
+  .account-card{padding:23px 19px;border-radius:20px}
+  .account-identity{margin-bottom:31px}
+  .account-card #accountLoginPanel h1{font-size:1.88rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .account-card .account-login-button,
+  .account-card .account-options-trigger,
+  .account-card #accountLoginForm input{transition:none}
+  .account-login-button.is-loading .account-login-arrow{animation:none}
+}
+
+
+/* Car obligations and tire life: small, readable status cards. */
+.due-summary{margin:-4px 0 17px}
+.due-summary-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin:7px 2px 10px;min-height:28px
+}
+.due-summary-heading>strong{
+  color:var(--mute);font-weight:840;font-size:.68rem;letter-spacing:1.05px;
+}
+.due-summary-heading button,
+.due-empty button{
+  width:auto;min-height:32px;margin:0;padding:5px 9px;border:0;
+  background:transparent;color:var(--accent);font-size:.75rem;font-weight:720
+}
+.due-cards{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+.due-chip{
+  display:flex;flex-direction:column;justify-content:space-between;
+  min-width:0;gap:5px;padding:13px 13px 12px;
+  background:var(--card);border:1px solid var(--line);
+  border-radius:14px;position:relative;overflow:hidden;
+}
+.due-chip::before{
+  content:"";position:absolute;inset:0 auto 0 0;width:3px;
+  background:color-mix(in srgb,var(--accent) 45%,var(--line));
+}
+.due-chip.soon::before{background:#d8a34a}
+.due-chip.overdue::before{background:var(--danger)}
+.due-chip-top{
+  display:flex;align-items:center;gap:7px;min-width:0;
+  color:var(--mute);font-size:.74rem;line-height:1.35;font-weight:730;
+}
+.due-icon{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  font-size:.92rem;width:21px;height:21px;border-radius:7px;background:var(--soft)
+}
+.due-chip strong{
+  display:block;color:var(--ink);font-size:.99rem;font-weight:840;
+  font-variant-numeric:tabular-nums;line-height:1.36;
+  overflow-wrap:anywhere;
+}
+.due-chip small{font-size:.72rem;line-height:1.48;color:var(--mute);font-weight:480}
+.due-chip.soon small{color:#b17a24}
+.due-chip.overdue small{color:var(--danger);font-weight:680}
+.due-chip.tire-chip{
+  background:color-mix(in srgb,var(--accent) 4%,var(--card));
+}
+.due-empty{
+  background:var(--card);border:1px dashed var(--line);border-radius:14px;
+  padding:13px 14px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin-top:12px
+}
+.due-empty div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.due-empty strong{font-size:.8rem;font-weight:800;color:var(--ink)}
+.due-empty span{font-size:.72rem;line-height:1.5;color:var(--mute)}
+.due-empty button{flex:none;max-width:130px;text-align:right}
+.obligations-panel .subtext{line-height:1.6}
+.obligations-editor{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;padding:8px 0 10px;
+}
+.obligations-editor label{
+  display:block;color:var(--ink);font-size:.78rem;font-weight:730;
+  margin:0 0 7px;line-height:1.35
+}
+.obligations-editor input[type="date"]{
+  width:100%;min-width:0;min-height:48px;font-size:14px;
+  padding:9px 8px;border-radius:11px;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);font-family:inherit
+}
+.obligations-editor input:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px var(--soft);outline:none
+}
+.entry-kind{margin:20px 0 10px}
+.entry-kind label{
+  display:block;color:var(--ink);font-weight:770;margin:0 0 8px;font-size:.82rem
+}
+.entry-kind select{
+  width:100%;min-height:49px;background:var(--card);color:var(--ink);
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+  font-size:15px;font-weight:650;font-family:inherit
+}
+.entry-kind small{
+  display:block;font-size:.74rem;line-height:1.55;color:var(--mute);margin:7px 0 0
+}
+.entry-kind input[hidden],.tire-fields[hidden]{display:none!important}
+.tire-fields{
+  background:color-mix(in srgb,var(--accent) 5%,var(--card));
+  border:1px solid color-mix(in srgb,var(--accent) 23%,var(--line));
+  border-radius:15px;margin:14px 0 18px;padding:15px;
+}
+.tire-fields-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;margin-bottom:12px
+}
+.tire-fields-heading strong{font-size:.92rem;color:var(--ink);font-weight:800}
+.tire-fields-heading span{
+  border-radius:99px;padding:5px 8px;background:var(--soft);
+  font-size:.66rem;font-weight:760;color:var(--accent)
+}
+.tire-fields label{
+  color:var(--ink);font-size:.78rem;line-height:1.5;font-weight:720;
+  margin:11px 0 7px
+}
+.tire-fields input{background:var(--card);min-height:47px}
+.tire-fields .optional-label{font-weight:470;font-size:.73rem;color:var(--mute)}
+.tire-fields .tire-fields-note{
+  margin:12px 0 0;color:var(--mute);font-size:.75rem;line-height:1.6
+}
+.tire-history-note{
+  margin:11px 0 0;padding:10px 11px;border-radius:10px;
+  border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));
+  background:color-mix(in srgb,var(--accent) 5%,var(--card));
+  color:var(--ink);font-size:.8rem;line-height:1.55
+}
+.tire-history-note strong{font-weight:790}
+@media(max-width:380px){
+  .due-cards{gap:8px}
+  .due-chip{padding:11px}
+  .due-chip strong{font-size:.89rem}
+  .due-chip-top{font-size:.69rem}
+  .obligations-editor{gap:9px}
+  .obligations-editor input[type="date"]{font-size:13px;padding:8px 5px}
+}
+@media(max-width:315px){
+  .due-cards,.obligations-editor{grid-template-columns:1fr}
 }

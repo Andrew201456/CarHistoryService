@@ -10,6 +10,9 @@
     registerChoices=$("accountRegisterChoices"),backToLogin=$("accountBackToLogin");
   if(!gate)return;
   let busy=false,pendingAccount=null,current=null;
+  let restoreController=null,attemptSerial=0;
+  const loginButton=$("accountLoginBtn"),loginButtonText=$("accountLoginBtnText");
+  const emptyNotice=()=>notice("");
   // Match the Worker: accept custom visible text, including Greek characters.
   const normalizeCode=raw=>String(raw??"").trim().normalize("NFKC").toUpperCase();
   const codeValid=code=>code.length>0 && [...code].length<=64 &&
@@ -27,19 +30,55 @@
   function setBusy(flag){
     busy=flag;
     for(const b of [create,$("accountOpenRegister"),backToLogin,$("accountCustomCreate"),
-      $("accountLoginBtn"),$("accountCopy"),$("accountContinue")]){
+      loginButton,$("accountCopy"),$("accountContinue")]){
       b.disabled=flag;
     }
+    loginButton.setAttribute("aria-busy",String(flag));
+    login.setAttribute("aria-busy",String(flag));
+    loginButton.classList.toggle("is-loading",flag);
+    loginButtonText.textContent=flag?"Σύνδεση…":"Σύνδεση";
   }
-  async function api(path,body,auth){
-    const result=await fetch(path,{
-      method:"POST",cache:"no-store",
-      headers:{"Content-Type":"application/json",...(auth?{"Authorization":"Bearer "+auth}:{})},
-      body:JSON.stringify(body||{})
-    });
-    const data=await result.json().catch(()=>({}));
-    if(!result.ok)throw new Error(data.error||"Η υπηρεσία δεν απάντησε ("+result.status+").");
-    return data;
+  function cancelRestore(){
+    if(!restoreController)return;
+    attemptSerial++;
+    restoreController.abort();
+    restoreController=null;
+    emptyNotice();
+  }
+  async function api(path,body,auth,options={}){
+    // Every attempt terminates. A stalled mobile connection must never leave
+    // the login button looking unresponsive or permanently disabled.
+    const controller=new AbortController();
+    const relayAbort=()=>controller.abort();
+    options.signal?.addEventListener("abort",relayAbort,{once:true});
+    if(options.signal?.aborted)controller.abort();
+    const timer=setTimeout(()=>controller.abort(),options.timeoutMs||12000);
+    try{
+      const result=await fetch(path,{
+        method:"POST",cache:"no-store",signal:controller.signal,
+        headers:{"Content-Type":"application/json",...(auth?{"Authorization":"Bearer "+auth}:{})},
+        body:JSON.stringify(body||{})
+      });
+      const data=await result.json().catch(()=>({}));
+      if(!result.ok){
+        const error=new Error(data.error||"Η υπηρεσία δεν απάντησε ("+result.status+").");
+        error.status=result.status;
+        throw error;
+      }
+      return data;
+    }catch(error){
+      if(controller.signal.aborted){
+        if(options.signal?.aborted)return Promise.reject(Object.assign(new Error("Η προσπάθεια ακυρώθηκε."),{cancelled:true}));
+        throw new Error("Η σύνδεση καθυστέρησε. Έλεγξε το ίντερνετ σου και δοκίμασε ξανά.");
+      }
+      if(error instanceof TypeError){
+        throw new Error("Δεν μπορώ να συνδεθώ στον διακομιστή. Έλεγξε τη σύνδεσή σου.");
+      }
+      throw error;
+    }finally{
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort",relayAbort);
+    }
   }
   function valid(data){
     return data&&typeof data.code==="string"&&codeValid(data.code)&&
@@ -58,49 +97,103 @@
     document.body.classList.remove("account-locked");
     window.CarAppStartAccount(data.session||data.code,data.scope);
   }
-  async function verify(code,silent=false){
+  async function verify(code,{auto=false}={}){
     const formatted=normalizeCode(code);
     if(!codeValid(formatted))throw new Error("Συμπλήρωσε τον προσωπικό σου κωδικό.");
+
+    const serial=++attemptSerial;
+    const controller=auto?new AbortController():null;
+    if(auto)restoreController=controller;
+    const isCurrent=()=>serial===attemptSerial && !(controller?.signal.aborted);
     let saved=null;
     try{saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
+
     try{
-      // A saved session does not use up PIN login attempts on each app launch.
-      if(valid(saved)&&saved.code===formatted&&sessionFormat.test(saved.session||"")){
+      if(valid(saved)&&saved.code===formatted){
         try{
-          const checked=await api("/api/account/session",{},saved.session);
-          if(checked.scope===saved.scope){start(saved);return;}
-        }catch{ /* Expired session: perform a fresh PIN login below. */ }
+          const checked=await api("/api/account/session",{},saved.session,
+            {signal:controller?.signal,timeoutMs:auto?7000:12000});
+          if(!isCurrent())return;
+          if(checked.scope!==saved.scope)throw Object.assign(new Error("Η σύνδεση δεν είναι έγκυρη."),{status:401});
+          start(saved);
+          return;
+        }catch(error){
+          if(!isCurrent())return;
+          // A server-side 401 means the session expired. Only then request
+          // a new session with the code; never retry login on a network error.
+          if(error.status!==401)throw error;
+        }
       }
-      const result=await api("/api/account/login",{code:formatted});
+
+      const result=await api("/api/account/login",{code:formatted},null,
+        {signal:controller?.signal,timeoutMs:auto?9000:12000});
+      if(!isCurrent())return;
       start({code:formatted,scope:result.scope,session:result.session});
     }catch(error){
-      // Offline access is limited to a session already authenticated on this device.
+      if(!isCurrent())return;
+      // Use locally cached data offline only when this very same code was
+      // already verified on this device; never for an unverified account.
       if(!navigator.onLine&&valid(saved)&&saved.code===formatted&&
-          (await scopeOf(formatted))===saved.scope&&
-          sessionFormat.test(saved.session||"")){
-        start(saved);return;
+          (await scopeOf(formatted))===saved.scope&&isCurrent()){
+        start(saved);
+        return;
       }
-      if(!silent)throw error;
-      localStorage.removeItem(ACTIVE);
-      notice("Συνδέσου με τον προσωπικό σου κωδικό.",true);
+      if(auto){
+        // A slow network is not proof that the saved account is invalid.
+        if(error.status===401)localStorage.removeItem(ACTIVE);
+        notice(error.message||"Συνδέσου με τον προσωπικό σου κωδικό.",true);
+        return;
+      }
+      throw error;
+    }finally{
+      if(controller&&restoreController===controller)restoreController=null;
     }
   }
+
+  // The user can press the login button or Enter immediately. If automatic
+  // restoration is still in flight, the manual attempt takes precedence.
+  codeInput.addEventListener("input",()=>{
+    cancelRestore();
+    codeInput.removeAttribute("aria-invalid");
+  });
   login.addEventListener("submit",async event=>{
-    event.preventDefault();if(busy)return;
-    setBusy(true);notice("Έλεγχος λογαριασμού…");
-    try{await verify(codeInput.value);notice("");}
-    catch(error){notice(error.message,true)}
-    finally{setBusy(false)}
+    event.preventDefault();
+    if(busy)return;
+    cancelRestore();
+    setBusy(true);
+    notice("Σύνδεση στον λογαριασμό σου…");
+    codeInput.removeAttribute("aria-invalid");
+    try{
+      const code=codeInput.value;
+      if(!codeValid(normalizeCode(code)))throw new Error("Συμπλήρωσε τον κωδικό σου.");
+      await verify(code);
+      if(current)emptyNotice();
+    }catch(error){
+      codeInput.setAttribute("aria-invalid","true");
+      notice(error.message||"Η σύνδεση απέτυχε. Δοκίμασε ξανά.",true);
+    }finally{
+      setBusy(false);
+    }
   });
   function showPanel(panel){
     if(busy)return;
     const registering=panel==="register";
     loginPanel.hidden=registering;
     registerPanel.hidden=!registering;
+    $("accountOpenRegister").hidden=registering;
     notice("");
   }
-  $("accountOpenRegister").addEventListener("click",()=>showPanel("register"));
-  backToLogin.addEventListener("click",()=>showPanel("login"));
+  $("accountOpenRegister").addEventListener("click",()=>{
+    cancelRestore();
+    showPanel("register");
+    $("accountOpenRegister").setAttribute("aria-expanded","true");
+    $("accountCustomCode").focus();
+  });
+  backToLogin.addEventListener("click",()=>{
+    showPanel("login");
+    $("accountOpenRegister").setAttribute("aria-expanded","false");
+    codeInput.focus();
+  });
 
   function showCreated(data){
     if(!valid(data))throw new Error("Δεν επιστράφηκε έγκυρος κωδικός.");
@@ -198,7 +291,9 @@
   try{last=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{localStorage.removeItem(ACTIVE);}
   if(valid(last)){
     codeInput.value=last.code;
-    notice("Επαλήθευση προηγούμενου λογαριασμού…");
-    verify(last.code,true).catch(()=>notice("Συνδέσου ξανά με τον κωδικό σου.",true));
+    notice("Επανασύνδεση…");
+    verify(last.code,{auto:true}).catch(error=>{
+      if(!error.cancelled)notice("Η αυτόματη σύνδεση δεν ολοκληρώθηκε. Πάτησε Σύνδεση.",true);
+    });
   }
 })();
