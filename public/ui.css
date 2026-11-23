@@ -587,3 +587,133 @@ body.account-locked nav{display:none!important}
   .account-card #accountLoginForm input{transition:none}
   .account-login-button.is-loading .account-login-arrow{animation:none}
 }
+
+
+/* Car obligations and tire life: small, readable status cards. */
+.due-summary{margin:-4px 0 17px}
+.due-summary-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin:7px 2px 10px;min-height:28px
+}
+.due-summary-heading>strong{
+  color:var(--mute);font-weight:840;font-size:.68rem;letter-spacing:1.05px;
+}
+.due-summary-heading button,
+.due-empty button{
+  width:auto;min-height:32px;margin:0;padding:5px 9px;border:0;
+  background:transparent;color:var(--accent);font-size:.75rem;font-weight:720
+}
+.due-cards{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+}
+.due-chip{
+  display:flex;flex-direction:column;justify-content:space-between;
+  min-width:0;gap:5px;padding:13px 13px 12px;
+  background:var(--card);border:1px solid var(--line);
+  border-radius:14px;position:relative;overflow:hidden;
+}
+.due-chip::before{
+  content:"";position:absolute;inset:0 auto 0 0;width:3px;
+  background:color-mix(in srgb,var(--accent) 45%,var(--line));
+}
+.due-chip.soon::before{background:#d8a34a}
+.due-chip.overdue::before{background:var(--danger)}
+.due-chip-top{
+  display:flex;align-items:center;gap:7px;min-width:0;
+  color:var(--mute);font-size:.74rem;line-height:1.35;font-weight:730;
+}
+.due-icon{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  font-size:.92rem;width:21px;height:21px;border-radius:7px;background:var(--soft)
+}
+.due-chip strong{
+  display:block;color:var(--ink);font-size:.99rem;font-weight:840;
+  font-variant-numeric:tabular-nums;line-height:1.36;
+  overflow-wrap:anywhere;
+}
+.due-chip small{font-size:.72rem;line-height:1.48;color:var(--mute);font-weight:480}
+.due-chip.soon small{color:#b17a24}
+.due-chip.overdue small{color:var(--danger);font-weight:680}
+.due-chip.tire-chip{
+  background:color-mix(in srgb,var(--accent) 4%,var(--card));
+}
+.due-empty{
+  background:var(--card);border:1px dashed var(--line);border-radius:14px;
+  padding:13px 14px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin-top:12px
+}
+.due-empty div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.due-empty strong{font-size:.8rem;font-weight:800;color:var(--ink)}
+.due-empty span{font-size:.72rem;line-height:1.5;color:var(--mute)}
+.due-empty button{flex:none;max-width:130px;text-align:right}
+.obligations-panel .subtext{line-height:1.6}
+.obligations-editor{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;padding:8px 0 10px;
+}
+.obligations-editor label{
+  display:block;color:var(--ink);font-size:.78rem;font-weight:730;
+  margin:0 0 7px;line-height:1.35
+}
+.obligations-editor input[type="date"]{
+  width:100%;min-width:0;min-height:48px;font-size:14px;
+  padding:9px 8px;border-radius:11px;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);font-family:inherit
+}
+.obligations-editor input:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px var(--soft);outline:none
+}
+.entry-kind{margin:20px 0 10px}
+.entry-kind label{
+  display:block;color:var(--ink);font-weight:770;margin:0 0 8px;font-size:.82rem
+}
+.entry-kind select{
+  width:100%;min-height:49px;background:var(--card);color:var(--ink);
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+  font-size:15px;font-weight:650;font-family:inherit
+}
+.entry-kind small{
+  display:block;font-size:.74rem;line-height:1.55;color:var(--mute);margin:7px 0 0
+}
+.entry-kind input[hidden],.tire-fields[hidden]{display:none!important}
+.tire-fields{
+  background:color-mix(in srgb,var(--accent) 5%,var(--card));
+  border:1px solid color-mix(in srgb,var(--accent) 23%,var(--line));
+  border-radius:15px;margin:14px 0 18px;padding:15px;
+}
+.tire-fields-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;margin-bottom:12px
+}
+.tire-fields-heading strong{font-size:.92rem;color:var(--ink);font-weight:800}
+.tire-fields-heading span{
+  border-radius:99px;padding:5px 8px;background:var(--soft);
+  font-size:.66rem;font-weight:760;color:var(--accent)
+}
+.tire-fields label{
+  color:var(--ink);font-size:.78rem;line-height:1.5;font-weight:720;
+  margin:11px 0 7px
+}
+.tire-fields input{background:var(--card);min-height:47px}
+.tire-fields .optional-label{font-weight:470;font-size:.73rem;color:var(--mute)}
+.tire-fields .tire-fields-note{
+  margin:12px 0 0;color:var(--mute);font-size:.75rem;line-height:1.6
+}
+.tire-history-note{
+  margin:11px 0 0;padding:10px 11px;border-radius:10px;
+  border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));
+  background:color-mix(in srgb,var(--accent) 5%,var(--card));
+  color:var(--ink);font-size:.8rem;line-height:1.55
+}
+.tire-history-note strong{font-weight:790}
+@media(max-width:380px){
+  .due-cards{gap:8px}
+  .due-chip{padding:11px}
+  .due-chip strong{font-size:.89rem}
+  .due-chip-top{font-size:.69rem}
+  .obligations-editor{gap:9px}
+  .obligations-editor input[type="date"]{font-size:13px;padding:8px 5px}
+}
+@media(max-width:315px){
+  .due-cards,.obligations-editor{grid-template-columns:1fr}
+}
