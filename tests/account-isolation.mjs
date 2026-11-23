@@ -80,8 +80,44 @@ assert.equal((await call("/api/data","GET",null,customAuth)).status,200);
 const hijack=await asJSON(await call("/api/account/create","POST",{code:custom}));
 assert.equal(hijack.status,409,"Existing code cannot create/login to another account");
 assert.notEqual(hijack.data.scope,own.data.scope);
-assert.equal((await call("/api/account/create","POST",{code:"123"})).status,400);
-assert.equal((await call("/api/account/create","POST",{code:"ONLYLETTERSAREHERE"})).status,400);
+const veryShort=await asJSON(await call("/api/account/create","POST",{code:"123"}));
+assert.equal(veryShort.status,200,"User-selected codes may be shorter than 4 digits");
+assert.equal((await call("/api/data","GET",null,"123")).status,401,"Short raw codes cannot bypass login");
+const onlyLetters=await asJSON(await call("/api/account/create","POST",{code:"ONLYLETTERSAREHERE"}));
+assert.equal(onlyLetters.status,200,"Letter-only codes are allowed");
+assert.equal((await call("/api/data","GET",null,"ONLYLETTERSAREHERE")).status,401,
+  "Long newly created codes must use sessions, not raw bearer access");
+const greek=await asJSON(await call("/api/account/create","POST",{code:"12345678ςς"}));
+assert.equal(greek.status,200);
+assert.equal(greek.data.code,"12345678ΣΣ");
+assert.equal((await call("/api/account/create","POST",{code:"12345678ΣΣ"})).status,409,
+  "Unicode uppercase canonicalization must prevent duplicates");
+assert.equal((await asJSON(await call("/api/account/login","POST",{code:"12345678ςς"}))).data.scope,
+  greek.data.scope,"Greek code should log in");
+assert.equal((await call("/api/data","GET",null,"12345678ΣΣ")).status,401,
+  "Greek raw code must not authorize data access");
+assert.equal((await call("/api/data","GET",null,greek.data.session)).status,200);
+// Emulate an existing four-digit account created in v11 before sessionRequired.
+const priorFourDigit="9090";
+const oldPinHashBytes=await webcrypto.subtle.digest("SHA-256",new TextEncoder().encode(priorFourDigit));
+const oldPinScope=Array.from(new Uint8Array(oldPinHashBytes),
+  b=>b.toString(16).padStart(2,"0")).join("");
+await ns.get("car-service-user-"+oldPinScope).fetch("https://car-data.internal/bootstrap",{
+  method:"POST",body:JSON.stringify({items:[{notes:"existing PIN account"}],
+    settings:{},reminders:[]})
+});
+assert.equal((await call("/api/data","GET",null,priorFourDigit)).status,401,
+  "Old 4-digit PINs must not bypass login throttling");
+const oldPinLogin=await asJSON(await call("/api/account/login","POST",{code:priorFourDigit}));
+assert.equal(oldPinLogin.status,200);
+assert.equal((await asJSON(await call("/api/data","GET",null,oldPinLogin.data.session))).data.items[0].notes,
+  "existing PIN account");
+
+assert.equal((await call("/api/account/create","POST",{code:"   "})).status,400);
+assert.equal((await call("/api/account/create","POST",{code:"ABC\u200B123"})).status,400,
+  "Invisible Unicode characters are rejected");
+assert.equal((await call("/api/account/create","POST",{code:"A".repeat(65)})).status,400,
+  "Technical maximum length is enforced");
 assert.equal((await call("/api/data","GET",null,"1234")).status,401);
 assert.equal((await call("/api/data","GET",null,customAuth)).status,200);
 // Old CS- accounts created by v9 must continue working without migration.
@@ -172,17 +208,19 @@ assert(features.includes('"carServiceDraftV1:"+window.CarHistoryAccountScope'));
 assert(ai.includes('"carServiceAiConversationV1:"+window.CarHistoryAccountScope'));
 assert(account.includes('localStorage.removeItem(ACTIVE)'));
 assert(account.includes('accountCustomForm'));
-assert(account.includes('newCodeFormat'));
+assert(account.includes('const codeValid=code=>'),"Flexible code validation must be used");
 assert(html.includes('id="accountCustomCode"'));
 assert(html.includes('id="accountChooseCustom"'));
 assert(html.includes('id="accountCustomCreate"'));
-assert(html.includes('type="password" inputmode="numeric" autocomplete="off"'));
-assert(html.includes('id="accountLegacyMode"'),"Old long-code login must remain accessible");
-assert(html.includes('minlength="4" maxlength="4" pattern="[0-9]{4}"'));
+assert(html.includes('type="password" autocomplete="off"'),"Login works with digits and letters");
+assert(!html.includes('id="accountLegacyMode"'),"The login field supports old and new codes directly");
+assert(html.includes('maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς"'));
+assert(!/id="accountCustomCode"[^>]*pattern=/.test(html),"No mandatory 4-digit validation on account creation");
+assert(account.includes('normalize("NFKC")'),"Client must normalize Greek/Unicode codes");
 assert(html.includes('id="accountCustomForm"'));
-assert(sw.includes("carhistory-shell-v11")&&sw.includes('"/account.js"'));
+assert(sw.includes("carhistory-shell-v12")&&sw.includes('"/account.js"'));
 for(const script of [account,features,ai])assert.doesNotThrow(()=>new Function(script));
 for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
   if(script[1].trim())assert.doesNotThrow(()=>new Function(script[1]));
 }
-console.log("PASS: four-digit PIN creation, uniqueness, sessions, login throttling, isolation and legacy migration");
+console.log("PASS: flexible Greek/Latin/numeric codes, uniqueness, sessions, throttling, isolation and legacy migration");

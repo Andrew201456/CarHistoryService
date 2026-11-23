@@ -89,21 +89,20 @@ nav button.on{color:var(--accent);font-weight:600}
   <div class="account-card">
     <span class="account-brand">CAR HISTORY</span>
     <h1>Το ιστορικό του αυτοκινήτου σου</h1>
-    <p>Συνδέσου με τον 4ψήφιο κωδικό σου ή δημιούργησε έναν καινούργιο.</p>
+    <p>Συνδέσου με τον κωδικό σου ή φτιάξε έναν δικό σου, όπως σε βολεύει.</p>
     <form id="accountLoginForm">
       <label for="accountCode">Ο προσωπικός σου κωδικός</label>
-      <input id="accountCode" type="password" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="π.χ. 1234" required>
-      <button id="accountLegacyMode" type="button" class="account-legacy-switch" aria-pressed="false">Έχω παλιό μεγάλο κωδικό</button>
+      <input id="accountCode" type="password" autocomplete="off" spellcheck="false" placeholder="Γράψε τον κωδικό σου" required>
       <button class="account-primary" id="accountLoginBtn" type="submit">Σύνδεση</button>
     </form>
     <div class="account-divider">ή</div>
     <button id="accountCreate" type="button" class="account-secondary">Δημιουργία τυχαίου 4ψήφιου</button>
-    <button id="accountChooseCustom" type="button" class="account-secondary" aria-controls="accountCustomForm" aria-expanded="false">Θέλω δικό μου 4ψήφιο</button>
+    <button id="accountChooseCustom" type="button" class="account-secondary" aria-controls="accountCustomForm" aria-expanded="false">Θέλω δικό μου κωδικό</button>
     <form id="accountCustomForm" class="account-custom-form" hidden>
       <label for="accountCustomCode">Διάλεξε τον δικό σου κωδικό</label>
-      <input id="accountCustomCode" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
-        minlength="4" maxlength="4" pattern="[0-9]{4}" placeholder="π.χ. 1234" required>
-      <p>Βάλε τέσσερα ψηφία. Αν υπάρχει ήδη ο κωδικός, θα σου ζητήσει να διαλέξεις άλλον.</p>
+      <input id="accountCustomCode" type="text" autocomplete="off" spellcheck="false"
+        maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς" required>
+      <p>Βάλε όποιον κωδικό σε βολεύει, με αριθμούς, γράμματα ή σύμβολα. Αν υπάρχει ήδη, διάλεξε άλλον.</p>
       <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία με αυτόν τον κωδικό</button>
     </form>
     <div id="accountCreated" class="account-created" hidden>
@@ -114,7 +113,7 @@ nav button.on{color:var(--accent);font-weight:600}
       <button id="accountContinue" type="button" class="account-primary">Αποθήκευσα τον κωδικό — Συνέχεια</button>
     </div>
     <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
-    <small>Ο 4ψήφιος κωδικός είναι εύκολος αλλά λιγότερο ασφαλής. Μην τον κοινοποιείς· όποιος τον γνωρίζει μπορεί να μπει στο ιστορικό σου.</small>
+    <small>Οι μικροί και εύκολοι κωδικοί μαντεύονται πιο εύκολα. Όποιος γνωρίζει τον κωδικό σου μπορεί να μπει στα service σου.</small>
   </div>
 </section>
 
