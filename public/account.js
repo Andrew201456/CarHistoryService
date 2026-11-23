@@ -8,14 +8,23 @@
     codeInput=$("accountCode"),create=$("accountCreate"),created=$("accountCreated");
   if(!gate)return;
   let busy=false,pendingAccount=null,current=null;
-  const codeFormat=/^CS-[0-9A-F]{32}$/;
+  // Existing CS- credentials remain valid; new accounts need no prefix.
+  const codeFormat=/^(?:CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+  const newCodeFormat=/^[A-Z0-9][A-Z0-9_-]{11,63}$/;
+  function customCode(raw){
+    const value=String(raw||"").trim().toUpperCase();
+    if(!newCodeFormat.test(value)||!/[A-Z]/.test(value)||!/[0-9]/.test(value))
+      throw new Error("Ο δικός σου κωδικός χρειάζεται 12–64 χαρακτήρες, με λατινικά γράμματα και αριθμούς.");
+    return value;
+  }
   const scopeFormat=/^[a-f0-9]{64}$/;
   function notice(text,error=false){
     message.textContent=text;message.classList.toggle("error",error);
   }
   function setBusy(flag){
     busy=flag;
-    for(const b of [create,$("accountLoginBtn"),$("accountCopy"),$("accountContinue")]){
+    for(const b of [create,$("accountChooseCustom"),$("accountCustomCreate"),
+      $("accountLoginBtn"),$("accountCopy"),$("accountContinue")]){
       b.disabled=flag;
     }
   }
@@ -46,8 +55,8 @@
     window.CarAppStartAccount(data.code,data.scope);
   }
   async function verify(code,silent=false){
-    const formatted=String(code||"").trim().toUpperCase().replace(/\s/g,"");
-    if(!codeFormat.test(formatted))throw new Error("Χρειάζεται ο πλήρης προσωπικός κωδικός CS-…");
+    const formatted=String(code||"").trim().toUpperCase();
+    if(!codeFormat.test(formatted))throw new Error("Συμπλήρωσε τον προσωπικό κωδικό του λογαριασμού σου.");
     const saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");
     try{
       const result=await api("/api/account/login",{code:formatted});
@@ -71,17 +80,39 @@
     catch(error){notice(error.message,true)}
     finally{setBusy(false)}
   });
+  function showCreated(data){
+    if(!valid(data))throw new Error("Δεν επιστράφηκε έγκυρος κωδικός.");
+    pendingAccount=data;
+    $("accountNewCode").textContent=data.code;
+    created.hidden=false;
+    create.hidden=true;
+    $("accountChooseCustom").hidden=true;
+    $("accountCustomForm").hidden=true;
+    login.hidden=true;
+    notice("Φύλαξε τον κωδικό σου πριν συνεχίσεις.");
+  }
+  $("accountChooseCustom").addEventListener("click",()=>{
+    const customForm=$("accountCustomForm");
+    customForm.hidden=!customForm.hidden;
+    $("accountChooseCustom").setAttribute("aria-expanded",String(!customForm.hidden));
+    if(!customForm.hidden)$("accountCustomCode").focus();
+  });
+  $("accountCustomForm").addEventListener("submit",async event=>{
+    event.preventDefault();
+    if(busy)return;
+    let code;
+    try{code=customCode($("accountCustomCode").value);}
+    catch(error){notice(error.message,true);return;}
+    setBusy(true);notice("Έλεγχος διαθέσιμου κωδικού…");
+    try{showCreated(await api("/api/account/create",{code}));}
+    catch(error){notice(error.message,true);}
+    finally{setBusy(false);}
+  });
   create.addEventListener("click",async()=>{
     if(busy)return;
     setBusy(true);notice("Δημιουργία προσωπικού χώρου…");
     try{
-      const data=await api("/api/account/create",{});
-      if(!valid(data))throw new Error("Δεν επιστράφηκε ασφαλής κωδικός.");
-      pendingAccount=data;
-      $("accountNewCode").textContent=data.code;
-      created.hidden=false;
-      create.hidden=true;login.hidden=true;
-      notice("Αντέγραψε και φύλαξε τον κωδικό πριν συνεχίσεις.");
+      showCreated(await api("/api/account/create",{}));
     }catch(error){notice(error.message,true)}
     finally{setBusy(false)}
   });

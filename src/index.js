@@ -42,9 +42,20 @@ const SCHEMA = {
   required: ["entries"],
 };
 
-// Account codes are 128-bit CSPRNG-generated secrets. A short PIN is not safe:
-// the code acts as the only credential to access and edit the owner's car history.
-const CODE_RE = /^CS-[0-9A-F]{32}$/;
+// A code is the ONLY credential to view/edit an account. Keep old CS- codes
+// working, and allow a new memorable custom code or a generated prefix-free one.
+// Custom codes need at least 12 characters and a letter + digit; avoid short PINs.
+const LEGACY_CODE_RE = /^CS-[0-9A-F]{32}$/;
+const CUSTOM_CODE_RE = /^[A-Z0-9][A-Z0-9_-]{11,63}$/;
+const CODE_RE = /^(?:CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/;
+const normalizeAccountCode = value => String(value||"").trim().toUpperCase();
+const isValidNewCode = code => CUSTOM_CODE_RE.test(code) && /[A-Z]/.test(code) && /[0-9]/.test(code);
+const generatedCode = () => {
+  // 20 random chars from a 32-character alphabet (100 bits of entropy).
+  const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const random=crypto.getRandomValues(new Uint8Array(20));
+  return Array.from(random,b=>alphabet[b&31]).join("");
+};
 const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 function tokenFrom(req){return (req.headers.get("Authorization")||"").replace(/^Bearer /,"");}
@@ -84,6 +95,16 @@ export default {
     // Every account uses a separate SQLite Durable Object. A code for another
     // account CANNOT select, read or write this account's data.
     if (url.pathname === "/api/account/create" && req.method === "POST") {
+      let requestedCode="";
+      try {
+        const payload=await req.json();
+        requestedCode=normalizeAccountCode(payload?.code);
+        if(typeof payload?.code!=="undefined"&&typeof payload.code!=="string")
+          return jsonNoStore({error:"Ο κωδικός πρέπει να είναι κείμενο."},400);
+      } catch {return jsonNoStore({error:"Μη έγκυρα στοιχεία λογαριασμού."},400);}
+      if(requestedCode&&!isValidNewCode(requestedCode)){
+        return jsonNoStore({error:"Βάλε 12–64 χαρακτήρες: λατινικά γράμματα, αριθμούς, - ή _, με τουλάχιστον ένα γράμμα και έναν αριθμό."},400);
+      }
       // One IP cannot generate unlimited Durable Objects in one day.
       const clientIP=req.headers.get("CF-Connecting-IP")||"unknown";
       const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-registration-limit"));
@@ -91,21 +112,29 @@ export default {
         method:"POST",body:JSON.stringify({ip:clientIP})
       });
       if(!allowed.ok)return jsonNoStore({error:"Πάρα πολλές δημιουργίες. Δοκίμασε αργότερα."},429);
-      const bytes=crypto.getRandomValues(new Uint8Array(16));
-      const code="CS-"+Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
-      const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
-        new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
-      const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
-      const made=await stub.fetch("https://car-data.internal/bootstrap",{
-        method:"POST",body:JSON.stringify({items:[],settings:{},reminders:[]})
-      });
-      if(!made.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
-      return jsonNoStore({code,scope:hash});
+      for(let attempt=0;attempt<3;attempt++){
+        const code=requestedCode||generatedCode();
+        const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
+          new TextEncoder().encode(code))),b=>b.toString(16).padStart(2,"0")).join("");
+        const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
+        // Must be atomic: the existing /bootstrap returns 200 even if the
+        // dataset already exists. Never grant access to someone else's account!
+        const made=await stub.fetch("https://car-data.internal/create-account",{
+          method:"POST",body:JSON.stringify({items:[],settings:{},reminders:[]})
+        });
+        if(made.status===409){
+          if(requestedCode)return jsonNoStore({error:"Ο κωδικός χρησιμοποιείται ήδη. Διάλεξε άλλον."},409);
+          continue;
+        }
+        if(!made.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
+        return jsonNoStore({code,scope:hash});
+      }
+      return jsonNoStore({error:"Δεν δημιουργήθηκε μοναδικός κωδικός. Δοκίμασε ξανά."},503);
     }
 
     if (url.pathname === "/api/account/login" && req.method === "POST") {
       let code="";
-      try{code=String((await req.json()).code||"").trim().toUpperCase();}catch{}
+      try{code=normalizeAccountCode((await req.json()).code);}catch{}
       const account=await resolveAccount(code,env);
       return account?jsonNoStore({scope:account.scope}):
         jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
@@ -274,6 +303,15 @@ export class CarServiceStore {
         return true;
       });
       return json({ok:saved},saved?200:409);
+    }
+
+    if (url.pathname === "/create-account" && request.method === "POST") {
+      const created=await this.state.storage.transaction(async tx=>{
+        if(await tx.get("dataset"))return false;
+        await tx.put("dataset",{items:[],settings:{},reminders:[],revision:1});
+        return true;
+      });
+      return json({ok:created},created?201:409);
     }
 
     if (url.pathname === "/bootstrap" && request.method === "POST") {

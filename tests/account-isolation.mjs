@@ -53,7 +53,8 @@ const a=await asJSON(await call("/api/account/create","POST",{}));
 const b=await asJSON(await call("/api/account/create","POST",{}));
 assert.equal(a.status,200);
 assert.equal(b.status,200);
-assert.match(a.data.code,/^CS-[A-F0-9]{32}$/);
+assert.match(a.data.code,/^[A-Z2-9]{20}$/);
+assert(!a.data.code.startsWith("CS-"),"Generated codes do not require CS-");
 assert.notEqual(a.data.code,b.data.code);
 assert.notEqual(a.data.scope,b.data.scope);
 assert.equal((await asJSON(await call("/api/account/login","POST",{code:a.data.code}))).data.scope,a.data.scope);
@@ -62,6 +63,34 @@ assert.equal((await call("/api/data")).status,401);
 assert.equal((await call("/api/diagnose","POST",{},null)).status,401);
 assert.equal((await call("/api/parse","POST",{text:"broken"},null)).status,401);
 const loginA=a.data.code,loginB=b.data.code;
+// A chosen code must be unique: creating again must NOT grant access to its owner.
+const custom="FOCUS-2007-HISTORY";
+const own=await asJSON(await call("/api/account/create","POST",{code:custom}));
+assert.equal(own.status,200);
+assert.equal(own.data.code,custom);
+assert.notEqual(own.data.scope,a.data.scope);
+assert.equal((await asJSON(await call("/api/account/login","POST",{code:custom.toLowerCase()}))).data.scope,own.data.scope);
+const hijack=await asJSON(await call("/api/account/create","POST",{code:custom}));
+assert.equal(hijack.status,409,"Existing code cannot create/login to another account");
+assert.notEqual(hijack.data.scope,own.data.scope);
+assert.equal((await call("/api/account/create","POST",{code:"1234"})).status,400);
+assert.equal((await call("/api/account/create","POST",{code:"ONLYLETTERSAREHERE"})).status,400);
+assert.equal((await call("/api/data","GET",null,"1234")).status,401);
+assert.equal((await call("/api/data","GET",null,custom)).status,200);
+// Old CS- accounts created by v9 must continue working without migration.
+const legacyGenerated="CS-"+"A".repeat(32);
+const digest=await webcrypto.subtle.digest("SHA-256",new TextEncoder().encode(legacyGenerated));
+const oldScope=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+await ns.get("car-service-user-"+oldScope).fetch("https://car-data.internal/bootstrap",{
+  method:"POST",body:JSON.stringify({items:[{id:"old-CS-user",notes:"old v9 account"}],
+    settings:{},reminders:[]})
+});
+const oldSession=await asJSON(await call("/api/account/login","POST",{code:legacyGenerated}));
+assert.equal(oldSession.status,200,"Existing CS- codes must remain valid");
+assert.equal(oldSession.data.scope,oldScope);
+assert.equal((await asJSON(await call("/api/data","GET",null,legacyGenerated))).data.items[0].id,"old-CS-user");
+
+
 const initialA=await asJSON(await call("/api/data","GET",null,loginA));
 const initialB=await asJSON(await call("/api/data","GET",null,loginB));
 assert.deepEqual(initialA.data.items,[]);
@@ -78,6 +107,15 @@ const seenB=await asJSON(await call("/api/data","GET",null,loginB));
 assert.equal(seenA.data.items[0].notes,"private A");
 assert.deepEqual(seenB.data.items,[]);
 assert.deepEqual(seenB.data.settings,{});
+const seenCustom=await asJSON(await call("/api/data","GET",null,custom));
+assert.deepEqual(seenCustom.data.items,[],"A user-created code must have its own empty dataset");
+// New custom account cannot write into or overwrite other users' history.
+const customInitial=seenCustom.data.revision;
+const customWrite={items:[{id:"custom-1",notes:"private custom"}],
+  settings:{current:"123000"},reminders:[],revision:customInitial};
+assert.equal((await call("/api/data","PUT",customWrite,custom)).status,200);
+assert.equal((await asJSON(await call("/api/data","GET",null,loginA))).data.items[0].notes,"private A");
+assert.equal((await asJSON(await call("/api/data","GET",null,loginB))).data.items.length,0);
 assert.equal((await call("/api/data","PUT",{...update,revision:seenA.data.revision},loginB)).status,409);
 assert.equal((await asJSON(await call("/api/data","GET",null,loginA))).data.items.length,1);
 // Set up previous single-user data, then migrate to an unused third account.
@@ -110,9 +148,16 @@ assert(!html.includes('load();resetForm();render();sync();'));
 assert(features.includes('"carServiceDraftV1:"+window.CarHistoryAccountScope'));
 assert(ai.includes('"carServiceAiConversationV1:"+window.CarHistoryAccountScope'));
 assert(account.includes('localStorage.removeItem(ACTIVE)'));
+assert(account.includes('accountCustomForm'));
+assert(account.includes('newCodeFormat'));
+assert(html.includes('id="accountCustomCode"'));
+assert(html.includes('id="accountChooseCustom"'));
+assert(html.includes('id="accountCustomCreate"'));
+assert(html.includes('type="password" autocomplete="off" autocapitalize="characters"'));
+assert(html.includes('id="accountCustomForm"'));
 assert(sw.includes("carhistory-shell-v9")&&sw.includes('"/account.js"'));
 for(const script of [account,features,ai])assert.doesNotThrow(()=>new Function(script));
 for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
   if(script[1].trim())assert.doesNotThrow(()=>new Function(script[1]));
 }
-console.log("PASS: 3 isolated accounts, protected read/write, migration exclusivity, local scoping and login gate");
+console.log("PASS: generated and custom account codes, collision prevention, 4 isolated accounts, migration, local scoping");

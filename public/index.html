@@ -92,11 +92,19 @@ nav button.on{color:var(--accent);font-weight:600}
     <p>Κάθε λογαριασμός κρατά ξεχωριστό ιστορικό, αυτοκίνητο και AI Μηχανικό.</p>
     <form id="accountLoginForm">
       <label for="accountCode">Ο κωδικός του λογαριασμού σου</label>
-      <input id="accountCode" type="password" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CS-..." required>
+      <input id="accountCode" type="password" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ο προσωπικός σου κωδικός" required>
       <button class="account-primary" id="accountLoginBtn" type="submit">Σύνδεση</button>
     </form>
     <div class="account-divider">ή</div>
-    <button id="accountCreate" type="button" class="account-secondary">+ Δημιουργία δικού μου λογαριασμού</button>
+    <button id="accountCreate" type="button" class="account-secondary">Δημιουργία τυχαίου κωδικού</button>
+    <button id="accountChooseCustom" type="button" class="account-secondary" aria-controls="accountCustomForm" aria-expanded="false">Θέλω δικό μου κωδικό</button>
+    <form id="accountCustomForm" class="account-custom-form" hidden>
+      <label for="accountCustomCode">Διάλεξε τον δικό σου κωδικό</label>
+      <input id="accountCustomCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false"
+        minlength="12" maxlength="64" placeholder="π.χ. MYCAR-7Q9K-2M4P" required>
+      <p>12–64 χαρακτήρες, με λατινικά γράμματα και αριθμούς. Χωρίς υποχρεωτικό πρόθεμα.</p>
+      <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία με αυτόν τον κωδικό</button>
+    </form>
     <div id="accountCreated" class="account-created" hidden>
       <strong>Ο προσωπικός σου κωδικός</strong>
       <code id="accountNewCode"></code>
@@ -105,7 +113,7 @@ nav button.on{color:var(--accent);font-weight:600}
       <button id="accountContinue" type="button" class="account-primary">Αποθήκευσα τον κωδικό — Συνέχεια</button>
     </div>
     <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
-    <small>Μην μοιράζεσαι τον κωδικό σου. Ο τετραψήφιος PIN δεν είναι ασφαλής κωδικός λογαριασμού.</small>
+    <small>Ο κωδικός είναι το κλειδί των service σου. Μη χρησιμοποιείς εύκολους αριθμούς όπως 1234 και μην τον κοινοποιείς.</small>
   </div>
 </section>
 
@@ -311,7 +319,7 @@ let KEY="",SKEY="",PKEY="",RKEY="",BASEKEY="",PENDINGKEY="";
 let ACTIVE_SCOPE="",ACTIVE_TOKEN="";
 const ACCOUNT_SESSION_KEY="carServiceActiveAccountV3";
 function configureAccount(code,scope){
-  if(!/^CS-[0-9A-F]{32}$/.test(code)||!/^[0-9a-f]{64}$/.test(scope))throw Error("Μη έγκυρα στοιχεία λογαριασμού.");
+  if(!/^(?:CS-[A-F0-9]{32}|[A-Z0-9][A-Z0-9_-]{11,63})$/.test(code)||!/^[0-9a-f]{64}$/.test(scope))throw Error("Μη έγκυρα στοιχεία λογαριασμού.");
   ACTIVE_SCOPE=scope;ACTIVE_TOKEN=code;
   KEY="carServiceLog:"+scope;
   SKEY="carServiceSettings:"+scope;
