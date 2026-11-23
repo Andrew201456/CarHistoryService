@@ -228,7 +228,7 @@ nav button.on{color:var(--accent);font-weight:600}
   <div id="draftNotice" class="draft-notice" hidden><span>↺ Επαναφέρθηκε η πρόχειρη καταχώρηση.</span><button type="button" id="draftDiscard">Νέα, κενή φόρμα</button></div>
   <div class="row">
     <div><label for="date">Ημερομηνία</label><input type="text" id="date" inputmode="numeric" maxlength="10" placeholder="ΗΗ-ΜΜ-ΕΕΕΕ" autocomplete="off"></div>
-    <div><label for="km">Χιλιόμετρα</label><input type="text" id="km" inputmode="numeric" placeholder="π.χ. 145000"></div>
+    <div><label for="km" id="kmFieldLabel">Χιλιόμετρα</label><input type="text" id="km" inputmode="numeric" placeholder="π.χ. 145000"></div>
   </div>
 
   <label>Εξαρτήματα / εργασίες και τιμή τους</label>
@@ -266,7 +266,7 @@ nav button.on{color:var(--accent);font-weight:600}
     <input id="tireName" type="text" maxlength="100" placeholder="π.χ. Michelin Primacy">
     <label for="tireLifeKm">Πόσα χιλιόμετρα υπολογίζεις ότι θα βγάλουν;</label>
     <input id="tireLifeKm" type="number" min="1" step="1" inputmode="numeric" placeholder="π.χ. 40000">
-    <p class="tire-fields-note">Τα χιλιόμετρα στην κορυφή της φόρμας είναι τα χλμ. τοποθέτησης. Θα υπολογίσουμε πόσα απομένουν με βάση τα σημερινά χλμ.</p>
+    <p class="tire-fields-note">Υπολογίζουμε τα χλμ. που απομένουν από τα χλμ. τοποθέτησης και τα τωρινά χλμ. Η πραγματική αλλαγή εξαρτάται επίσης από ηλικία, φθορά, ζημιές και κατάσταση των ελαστικών.</p>
   </div>
   <div id="sum"></div>
   <button class="main" id="save">Αποθήκευση</button>
@@ -453,10 +453,12 @@ window.CarAppStartAccount=startAccount;
 window.CarAppCopyLegacyLocal=copyLegacyLocal;
 
 let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
+const $=id=>document.getElementById(id);
 const itemKind=it=>it.kind==="tires"?"tires":it.regular===false?"repair":"regular";
 function setServiceKind(kind){
   const selected=["regular","repair","tires"].includes(kind)?kind:"regular";
   $("serviceKind").value=selected;
+  $("kmFieldLabel").textContent=selected==="tires"?"Χιλιόμετρα τοποθέτησης":"Χιλιόμετρα";
   $("regular").checked=selected==="regular";
   $("tireFields").hidden=selected!=="tires";
   $("serviceKindHint").textContent=selected==="regular"
@@ -466,7 +468,6 @@ function setServiceKind(kind){
       :"Οι αλλαγές ελαστικών εμφανίζονται χωριστά και υπολογίζουν πότε χρειάζεται η επόμενη.";
 }
 $("serviceKind").addEventListener("change",()=>setServiceKind($("serviceKind").value));
-const $=id=>document.getElementById(id);
 function load(){
   try{items=JSON.parse(localStorage.getItem(KEY)||"[]");if(!Array.isArray(items))items=[]}catch(e){items=[]}
   try{const s=JSON.parse(localStorage.getItem(SKEY)||"null");if(s&&typeof s==="object")settings={...settings,...s}}catch(e){}
