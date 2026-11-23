@@ -667,3 +667,151 @@ body.account-locked nav{display:none!important}
 @media(max-width:315px){
   .due-cards,.obligations-editor{grid-template-columns:1fr}
 }
+
+
+/* Account: personal display preferences and unobtrusive safety tools */
+#v-account{max-width:760px;margin-inline:auto}
+.account-page-header{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;margin:3px 0 22px
+}
+.account-page-header h1{margin:2px 0 6px;letter-spacing:-.65px}
+.account-page-header .note{margin:0;font-size:.83rem;line-height:1.55}
+.account-page-eyebrow{
+  font-size:.69rem;letter-spacing:1.25px;font-weight:850;color:var(--accent)
+}
+.account-page-icon{
+  flex:none;display:flex;align-items:center;justify-content:center;
+  width:48px;height:48px;border-radius:14px;
+  border:1px solid var(--line);background:var(--soft);color:var(--accent)
+}
+.account-page-icon svg{width:25px;height:25px}
+.account-section{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:19px;margin:0 0 14px;
+  box-shadow:var(--shadow)
+}
+.account-section-head{margin-bottom:15px}
+.account-section-head h2{font-size:1.06rem;margin:0 0 5px;font-weight:810;color:var(--ink)}
+.account-section-head p{font-size:.8rem;color:var(--mute);line-height:1.5;margin:0}
+.account-category-settings{border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.account-category-option{
+  display:flex;align-items:center;gap:12px;
+  min-height:65px;padding:11px 13px;margin:0;
+  background:var(--card);
+  cursor:pointer;border-bottom:1px solid var(--line)
+}
+.account-category-option:last-child{border-bottom:0}
+.account-category-symbol{
+  width:37px;height:37px;min-width:37px;display:flex;align-items:center;
+  justify-content:center;border-radius:10px;background:var(--soft);font-size:1rem;
+  color:var(--accent)
+}
+.account-category-copy{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.account-category-copy strong{
+  font-size:.84rem;font-weight:790;color:var(--ink);line-height:1.35
+}
+.account-category-copy small{font-size:.72rem;color:var(--mute);line-height:1.4}
+.account-category-option input[type="checkbox"]{
+  position:absolute;opacity:0;width:1px;height:1px;margin:0;padding:0;
+  pointer-events:none
+}
+.account-switch{
+  flex:none;position:relative;width:39px;height:23px;border-radius:99px;
+  background:var(--line);transition:background-color .16s ease
+}
+.account-switch:after{
+  content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;
+  border-radius:50%;background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.15);
+  transition:transform .16s ease
+}
+.account-category-option input:checked+.account-switch{background:var(--accent)}
+.account-category-option input:checked+.account-switch:after{transform:translateX(16px)}
+.account-category-option input:focus-visible+.account-switch{
+  outline:2px solid var(--accent);outline-offset:3px
+}
+.account-pref-note{
+  color:var(--mute);font-size:.72rem;line-height:1.65;
+  margin:12px 1px 0
+}
+.account-info-row{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:13px 1px;border-bottom:1px solid var(--line);
+  font-size:.81rem;color:var(--mute)
+}
+.account-info-row strong{color:var(--ink);font-size:.9rem}
+.account-status-label{
+  display:inline-flex;align-items:center;gap:6px;color:var(--ink);
+  font-size:.75rem;text-align:right
+}
+.account-status-label span{color:var(--accent);font-size:.65rem}
+.account-section .account-action,
+.account-section .account-logout{
+  display:block;width:100%;min-height:47px;margin:13px 0 0;
+  border:1px solid var(--line);border-radius:11px;
+  padding:11px 14px;font-size:.84rem;font-weight:730;
+  background:var(--soft);color:var(--ink);box-shadow:none
+}
+.account-section .account-logout{
+  margin-top:10px;background:transparent;
+  border-color:color-mix(in srgb,var(--danger) 24%,var(--line));
+  color:var(--danger)
+}
+.account-section .account-logout:hover{
+  background:color-mix(in srgb,var(--danger) 5%,var(--card))
+}
+.account-feedback{min-height:0;margin:7px 0 0;font-size:.76rem;color:var(--accent)}
+.account-feedback:empty{display:none}
+.account-advanced{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:14px;margin:12px 0 14px;
+  overflow:hidden
+}
+.account-advanced summary{
+  padding:15px 18px;font-size:.81rem;font-weight:750;
+  color:var(--mute);cursor:pointer;list-style:none
+}
+.account-advanced summary::-webkit-details-marker{display:none}
+.account-advanced summary:after{content:"⌄";float:right;color:var(--mute)}
+.account-advanced[open] summary{border-bottom:1px solid var(--line)}
+.account-advanced[open] summary:after{transform:rotate(180deg)}
+.account-advanced-content{padding:17px}
+.account-advanced-content .note{font-size:.79rem;line-height:1.6}
+.account-advanced-content textarea{
+  display:block;width:100%;min-height:115px;font-size:.82rem
+}
+.account-advanced-content button{display:block;margin-top:9px;min-height:43px}
+.account-version{
+  color:var(--mute);font-size:.72rem;text-align:center;margin:18px 0 3px
+}
+.filters button[hidden],.quick-actions[hidden]{display:none!important}
+
+/* A little more warmth at login, without adding more controls or decoration */
+.account-gate{background:var(--bg)}
+.account-card{
+  border-radius:19px;
+  box-shadow:0 12px 36px rgba(18,35,49,.065);
+  padding:30px 26px 27px
+}
+.account-card .account-identity{margin-bottom:30px}
+.account-card #accountLoginPanel h1{
+  margin-bottom:7px;font-size:1.7rem;
+  letter-spacing:-.55px
+}
+.account-login-subtitle{
+  margin:0 0 23px;
+  font-size:.84rem;line-height:1.5;color:var(--mute)
+}
+.account-card #accountLoginForm input{min-height:53px}
+.account-card .account-login-button{min-height:52px;font-size:.92rem}
+.account-card .account-options-trigger{background:var(--soft)}
+@media(max-width:390px){
+  .account-section{padding:15px}
+  .account-category-option{gap:9px;padding:10px}
+  .account-category-symbol{width:33px;height:33px;min-width:33px}
+  .account-category-copy small{font-size:.69rem}
+  .account-card{padding:26px 21px}
+}
+@media(prefers-reduced-motion:reduce){
+  .account-switch,.account-switch:after{transition:none}
+}
