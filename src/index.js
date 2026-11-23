@@ -1,3 +1,5 @@
+import {handleDiagnosticRequest} from "./diagnostics.js";
+
 const SYSTEM = `Είσαι βοηθός που διαβάζει κείμενο από ιστορικό service αυτοκινήτου (συχνά ακατάστατο, από αντιγραφή ιστοσελίδας) και το μετατρέπει σε δομημένες καταχωρήσεις.
 Κανόνες:
 - Κάθε επίσκεψη/service σε διαφορετική ημερομηνία είναι ξεχωριστή καταχώρηση.
@@ -85,6 +87,18 @@ export default {
         headers: { "Content-Type": "application/json" },
         body: await req.text()
       });
+    }
+
+    if (url.pathname === "/api/diagnose") {
+      if (!authed(req, env)) return new Response("unauthorized", {
+        status: 401,
+        headers: {"Cache-Control":"no-store"}
+      });
+      if (req.method !== "POST") return new Response("method not allowed", {
+        status: 405,
+        headers: {"Cache-Control":"no-store","Allow":"POST"}
+      });
+      return handleDiagnosticRequest(req, env);
     }
 
     if (url.pathname === "/api/parse" && req.method === "POST") {
