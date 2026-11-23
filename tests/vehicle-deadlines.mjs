@@ -73,12 +73,12 @@ const window={
 const amount=it=>(it.parts||[]).reduce((sum,p)=>sum+Number(p.cost||0),0);
 new Function(
   "window","document","settings","items","reminders","render","resetForm","store",
-  "esc","fmtKm","estimateNextServiceDate","itemKind","intOf","num","money","total",
+  "esc","fmtKm","estimateNextServiceDate","itemKind","isKindVisible","intOf","num","money","total",
   "localStorage","navigator","location","matchMedia","confirm","alert","console",
   features
 )(
   window,document,settings,items,reminders,()=>{},()=>{},()=>savedCount++,
-  esc,fmtKm,()=>null,serviceKind,intOf,x=>Number(x)||0,x=>x+" €",amount,
+  esc,fmtKm,()=>null,serviceKind,()=>true,intOf,x=>Number(x)||0,x=>x+" €",amount,
   {getItem:()=>null,removeItem(){}},{},{},()=>({matches:false}),()=>true,()=>{},console
 );
 let summary=get("dueSummary").innerHTML;
@@ -127,11 +127,12 @@ for(const [filter,shown] of [
 ]){
   const render=new Function(
     "items","historyFilter","$","norm","fmtDate","fmtKm","money","intOf",
-    "total","num","hl","esc","settings","renderNext","itemKind",
+    "total","num","hl","esc","settings","renderNext","itemKind","document","isKindVisible","renderAccountPreferences",
     listSource+"return render;"
   )(
     records,filter,get,x=>String(x).toLowerCase(),x=>x||"",fmtKm,
-    x=>x+" €",intOf,amount,x=>Number(x)||0,esc,esc,settings,()=>{},serviceKind
+    x=>x+" €",intOf,amount,x=>Number(x)||0,esc,esc,settings,()=>{},serviceKind,
+    document,()=>true,()=>{}
   );
   render();
   for(const id of ["S","R","T"]){
