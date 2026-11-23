@@ -222,7 +222,7 @@ assert(html.includes('maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς"')
 assert(!/id="accountCustomCode"[^>]*pattern=/.test(html),"No mandatory 4-digit validation on account creation");
 assert(account.includes('normalize("NFKC")'),"Client must normalize Greek/Unicode codes");
 assert(html.includes('id="accountCustomForm"'));
-assert(sw.includes("carhistory-shell-v13")&&sw.includes('"/account.js"'));
+assert(sw.includes("carhistory-shell-v14")&&sw.includes('"/account.js"'));
 for(const script of [account,features,ai])assert.doesNotThrow(()=>new Function(script));
 for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
   if(script[1].trim())assert.doesNotThrow(()=>new Function(script[1]));
