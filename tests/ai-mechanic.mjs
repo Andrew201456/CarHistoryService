@@ -21,6 +21,27 @@ const payload={
   history,reminders:[{name:"Αλλαγή φίλτρου",dueKm:"162000",repeatKm:"10000"}],
   conversation:[{role:"user",content:"Έχω έναν θόρυβο"},{role:"assistant",content:"Πες πότε τον ακούς"}]
 };
+const modernProfile={
+  make:"Ford",model:"Focus",year:"2007",fuel:"Βενζίνη",engine:"1.6 Ti-VCT",
+  cc:"1596",power:"115",gearbox:"Χειροκίνητο",trim:"Ghia",
+  notes:"Χωρίς μετατροπές",secret:"this must not be passed"
+};
+const modern=buildDiagnosticMessages({...payload,vehicle:modernProfile});
+const modernContext=JSON.parse(modern.messages[1].content.slice(modern.messages[1].content.indexOf("{")));
+assert.equal(modernContext.car.make,"Ford");
+assert.equal(modernContext.car.model,"Focus");
+assert.equal(modernContext.car.year,"2007");
+assert.equal(modernContext.car.engine,"1.6 Ti-VCT");
+assert.equal(modernContext.car.cc,"1596");
+assert.equal(modernContext.car.power,"115");
+assert.equal(modernContext.car.fuel,"Βενζίνη");
+assert.equal(modernContext.car.gearbox,"Χειροκίνητο");
+assert.ok(!JSON.stringify(modernContext).includes("secret"),"Unrecognized profile fields must be stripped");
+const invalidProfile=buildDiagnosticMessages({...payload,vehicle:{year:"3000",cc:"-5",make:"Focus"}});
+const invalidContext=JSON.parse(invalidProfile.messages[1].content.slice(invalidProfile.messages[1].content.indexOf("{")));
+assert.equal(invalidContext.car.year,undefined);
+assert.equal(invalidContext.car.cc,undefined);
+assert.equal(invalidContext.car.make,"Focus");
 const prepared=buildDiagnosticMessages(payload);
 assert.equal(prepared.usedEntries,3);
 assert.equal(prepared.messages.at(-1).role,"user");
@@ -82,16 +103,26 @@ assert.match(config,/"ai"\s*:\s*\{\s*"binding"\s*:\s*"AI"/);
 const html=read("public/index.html"),script=read("public/ai-mechanic.js"),css=read("public/ui.css"),sw=read("public/sw.js");
 assert.equal([...html.matchAll(/data-v="(?:list|form|import|ai|backup)"/g)].length,5);
 assert(html.includes('id="v-ai"'));
-for(const id of ["aiQuestion","aiMessages","aiForm","aiClear","aiVehicle","aiSaveVehicle","aiHistoryCount"]){
+for(const id of ["aiQuestion","aiMessages","aiForm","aiClear","aiProfileOpen","aiVehicleDialog",
+ "aiVehicleForm","aiSaveVehicle","aiVehicleSummary","aiVehicleSubtitle","aiHistoryCount",
+ "aiCarMake","aiCarModel","aiCarYear","aiCarFuel","aiCarEngine","aiCarCc",
+ "aiCarPower","aiCarGearbox","aiCarTrim","aiCarNotes"]){
  assert(html.includes('id="'+id+'"'),"AI UI element missing: "+id);
 }
 assert.doesNotThrow(()=>new Function(script));
 assert(script.includes('content.textContent=msg.content'),"AI response must be rendered as text, not HTML");
 assert(script.includes('fetch("/api/diagnose"'));
 assert(script.includes('headers:{"Authorization":"Bearer "+pass,"Content-Type":"application/json"}'));
-assert(script.includes('settings.vehicleInfo=info;store()'));
+assert(script.includes("settings.vehicleProfile=values;"),"The structured profile must be persisted");
+assert(script.includes("store(); // existing local storage + authenticated cross-device sync"),"The profile must use the existing sync");
+assert(script.includes("vehicle:getProfile()"),"The AI request must include the saved vehicle profile");
+assert(script.includes("profileDialog.showModal()"),"Car profile editor should open as a dialog");
+assert(!html.includes('id="aiVehiclePanel"'),"Old accordion UI should be gone");
+assert(html.includes('class="ai-composer"'),"Composer should use redesigned chat UI");
+assert(css.includes(".ai-profile-dialog"),"Vehicle profile needs its own styling");
+assert(css.includes(".ai-conversation"),"Conversation styling should exist");
 assert(css.includes(".ai-messages"));
-assert(sw.includes('carhistory-shell-v7'));
+assert(sw.includes('carhistory-shell-v8'));
 assert(sw.includes('"/ai-mechanic.js"'));
 assert(!worker.includes("OpenAI_API_KEY"),"AI must use existing binding, not exposed API keys");
-console.log("PASS: AI context grounding, guardrails, authenticated route, Workers AI mock, fifth tab, local chat, safe rendering and PWA cache");
+console.log("PASS: structured car profile, legacy car field, diagnostic context, authenticated chat and redesigned UI");

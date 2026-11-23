@@ -172,42 +172,43 @@ nav button.on{color:var(--accent);font-weight:600}
   <button class="main" id="impAdd" hidden>Προσθήκη επιλεγμένων</button>
 </section>
 
-<section class="view" id="v-ai" aria-label="AI Μηχανικός">
-  <div class="ai-head">
-    <div><span class="ai-eyebrow">ΒΟΗΘΟΣ ΣΥΝΤΗΡΗΣΗΣ</span><h1>AI Μηχανικός</h1>
-      <p>Περιέγραψε έναν θόρυβο, σύμπτωμα ή βλάβη. Θα εξετάσει τα service που έχεις καταχωρήσει.</p></div>
-    <button type="button" class="ai-reset" id="aiClear">Νέα συνομιλία</button>
+<section class="view ai-screen" id="v-ai" aria-label="AI Μηχανικός">
+  <div class="ai-topbar">
+    <div class="ai-brand">
+      <span class="ai-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.75 13.9 9l6.35 1.95L13.9 12.9 12 19l-1.9-6.1L3.75 10.95 10.1 9 12 2.75ZM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.4"/></svg></span>
+      <div><span class="ai-top-eyebrow">Ο ΒΟΗΘΟΣ ΤΟΥ ΑΥΤΟΚΙΝΗΤΟΥ ΣΟΥ</span><h1>AI Μηχανικός</h1></div>
+    </div>
+    <button type="button" class="ai-new-chat" id="aiClear" aria-label="Νέα συνομιλία" title="Νέα συνομιλία"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M14 4h6v6M20 4l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
-  <div class="ai-context-info" aria-label="Στοιχεία που θα ληφθούν υπόψη">
-    <span id="aiHistoryCount">Ιστορικό: —</span>
-    <span id="aiCurrentKm">Χιλιόμετρα: —</span>
+
+  <button class="ai-car-summary" id="aiProfileOpen" type="button" aria-haspopup="dialog" aria-controls="aiVehicleDialog">
+    <span class="ai-car-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 10 1.7-4.3A2 2 0 0 1 8.5 4.5h7a2 2 0 0 1 1.8 1.2L19 10m-14 0h14c1.1 0 2 .9 2 2v5H3v-5c0-1.1.9-2 2-2Zm.5 7v2h3v-2m7 0v2h3v-2M6.8 13.5h.1m10.2 0h.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="ai-car-copy"><strong id="aiVehicleSummary">Καταχώρησε το αυτοκίνητό σου</strong><small id="aiVehicleSubtitle">Μάρκα, μοντέλο, χρονολογία, κινητήρας…</small></span>
+    <span class="ai-car-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+  </button>
+  <div class="ai-context-line">
+    <span class="ai-live-dot" aria-hidden="true"></span><span id="aiHistoryCount">Ιστορικό: —</span><span aria-hidden="true">·</span><span id="aiCurrentKm">Χιλιόμετρα: —</span>
   </div>
-  <details class="ai-vehicle-details" id="aiVehiclePanel">
-    <summary>Στοιχεία αυτοκινήτου <span id="aiVehicleSummary">Προαιρετικά</span></summary>
-    <label for="aiVehicle">Μάρκα, μοντέλο, χρονολογία και κινητήρας</label>
-    <input id="aiVehicle" type="text" maxlength="150" autocomplete="off" placeholder="π.χ. Ford Focus 2007, 1.6 βενζίνη">
-    <button type="button" id="aiSaveVehicle">Αποθήκευση στοιχείων</button>
-  </details>
-  <div id="aiWelcome" class="ai-welcome">
-    <strong>Τι θέλεις να εξετάσουμε;</strong>
-    <p>Μπορείς να περιγράψεις το πρόβλημα όπως το παρατηρείς. Αν υπάρχει σχετικό παλαιότερο service, θα το συνδέσουμε με τις πιθανές αιτίες.</p>
+
+  <div id="aiWelcome" class="ai-hello">
+    <span class="ai-hello-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 14.1 9.9 21 12l-6.9 2.1L12 21l-2.1-6.9L3 12l6.9-2.1L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+    <h2>Τι συμβαίνει με το αυτοκίνητο;</h2>
+    <p>Πες μου τι παρατηρείς. Θα συμβουλευτώ τα service σου για να εντοπίσουμε πιθανές αιτίες και επόμενους ελέγχους.</p>
     <div class="ai-suggestions">
-      <button type="button" data-ai-example="Ακούγεται μεταλλικός θόρυβος στις 2.000 στροφές. Τι μπορεί να φταίει;">Μεταλλικός θόρυβος</button>
-      <button type="button" data-ai-example="Το αυτοκίνητο τρέμει όταν φρενάρω. Τι πρέπει να ελέγξω;">Τρέμουλο στα φρένα</button>
-      <button type="button" data-ai-example="Τι χρειάζεται να προσέξω στο επόμενο service με βάση τις εργασίες που έχουν ήδη γίνει;">Επόμενο service</button>
+      <button type="button" data-ai-example="Ακούγεται μεταλλικός θόρυβος γύρω στις 2.000 στροφές. Ποια είναι τα πιθανά αίτια;"><span aria-hidden="true">↗</span> Θόρυβος στον κινητήρα</button>
+      <button type="button" data-ai-example="Νιώθω τρέμουλο κατά το φρενάρισμα. Τι πρέπει να ελέγξω με βάση το ιστορικό;"> <span aria-hidden="true">↗</span> Τρέμουλο στο φρενάρισμα</button>
+      <button type="button" data-ai-example="Τι χρειάζεται προσοχή στο επόμενο service με βάση τις προηγούμενες εργασίες;"> <span aria-hidden="true">↗</span> Επόμενο service</button>
     </div>
   </div>
-  <div id="aiMessages" class="ai-messages" role="log" aria-live="polite" aria-label="Συνομιλία με AI Μηχανικό"></div>
+
+  <div id="aiMessages" class="ai-conversation" role="log" aria-live="polite" aria-label="Συνομιλία με AI Μηχανικό"></div>
   <p id="aiStatus" class="ai-status" role="status" aria-live="polite"></p>
-  <form id="aiForm" class="ai-question-form">
-    <label for="aiQuestion">Ρώτησε τον AI Μηχανικό</label>
-    <textarea id="aiQuestion" maxlength="1800" rows="3" enterkeyhint="send" placeholder="π.χ. Όταν αφήνω το γκάζι στη 2α κάνει ένα τίναγμα. Από τι μπορεί να είναι;" required></textarea>
-    <div class="ai-form-bottom">
-      <small>Το ιστορικό αποστέλλεται στο Workers AI μόνο όταν πατήσεις «Ρώτησε».</small>
-      <button type="submit" id="aiSend">Ρώτησε <span aria-hidden="true">↑</span></button>
-    </div>
+  <form id="aiForm" class="ai-composer">
+    <label class="ai-sr-only" for="aiQuestion">Περιγραφή βλάβης ή ερώτηση</label>
+    <textarea id="aiQuestion" maxlength="1800" rows="2" enterkeyhint="send" placeholder="Περιέγραψε το πρόβλημα ή κάνε μια ερώτηση…" required></textarea>
+    <button type="submit" id="aiSend" class="ai-send-button" aria-label="Αποστολή ερώτησης" title="Αποστολή"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 7-7 7 7M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </form>
-  <p class="ai-disclaimer">Οι απαντήσεις είναι ενδεικτικές, όχι διάγνωση συνεργείου. Για φρένα, τιμόνι, διαρροή καυσίμου ή υπερθέρμανση, προέχει η ασφάλεια.</p>
+  <p class="ai-disclaimer">Το AI δίνει πιθανές αιτίες, όχι διάγνωση. Σε θέμα ασφαλείας απευθύνσου σε συνεργείο.</p>
 </section>
 
 <section class="view" id="v-backup">
@@ -222,6 +223,35 @@ nav button.on{color:var(--accent);font-weight:600}
 </section>
 
 </main>
+
+<dialog id="aiVehicleDialog" class="ai-profile-dialog" aria-labelledby="aiProfileTitle">
+  <form id="aiVehicleForm" class="ai-profile-form">
+    <div class="ai-profile-head">
+      <div><span>ΤΟ ΟΧΗΜΑ ΜΟΥ</span><h2 id="aiProfileTitle">Στοιχεία αυτοκινήτου</h2><p>Αποθηκεύονται μαζί με το ιστορικό και βοηθούν τον AI Μηχανικό να δίνει πιο σχετικές απαντήσεις.</p></div>
+      <button id="aiProfileClose" type="button" class="ai-dialog-x" aria-label="Κλείσιμο">×</button>
+    </div>
+    <div class="ai-profile-grid">
+      <label>Μάρκα<input id="aiCarMake" name="make" type="text" autocomplete="off" maxlength="70" placeholder="π.χ. Ford"></label>
+      <label>Μοντέλο<input id="aiCarModel" name="model" type="text" autocomplete="off" maxlength="70" placeholder="π.χ. Focus"></label>
+      <label>Χρονολογία<input id="aiCarYear" name="year" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="π.χ. 2007"></label>
+      <label>Καύσιμο<select id="aiCarFuel" name="fuel">
+        <option value="">Επίλεξε…</option><option value="Βενζίνη">Βενζίνη</option><option value="Πετρέλαιο">Πετρέλαιο</option>
+        <option value="Υβριδικό">Υβριδικό</option><option value="Plug-in hybrid">Plug-in hybrid</option>
+        <option value="Ηλεκτρικό">Ηλεκτρικό</option><option value="LPG">LPG</option><option value="CNG">CNG</option><option value="Άλλο">Άλλο</option>
+      </select></label>
+      <label class="ai-field-full">Κινητήρας / κωδικός κινητήρα<input id="aiCarEngine" name="engine" type="text" maxlength="100" placeholder="π.χ. 1.6 Ti-VCT"></label>
+      <label>Κυβικά (cc)<input id="aiCarCc" name="cc" type="text" inputmode="numeric" maxlength="5" placeholder="π.χ. 1596"></label>
+      <label>Ιπποδύναμη (PS)<input id="aiCarPower" name="power" type="text" inputmode="numeric" maxlength="4" placeholder="π.χ. 115"></label>
+      <label>Κιβώτιο<select id="aiCarGearbox" name="gearbox"><option value="">Επίλεξε…</option><option value="Χειροκίνητο">Χειροκίνητο</option><option value="Αυτόματο">Αυτόματο</option><option value="Ημιαυτόματο">Ημιαυτόματο</option><option value="Άλλο">Άλλο</option></select></label>
+      <label>Έκδοση / αμάξωμα<input id="aiCarTrim" name="trim" type="text" maxlength="100" placeholder="π.χ. Ghia, station wagon"></label>
+      <label class="ai-field-full">Λοιπά στοιχεία (προαιρετικά)<textarea id="aiCarNotes" name="notes" maxlength="350" rows="2" placeholder="π.χ. κωδικός κινητήρα, υγραέριο, μετατροπές…"></textarea></label>
+    </div>
+    <div class="ai-profile-actions">
+      <button id="aiProfileCancel" type="button" class="ai-profile-cancel">Άκυρο</button>
+      <button id="aiSaveVehicle" type="submit" class="ai-profile-save">Αποθήκευση</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="installHelp" class="install-help" aria-labelledby="installTitle">
   <h2 id="installTitle">Εγκατάσταση εφαρμογής</h2>
