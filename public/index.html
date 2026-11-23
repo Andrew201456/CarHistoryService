@@ -105,7 +105,8 @@ nav button.on{color:var(--accent);font-weight:600}
     </div>
 
     <div id="accountLoginPanel" class="account-panel">
-      <h1>Σύνδεση</h1>
+      <h1>Καλώς ήρθες</h1>
+      <p class="account-login-subtitle">Το ιστορικό του αυτοκινήτου σου.</p>
       <form id="accountLoginForm" novalidate>
         <label for="accountCode">Κωδικός πρόσβασης</label>
         <input id="accountCode" type="password" autocomplete="off" spellcheck="false"
@@ -200,6 +201,7 @@ nav button.on{color:var(--accent);font-weight:600}
     <button type="button" data-filter="regular" aria-pressed="false">Τακτικά service</button>
     <button type="button" data-filter="repair" aria-pressed="false">Επισκευές</button>
     <button type="button" data-filter="tires" aria-pressed="false">Ελαστικά</button>
+    <button type="button" data-filter="improvements" aria-pressed="false">Βελτιώσεις</button>
   </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
@@ -214,13 +216,20 @@ nav button.on{color:var(--accent);font-weight:600}
   </div>
 
   <label>Εξαρτήματα / εργασίες και τιμή τους</label>
-  <div class="quick-actions" aria-label="Γρήγορη προσθήκη εργασίας">
+  <div id="regularQuickActions" class="quick-actions" aria-label="Γρήγορη προσθήκη εργασίας">
     <button type="button" data-quick="Αλλαγή λαδιών">Λάδια</button>
     <button type="button" data-quick="Αλλαγή φίλτρων">Φίλτρα</button>
     <button type="button" data-quick="Έλεγχος / αλλαγή φρένων">Φρένα</button>
     <button type="button" data-quick="Αλλαγή μπουζί">Μπουζί</button>
     <button type="button" data-quick="Αλλαγή ελαστικών">Ελαστικά</button>
     <button type="button" data-quick="Αλλαγή μπαταρίας">Μπαταρία</button>
+  </div>
+  <div id="improvementQuickActions" class="quick-actions" aria-label="Γρήγορη προσθήκη βελτίωσης" hidden>
+    <button type="button" data-quick="Εξάτμιση">Εξάτμιση</button>
+    <button type="button" data-quick="Stage 1 / ECU remap">Stage 1</button>
+    <button type="button" data-quick="Εισαγωγή αέρα">Εισαγωγή αέρα</button>
+    <button type="button" data-quick="Ανάρτηση">Ανάρτηση</button>
+    <button type="button" data-quick="Αναβάθμιση φρένων">Φρένα</button>
   </div>
   <div id="parts"></div>
   <button class="sec" id="addPart" type="button" style="margin-top:0">+ Άλλο εξάρτημα</button>
@@ -238,6 +247,7 @@ nav button.on{color:var(--accent);font-weight:600}
       <option value="regular">Τακτικό service</option>
       <option value="repair">Επισκευή</option>
       <option value="tires">Ελαστικά</option>
+      <option value="improvements">Βελτιώσεις</option>
     </select>
     <small id="serviceKindHint">Τα τακτικά service μετράνε για τον υπολογισμό του επόμενου.</small>
     <input id="regular" type="checkbox" checked hidden aria-hidden="true">
@@ -305,28 +315,83 @@ nav button.on{color:var(--accent);font-weight:600}
   <p class="ai-disclaimer">Το AI δίνει πιθανές αιτίες, όχι διάγνωση. Σε θέμα ασφαλείας απευθύνσου σε συνεργείο.</p>
 </section>
 
-<section class="view" id="v-backup">
-  <h1>Αντίγραφο ασφαλείας</h1>
-  <p class="note">Τα δεδομένα συγχρονίζονται αυτόματα με τον server. Αν θέλεις, μπορείς επιπλέον να κρατήσεις ένα αντίγραφο σε κείμενο. Πάτα «Δημιουργία αντιγράφου», αντίγραψε το κείμενο και κράτα το σε μια σημείωση ή στο email σου. Για επαναφορά κάνε επικόλληση και πάτα «Επαναφορά».</p>
-  <textarea id="bk" placeholder="Εδώ εμφανίζεται το αντίγραφο ή επικολλάς ένα για επαναφορά" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
-  <button class="main" id="mk">Δημιουργία αντιγράφου</button>
-  <button class="sec" id="cp">Αντιγραφή κειμένου</button>
-  <button class="sec" id="rs">Επαναφορά από κείμενο</button>
-  <div class="account-settings">
-    <strong>Ο λογαριασμός μου</strong>
-    <p class="note">Κάθε κωδικός ανοίγει μόνο τα δικά του service. Μην κοινοποιείς τον κωδικό σου.</p>
-    <button class="sec" type="button" id="accountShowCode">Προβολή / αντιγραφή κωδικού μου</button>
-    <button class="sec" type="button" id="chpw">Αποσύνδεση / αλλαγή λογαριασμού</button>
-    <div id="legacyTransferBox" class="legacy-transfer">
-      <strong>Έχεις παλιό ιστορικό;</strong>
-      <p class="note">Αν χρησιμοποιούσες την εφαρμογή πριν αποκτήσει λογαριασμούς, μετακίνησε τα παλιά σου service ΜΙΑ φορά στον καινούργιο, κενό λογαριασμό.</p>
-      <label for="legacyAccountCode">Παλαιός κωδικός πρόσβασης</label>
-      <input id="legacyAccountCode" type="password" autocomplete="off" placeholder="Ο παλιός σου κωδικός">
-      <button class="sec" type="button" id="legacyTransfer">Μεταφορά παλιού ιστορικού</button>
-      <p class="note" id="legacyStatus" role="status"></p>
+<section class="view" id="v-account">
+  <header class="account-page-header">
+    <div>
+      <span class="account-page-eyebrow">Ο ΛΟΓΑΡΙΑΣΜΟΣ ΜΟΥ</span>
+      <h1>Account</h1>
+      <p class="note">Ρυθμίσεις και προσωπικές επιλογές για το αυτοκίνητό σου.</p>
     </div>
+    <div class="account-page-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8.2" r="3.6"></circle>
+        <path d="M4.6 20v-1.4c0-3.2 2.7-5.1 7.4-5.1s7.4 1.9 7.4 5.1V20"></path>
+      </svg>
+    </div>
+  </header>
+
+  <div class="account-section">
+    <div class="account-section-head">
+      <div><h2>Προβολή στην αρχική</h2><p>Επίλεξε ποιες καταχωρήσεις θέλεις να βλέπεις.</p></div>
+    </div>
+    <div id="accountCategorySettings" class="account-category-settings" aria-label="Ορατές κατηγορίες">
+      <label class="account-category-option">
+        <span class="account-category-symbol" aria-hidden="true">🔧</span>
+        <span class="account-category-copy"><strong>Τακτικά service</strong><small>Αλλαγές λαδιών και συντήρηση</small></span>
+        <input type="checkbox" data-visible-kind="regular" checked><span class="account-switch" aria-hidden="true"></span>
+      </label>
+      <label class="account-category-option">
+        <span class="account-category-symbol" aria-hidden="true">🛠️</span>
+        <span class="account-category-copy"><strong>Επισκευές</strong><small>Βλάβες και εργασίες συνεργείου</small></span>
+        <input type="checkbox" data-visible-kind="repair" checked><span class="account-switch" aria-hidden="true"></span>
+      </label>
+      <label class="account-category-option">
+        <span class="account-category-symbol" aria-hidden="true">◉</span>
+        <span class="account-category-copy"><strong>Ελαστικά</strong><small>Αλλαγές και εκτίμηση διάρκειας</small></span>
+        <input type="checkbox" data-visible-kind="tires" checked><span class="account-switch" aria-hidden="true"></span>
+      </label>
+      <label class="account-category-option">
+        <span class="account-category-symbol" aria-hidden="true">⚡</span>
+        <span class="account-category-copy"><strong>Βελτιώσεις</strong><small>Stage, εξάτμιση και αναβαθμίσεις</small></span>
+        <input type="checkbox" data-visible-kind="improvements" checked><span class="account-switch" aria-hidden="true"></span>
+      </label>
+    </div>
+    <p class="account-pref-note">Η απόκρυψη επηρεάζει μόνο την εμφάνιση στην αρχική. Δεν διαγράφει κανένα ιστορικό και μπορείς να επαναφέρεις τις κατηγορίες όποτε θέλεις.</p>
   </div>
-  <p class="note" id="bkmsg" style="margin-top:12px"></p>
+
+  <div class="account-section">
+    <div class="account-section-head"><div><h2>Ο λογαριασμός σου</h2><p>Τα στοιχεία σου μένουν ιδιωτικά.</p></div></div>
+    <div class="account-info-row">
+      <span>Συνολικές καταχωρήσεις</span><strong id="accountEntriesCount">0</strong>
+    </div>
+    <div class="account-info-row">
+      <span>Συγχρονισμός</span><span class="account-status-label"><span aria-hidden="true">●</span> Αυτόματος με internet</span>
+    </div>
+    <button class="account-action" type="button" id="accountShowCode">Αντιγραφή προσωπικού κωδικού</button>
+    <p class="account-feedback" id="bkmsg" role="status" aria-live="polite"></p>
+    <button class="account-logout" type="button" id="chpw">Αποσύνδεση</button>
+    <p class="account-pref-note">Ο κωδικός σου είναι προσωπικός. Αν μοιραστείς τον κωδικό, θα μπορούν να δουν τις καταχωρήσεις σου.</p>
+  </div>
+
+  <details class="account-advanced">
+    <summary>Προχωρημένα · Ανάκτηση δεδομένων</summary>
+    <div class="account-advanced-content">
+      <p class="note">Το ιστορικό συγχρονίζεται αυτόματα. Για επιπλέον ασφάλεια μπορείς να κρατήσεις ένα προσωπικό αντίγραφο ή να επαναφέρεις δεδομένα από παλιό αντίγραφο.</p>
+      <textarea id="bk" placeholder="Αντίγραφο σε κείμενο, για αποθήκευση ή επαναφορά" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      <button class="sec" id="mk">Δημιουργία αντιγράφου</button>
+      <button class="sec" id="cp">Αντιγραφή κειμένου</button>
+      <button class="sec" id="rs">Επαναφορά από κείμενο</button>
+      <div id="legacyTransferBox" class="legacy-transfer">
+        <strong>Μεταφορά παλιού ιστορικού</strong>
+        <p class="note">Αν είχες δεδομένα στην αρχική έκδοση με κοινό κωδικό, μπορείς να τα μεταφέρεις μία φορά σε άδειο λογαριασμό.</p>
+        <label for="legacyAccountCode">Παλιός κωδικός</label>
+        <input id="legacyAccountCode" type="password" autocomplete="off" placeholder="Παλιός κωδικός πρόσβασης">
+        <button class="sec" type="button" id="legacyTransfer">Μεταφορά ιστορικού</button>
+        <p class="note" id="legacyStatus" role="status"></p>
+      </div>
+    </div>
+  </details>
+  <p class="account-version">Car History · Προσωπικό ιστορικό αυτοκινήτου</p>
 </section>
 
 </main>
@@ -371,7 +436,7 @@ nav button.on{color:var(--accent);font-weight:600}
   <button data-v="form"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span id="navAdd">Προσθήκη</span></button>
   <button data-v="import"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><span>Εισαγωγή</span></button>
   <button data-v="ai" type="button" aria-label="AI Μηχανικός" title="AI Μηχανικός"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M18.4 5.6l-2.1 2.1m-8.6 8.6-2.1 2.1"/><rect x="7" y="7" width="10" height="10" rx="3"/><path d="M10 11h.01M14 11h.01M10 14c1.2 1 2.8 1 4 0"/></svg></span><span>AI</span></button>
-  <button data-v="backup"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><span>Αντίγραφο</span></button>
+  <button data-v="account"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20v-1.5c0-3 2.6-5 7.5-5s7.5 2 7.5 5V20"/></svg></span><span>Account</span></button>
 </nav>
 
 <script>
@@ -436,18 +501,39 @@ window.CarAppCopyLegacyLocal=copyLegacyLocal;
 
 let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
 const $=id=>document.getElementById(id);
-const itemKind=it=>it.kind==="tires"?"tires":it.regular===false?"repair":"regular";
+const HISTORY_KINDS=["regular","repair","tires","improvements"];
+const itemKind=it=>it.kind==="improvements"?"improvements":
+  it.kind==="tires"?"tires":it.regular===false?"repair":"regular";
+const isKindVisible=kind=>settings.homeVisibleKinds?.[kind]!==false;
+function renderAccountPreferences(){
+  document.querySelectorAll("[data-visible-kind]").forEach(box=>{
+    box.checked=isKindVisible(box.dataset.visibleKind);
+  });
+  $("accountEntriesCount").textContent=String(items.length);
+}
+$("accountCategorySettings").addEventListener("change",event=>{
+  const input=event.target;
+  const kind=input.dataset.visibleKind;
+  if(!HISTORY_KINDS.includes(kind))return;
+  settings.homeVisibleKinds={...(settings.homeVisibleKinds||{}),[kind]:input.checked};
+  store();
+  render();
+});
 function setServiceKind(kind){
-  const selected=["regular","repair","tires"].includes(kind)?kind:"regular";
+  const selected=HISTORY_KINDS.includes(kind)?kind:"regular";
   $("serviceKind").value=selected;
   $("kmFieldLabel").textContent=selected==="tires"?"Χιλιόμετρα τοποθέτησης":"Χιλιόμετρα";
   $("regular").checked=selected==="regular";
   $("tireFields").hidden=selected!=="tires";
+  $("improvementQuickActions").hidden=selected!=="improvements";
+  $("regularQuickActions").hidden=selected==="improvements";
   $("serviceKindHint").textContent=selected==="regular"
     ?"Τα τακτικά service μετράνε για τον υπολογισμό του επόμενου."
     :selected==="repair"
       ?"Οι επισκευές δεν επηρεάζουν το επόμενο τακτικό service."
-      :"Οι αλλαγές ελαστικών εμφανίζονται χωριστά και υπολογίζουν πότε χρειάζεται η επόμενη.";
+      :selected==="tires"
+        ?"Οι αλλαγές ελαστικών εμφανίζονται χωριστά και υπολογίζουν πότε χρειάζεται η επόμενη."
+        :"Κράτησε όλες τις αναβαθμίσεις σου, όπως Stage 1, εξάτμιση ή ανάρτηση. Δεν αλλάζουν το επόμενο τακτικό service.";
 }
 $("serviceKind").addEventListener("change",()=>setServiceKind($("serviceKind").value));
 function load(){
@@ -658,7 +744,7 @@ function estimateNextServiceDate(records,currentKm,targetKm,now=new Date()){
   const todayUtc=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
   const readings=[];
   for(const item of records){
-    if(item.regular===false||item.kind==="tires")continue;
+    if(itemKind(item)!=="regular")continue;
     const iso=String(item.date||"");
     if(!/^\d{4}-\d{2}-\d{2}$/.test(iso))continue;
     const km=intOf(item.km);
@@ -746,17 +832,36 @@ function haystack(it){return [fmtDate(it.date),it.date,it.km,it.where,it.notes,i
 function render(){
   renderNext();
   const q=$("q").value.trim(),nq=norm(q);
+  if(historyFilter!=="all"&&!isKindVisible(historyFilter))historyFilter="all";
+  document.querySelectorAll("[data-filter]").forEach(button=>{
+    const kind=button.dataset.filter;
+    button.hidden=kind!=="all"&&!isKindVisible(kind);
+    const active=historyFilter===kind;
+    button.classList.toggle("selected",active);
+    button.setAttribute("aria-pressed",String(active));
+  });
+  renderAccountPreferences();
   const sorted=[...items].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  const relevant=sorted.filter(it=>historyFilter==="all"||itemKind(it)===historyFilter);
+  const visible=sorted.filter(it=>isKindVisible(itemKind(it)));
+  const relevant=visible.filter(it=>historyFilter==="all"||itemKind(it)===historyFilter);
   const res=nq?relevant.filter(it=>norm(haystack(it)).includes(nq)):relevant;
-  $("count").textContent=nq?res.length+" αποτελέσματα από "+items.length:items.length+" καταχωρήσεις";
+  $("count").textContent=nq?res.length+" αποτελέσματα από "+visible.length+
+    (visible.length!==items.length?" ορατές εγγραφές": " καταχωρήσεις"):
+    visible.length+" από "+items.length+" καταχωρήσεις";
   const L=$("list");
-  if(!res.length){L.innerHTML='<div class="empty">'+(items.length?"Δεν βρέθηκε τίποτα.":"Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';return}
+  if(!res.length){
+    const allHidden=HISTORY_KINDS.every(kind=>!isKindVisible(kind));
+    L.innerHTML='<div class="empty">'+(allHidden?
+      "Έχεις κρύψει όλες τις κατηγορίες. Μπορείς να τις εμφανίσεις ξανά από το Account.":
+      items.length?"Δεν βρέθηκε τίποτα στις ορατές κατηγορίες.":
+      "Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';
+    return;
+  }
   L.innerHTML=res.map(it=>{
     const parts=(it.parts||[]).filter(p=>p.name||p.cost);
     const t=total(it);
     const noteTxt=[it.what,it.notes].filter(Boolean).join("\n");
-    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
+    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":itemKind(it)==="improvements"?"βελτίωση":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
     ${parts.length?`<ul class="parts">${parts.map(p=>`<li><span>${hl(p.name||"",q)}</span><span class="c">${p.cost?hl(money(num(p.cost)),q):""}</span></li>`).join("")}</ul>`:""}
     ${itemKind(it)==="tires"&&intOf(it.km)>0&&intOf(it.tireLifeKm)>0?`<div class="tire-history-note"><strong>${esc(it.tireName||"Ελαστικά")}</strong> · Εκτιμώμενη αλλαγή στα ${fmtKm(intOf(it.km)+intOf(it.tireLifeKm))}${intOf(settings.current)>0?" · "+(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)>=0?"Απομένουν "+fmtKm(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)):"Έχουν ξεπεραστεί κατά "+fmtKm(intOf(settings.current)-intOf(it.km)-intOf(it.tireLifeKm))):""}</div>`:""}
     ${noteTxt?`<div class="notes">${hl(noteTxt,q)}</div>`:""}

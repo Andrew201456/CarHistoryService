@@ -56,6 +56,21 @@ assert.equal(context.history[0].date,"2026-11-05");
 assert.equal(context.history[1].type,"επισκευή");
 assert.equal(context.history[1].works[0],"Δίσκοι φρένων");
 assert.equal(context.history[2].km,140000);
+
+const modifications=buildDiagnosticMessages({...payload,history:[
+  {date:"2026-11-18",km:"159000",regular:false,kind:"improvements",
+    parts:[{name:"Stage 1 / ECU remap",cost:"250"}],notes:"βελτίωση χαρτογράφησης"},
+  {date:"2026-09-18",km:"154000",regular:false,kind:"tires",
+    parts:[{name:"Ελαστικά",cost:"400"}],notes:"νέα ελαστικά"},
+]});
+const modificationsContext=JSON.parse(modifications.messages[1].content.slice(
+  modifications.messages[1].content.indexOf("{")));
+assert.equal(modificationsContext.history[0].type,"βελτίωση",
+  "AI must not confuse upgrades with repairs");
+assert.equal(modificationsContext.history[1].type,"ελαστικά",
+  "AI must recognize tire changes");
+assert.equal(modificationsContext.history[0].works[0],"Stage 1 / ECU remap");
+
 assert.ok(!JSON.stringify(context).includes("private-name"),"Unneeded workshop names must not be forwarded");
 assert.match(prepared.messages[0].content,/φρένων/);
 assert.match(prepared.messages[0].content,/μην.*επινοείς/i);
@@ -116,6 +131,7 @@ assert(script.includes('headers:{"Authorization":"Bearer "+pass,"Content-Type":"
 assert(script.includes("settings.vehicleProfile=values;"),"The structured profile must be persisted");
 assert(script.includes("store(); // existing local storage + authenticated cross-device sync"),"The profile must use the existing sync");
 assert(script.includes("vehicle:getProfile()"),"The AI request must include the saved vehicle profile");
+assert(script.includes("kind:itemKind(it)"),"AI history must carry service categories");
 assert(script.includes("profileDialog.showModal()"),"Car profile editor should open as a dialog");
 assert(!html.includes('id="aiVehiclePanel"'),"Old accordion UI should be gone");
 assert(html.includes('class="ai-composer"'),"Composer should use redesigned chat UI");
@@ -123,7 +139,7 @@ assert(css.includes(".ai-profile-dialog"),"Vehicle profile needs its own styling
 assert(css.includes(".ai-conversation"),"Conversation styling should exist");
 assert(css.includes(".ai-conversation"));
 assert(css.includes(".ai-profile-dialog"));
-assert(sw.includes('carhistory-shell-v15'));
+assert(sw.includes('carhistory-shell-v16'));
 assert(sw.includes('"/ai-mechanic.js"'));
 assert(!worker.includes("OpenAI_API_KEY"),"AI must use existing binding, not exposed API keys");
 console.log("PASS: structured car profile, legacy car field, diagnostic context, authenticated chat and redesigned UI");

@@ -30,7 +30,9 @@ function simplifyEntry(entry) {
   return {
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
     km: kmValue(entry.km),
-    type: entry.regular === false ? "επισκευή" : "τακτικό service",
+    type: entry.kind === "improvements" ? "βελτίωση" :
+      entry.kind === "tires" ? "ελαστικά" :
+      entry.regular === false ? "επισκευή" : "τακτικό service",
     works: parts,
     notes: clean([entry.what, entry.notes].filter(Boolean).join("; "), 550)
   };

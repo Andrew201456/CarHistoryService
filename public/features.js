@@ -119,7 +119,7 @@
         esc(kind.name)+'</span></span><strong>'+esc(info.date)+'</strong>'+
         '<small>'+esc(state.text||"Προγραμματισμένη λήξη")+'</small></div>');
     }
-    const tires=latestTires();
+    const tires=isKindVisible("tires")?latestTires():null;
     if(tires){
       const dueKm=int(tires.km)+int(tires.tireLifeKm);
       const currentKm=int(settings.current);
@@ -231,15 +231,17 @@
   });
 
   // One-tap common jobs: use the empty part line before creating another.
-  document.querySelector(".quick-actions").addEventListener("click",event=>{
-    const b=event.target.closest("[data-quick]");if(!b)return;
-    const name=b.dataset.quick;
-    const rows=[...document.querySelectorAll("#parts .prow")];
-    let target=rows.find(r=>!r.querySelector(".pn").value.trim() && !r.querySelector(".pc").value.trim());
-    if(!target){partRow();target=$("parts").lastElementChild}
-    target.querySelector(".pn").value=name;
-    target.querySelector(".pc").focus();
-    updSum();saveDraft();
+  document.querySelectorAll(".quick-actions").forEach(group=>{
+    group.addEventListener("click",event=>{
+      const b=event.target.closest("[data-quick]");if(!b)return;
+      const name=b.dataset.quick;
+      const rows=[...document.querySelectorAll("#parts .prow")];
+      let target=rows.find(r=>!r.querySelector(".pn").value.trim() && !r.querySelector(".pc").value.trim());
+      if(!target){partRow();target=$("parts").lastElementChild}
+      target.querySelector(".pn").value=name;
+      target.querySelector(".pc").focus();
+      updSum();saveDraft();
+    });
   });
 
   // Draft stays on this device until explicitly saved or discarded.
@@ -275,7 +277,8 @@
     $("labor").value=initialDraft.labor||"";
     $("where").value=initialDraft.where||"";
     $("notes").value=initialDraft.notes||"";
-    setServiceKind(initialDraft.kind==="tires"?"tires":
+    setServiceKind(initialDraft.kind==="improvements"?"improvements":
+      initialDraft.kind==="tires"?"tires":
       initialDraft.kind==="repair"||initialDraft.regular===false?"repair":"regular");
     $("tireName").value=initialDraft.tireName||"";
     $("tireLifeKm").value=initialDraft.tireLifeKm||"";
@@ -293,7 +296,7 @@
     if (event.target.closest("input,textarea")) saveDraft();
   });
   $("v-form").addEventListener("change",event=>{
-    if (event.target.closest("input,textarea")) saveDraft();
+    if (event.target.closest("input,textarea,select")) saveDraft();
   });
   $("addPart").addEventListener("click",saveDraft);
   $("parts").addEventListener("click",event=>{
