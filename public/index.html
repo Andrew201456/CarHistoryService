@@ -85,35 +85,55 @@ nav button.on{color:var(--accent);font-weight:600}
 <link rel="stylesheet" href="/ui.css">
 </head>
 <body class="account-locked">
-<section id="accountGate" class="account-gate" aria-label="Σύνδεση λογαριασμού">
+<section id="accountGate" class="account-gate" aria-label="Πρόσβαση λογαριασμού">
   <div class="account-card">
-    <span class="account-brand">CAR HISTORY</span>
-    <h1>Το ιστορικό του αυτοκινήτου σου</h1>
-    <p>Συνδέσου με τον κωδικό σου ή φτιάξε έναν δικό σου, όπως σε βολεύει.</p>
-    <form id="accountLoginForm">
-      <label for="accountCode">Ο προσωπικός σου κωδικός</label>
-      <input id="accountCode" type="password" autocomplete="off" spellcheck="false" placeholder="Γράψε τον κωδικό σου" required>
-      <button class="account-primary" id="accountLoginBtn" type="submit">Σύνδεση</button>
-    </form>
-    <div class="account-divider">ή</div>
-    <button id="accountCreate" type="button" class="account-secondary">Δημιουργία τυχαίου 4ψήφιου</button>
-    <button id="accountChooseCustom" type="button" class="account-secondary" aria-controls="accountCustomForm" aria-expanded="false">Θέλω δικό μου κωδικό</button>
-    <form id="accountCustomForm" class="account-custom-form" hidden>
-      <label for="accountCustomCode">Διάλεξε τον δικό σου κωδικό</label>
-      <input id="accountCustomCode" type="text" autocomplete="off" spellcheck="false"
-        maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς" required>
-      <p>Βάλε όποιον κωδικό σε βολεύει, με αριθμούς, γράμματα ή σύμβολα. Αν υπάρχει ήδη, διάλεξε άλλον.</p>
-      <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία με αυτόν τον κωδικό</button>
-    </form>
-    <div id="accountCreated" class="account-created" hidden>
-      <strong>Ο προσωπικός σου κωδικός</strong>
-      <code id="accountNewCode"></code>
-      <p><strong>Αποθήκευσέ τον!</strong> Είναι το μοναδικό κλειδί του λογαριασμού σου. Αν χαθεί, δεν υπάρχει αυτόματη ανάκτηση.</p>
-      <button id="accountCopy" type="button" class="account-secondary">Αντιγραφή κωδικού</button>
-      <button id="accountContinue" type="button" class="account-primary">Αποθήκευσα τον κωδικό — Συνέχεια</button>
+    <div class="account-identity">
+      <img src="/app-icon-192.png" alt="" class="account-logo" width="48" height="48">
+      <span class="account-brand">CAR HISTORY</span>
+    </div>
+
+    <div id="accountLoginPanel" class="account-panel">
+      <h1>Καλώς ήρθες</h1>
+      <p>Όλα τα service του αυτοκινήτου σου, σε ένα μέρος.</p>
+      <form id="accountLoginForm">
+        <label for="accountCode">Κωδικός πρόσβασης</label>
+        <input id="accountCode" type="password" autocomplete="off" spellcheck="false"
+          placeholder="Γράψε τον κωδικό σου" required>
+        <button class="account-primary" id="accountLoginBtn" type="submit">Σύνδεση</button>
+      </form>
+      <div class="account-join">
+        <span>Δεν έχεις λογαριασμό;</span>
+        <button id="accountOpenRegister" class="account-link" type="button">Δημιουργία λογαριασμού</button>
+      </div>
+    </div>
+
+    <div id="accountRegisterPanel" class="account-panel" hidden>
+      <button id="accountBackToLogin" class="account-back" type="button">← Πίσω στη σύνδεση</button>
+
+      <div id="accountRegisterChoices">
+        <h2>Νέος λογαριασμός</h2>
+        <p>Διάλεξε τον δικό σου κωδικό ή πάρε έναν αυτόματα.</p>
+        <form id="accountCustomForm" class="account-custom-form">
+          <label for="accountCustomCode">Ο κωδικός που θέλεις</label>
+          <input id="accountCustomCode" type="text" autocomplete="off" spellcheck="false"
+            maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς" required>
+          <p class="account-helper">Αριθμοί, γράμματα ή σύμβολα — όπως σε βολεύει.</p>
+          <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία λογαριασμού</button>
+        </form>
+        <div class="account-divider">ή</div>
+        <button id="accountCreate" type="button" class="account-secondary">Τυχαίος 4ψήφιος κωδικός</button>
+        <small class="account-safety-note">Φύλαξε τον κωδικό σου. Οι πολύ εύκολοι κωδικοί μπορούν να μαντευτούν.</small>
+      </div>
+
+      <div id="accountCreated" class="account-created" hidden>
+        <strong>Ο προσωπικός σου κωδικός</strong>
+        <code id="accountNewCode"></code>
+        <p><strong>Αποθήκευσέ τον!</strong> Θα τον χρειαστείς για να ξαναμπείς. Αν χαθεί, δεν υπάρχει αυτόματη ανάκτηση.</p>
+        <button id="accountCopy" type="button" class="account-secondary">Αντιγραφή κωδικού</button>
+        <button id="accountContinue" type="button" class="account-primary">Αποθήκευσα τον κωδικό — Συνέχεια</button>
+      </div>
     </div>
     <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
-    <small>Οι μικροί και εύκολοι κωδικοί μαντεύονται πιο εύκολα. Όποιος γνωρίζει τον κωδικό σου μπορεί να μπει στα service σου.</small>
   </div>
 </section>
 

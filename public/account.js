@@ -5,7 +5,9 @@
   const ACTIVE="carServiceActiveAccountV3";
   const $=id=>document.getElementById(id);
   const gate=$("accountGate"),message=$("accountMessage"),login=$("accountLoginForm"),
-    codeInput=$("accountCode"),create=$("accountCreate"),created=$("accountCreated");
+    codeInput=$("accountCode"),create=$("accountCreate"),created=$("accountCreated"),
+    loginPanel=$("accountLoginPanel"),registerPanel=$("accountRegisterPanel"),
+    registerChoices=$("accountRegisterChoices"),backToLogin=$("accountBackToLogin");
   if(!gate)return;
   let busy=false,pendingAccount=null,current=null;
   // Match the Worker: accept custom visible text, including Greek characters.
@@ -24,7 +26,7 @@
   }
   function setBusy(flag){
     busy=flag;
-    for(const b of [create,$("accountChooseCustom"),$("accountCustomCreate"),
+    for(const b of [create,$("accountOpenRegister"),backToLogin,$("accountCustomCreate"),
       $("accountLoginBtn"),$("accountCopy"),$("accountContinue")]){
       b.disabled=flag;
     }
@@ -90,23 +92,25 @@
     catch(error){notice(error.message,true)}
     finally{setBusy(false)}
   });
+  function showPanel(panel){
+    if(busy)return;
+    const registering=panel==="register";
+    loginPanel.hidden=registering;
+    registerPanel.hidden=!registering;
+    notice("");
+  }
+  $("accountOpenRegister").addEventListener("click",()=>showPanel("register"));
+  backToLogin.addEventListener("click",()=>showPanel("login"));
+
   function showCreated(data){
     if(!valid(data))throw new Error("Δεν επιστράφηκε έγκυρος κωδικός.");
     pendingAccount=data;
     $("accountNewCode").textContent=data.code;
+    registerChoices.hidden=true;
+    backToLogin.hidden=true;
     created.hidden=false;
-    create.hidden=true;
-    $("accountChooseCustom").hidden=true;
-    $("accountCustomForm").hidden=true;
-    login.hidden=true;
     notice("Φύλαξε τον κωδικό σου πριν συνεχίσεις.");
   }
-  $("accountChooseCustom").addEventListener("click",()=>{
-    const customForm=$("accountCustomForm");
-    customForm.hidden=!customForm.hidden;
-    $("accountChooseCustom").setAttribute("aria-expanded",String(!customForm.hidden));
-    if(!customForm.hidden)$("accountCustomCode").focus();
-  });
   $("accountCustomForm").addEventListener("submit",async event=>{
     event.preventDefault();
     if(busy)return;

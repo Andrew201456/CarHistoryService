@@ -210,7 +210,11 @@ assert(account.includes('localStorage.removeItem(ACTIVE)'));
 assert(account.includes('accountCustomForm'));
 assert(account.includes('const codeValid=code=>'),"Flexible code validation must be used");
 assert(html.includes('id="accountCustomCode"'));
-assert(html.includes('id="accountChooseCustom"'));
+assert(html.includes('id="accountOpenRegister"'),"Registration must be a separate action");
+assert(html.includes('id="accountLoginPanel" class="account-panel"'),"Login panel should be focused");
+assert(html.includes('id="accountRegisterPanel" class="account-panel" hidden'),"Registration hidden at first");
+assert(html.includes('id="accountBackToLogin"'),"Can return to login");
+assert(account.includes('showPanel("register")'),"Registration opens on demand");
 assert(html.includes('id="accountCustomCreate"'));
 assert(html.includes('type="password" autocomplete="off"'),"Login works with digits and letters");
 assert(!html.includes('id="accountLegacyMode"'),"The login field supports old and new codes directly");
@@ -218,7 +222,7 @@ assert(html.includes('maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς"')
 assert(!/id="accountCustomCode"[^>]*pattern=/.test(html),"No mandatory 4-digit validation on account creation");
 assert(account.includes('normalize("NFKC")'),"Client must normalize Greek/Unicode codes");
 assert(html.includes('id="accountCustomForm"'));
-assert(sw.includes("carhistory-shell-v12")&&sw.includes('"/account.js"'));
+assert(sw.includes("carhistory-shell-v13")&&sw.includes('"/account.js"'));
 for(const script of [account,features,ai])assert.doesNotThrow(()=>new Function(script));
 for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
   if(script[1].trim())assert.doesNotThrow(()=>new Function(script[1]));
