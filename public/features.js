@@ -296,7 +296,7 @@
     if (event.target.closest("input,textarea")) saveDraft();
   });
   $("v-form").addEventListener("change",event=>{
-    if (event.target.closest("input,textarea")) saveDraft();
+    if (event.target.closest("input,textarea,select")) saveDraft();
   });
   $("addPart").addEventListener("click",saveDraft);
   $("parts").addEventListener("click",event=>{
