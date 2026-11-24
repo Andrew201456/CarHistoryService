@@ -845,7 +845,9 @@ function configureAccount(code,scope){
   RKEY="carServiceReminders:"+scope;
   BASEKEY="carServiceSyncBaseV2:"+scope;
   PENDINGKEY="carServiceSyncPendingV2:"+scope;
-  localStorage.setItem(PKEY,code);
+  // Do not keep a second persistent copy of the bearer session: remember-me
+  // now controls whether the verified session uses localStorage or sessionStorage.
+  localStorage.removeItem(PKEY);
 }
 function accountIsCurrent(){
   try{return JSON.parse(localStorage.getItem(ACCOUNT_SESSION_KEY)||"null")?.scope===ACTIVE_SCOPE;}
