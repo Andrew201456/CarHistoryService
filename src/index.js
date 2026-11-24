@@ -71,6 +71,10 @@ const DOCUMENT_ACCOUNT_LIMIT=100*1024*1024;
 const DOCUMENT_COUNT_LIMIT=50;
 const DOCUMENT_KINDS=new Set(["insurance","kteo","tax","emissions","license","registration","roadside","receipt","other"]);
 const DOCUMENT_TYPES=new Set(["application/pdf","image/jpeg","image/png","image/webp","image/heic","image/heif"]);
+const DOCUMENT_EXTENSIONS={
+  pdf:"application/pdf",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",
+  webp:"image/webp",heic:"image/heic",heif:"image/heif"
+};
 const DOCUMENT_ID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const docKey=id=>"car-doc:meta:"+id;
 const docPart=(id,n)=>"car-doc:part:"+id+":"+n;
@@ -110,7 +114,8 @@ async function handlePrivateDocuments(req,state){
       size=Number(input?.size),cost=input?.cost==null||input.cost===""?"":Number(input.cost);
     if(!DOCUMENT_KINDS.has(kind)||!DOCUMENT_TYPES.has(mime)||!fileName||
        !Number.isSafeInteger(size)||size<1||size>DOCUMENT_FILE_LIMIT||
-       !validDocumentDate(expiry)||!Number.isFinite(cost)&&cost!==""||
+       DOCUMENT_EXTENSIONS[fileName.split(".").pop().toLowerCase()]!==mime||
+       !validDocumentDate(expiry)||(cost!==""&&!Number.isFinite(cost))||
        cost!==""&&(cost<0||cost>999999)||
        !/^[a-zA-Z0-9-]{8,80}$/.test(clientKey))
       return jsonDocument({error:"Μη έγκυρο έγγραφο, μορφή ή μέγεθος (έως 25 MB)."},400);
