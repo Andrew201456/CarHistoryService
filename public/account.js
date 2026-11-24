@@ -4,12 +4,13 @@
 (function(){
   "use strict";
   const ACTIVE="carServiceActiveAccountV3";
+  const REMEMBER="carServiceRememberMeV1";
   const $=id=>document.getElementById(id);
   const gate=$("accountGate"),message=$("accountMessage");
   if(!gate)return;
   const login=$("accountLoginForm"),loginBtn=$("accountLoginBtn"),
     loginText=$("accountLoginBtnText"),usernameEl=$("accountUsername"),
-    passwordEl=$("accountPassword"),
+    passwordEl=$("accountPassword"),rememberEl=$("accountRememberMe"),
     loginPanel=$("accountLoginPanel"),registerPanel=$("accountRegisterPanel"),
     registerBtn=$("accountCustomCreate"),backBtn=$("accountBackToLogin"),
     openBtn=$("accountOpenRegister");
@@ -68,15 +69,41 @@
       options.signal?.removeEventListener("abort",abort);
     }
   }
-  function start(info){
+  function savedSession(){
+    // Older installations stored the session in localStorage unconditionally.
+    // Keep them usable without losing any historical entries.
+    for(const storage of [sessionStorage,localStorage]){
+      try{
+        const value=JSON.parse(storage.getItem(ACTIVE)||"null");
+        if(valid(value))return {value,remember:storage===localStorage};
+        if(storage===localStorage&&value?.code)return {value,remember:true,legacy:true};
+      }catch{}
+    }
+    return null;
+  }
+  function persistSession(info,remember){
+    // Store only the expiring server-issued session, never a password.
+    if(remember){
+      localStorage.setItem(ACTIVE,JSON.stringify(info));
+      localStorage.setItem(REMEMBER,"1");
+      try{sessionStorage.removeItem(ACTIVE);}catch{}
+    }else{
+      sessionStorage.setItem(ACTIVE,JSON.stringify(info));
+      localStorage.removeItem(ACTIVE);
+      localStorage.removeItem(REMEMBER);
+    }
+  }
+  function start(info,{remember=rememberEl.checked}={}){
     if(!valid(info))throw Error("Ο διακομιστής επέστρεψε μη έγκυρη σύνδεση.");
     current={username:info.username,scope:info.scope,session:info.session};
+    persistSession(current,remember);
+    rememberEl.checked=remember;
     // Do not persist password or master admin, including for legacy accounts.
-    localStorage.setItem(ACTIVE,JSON.stringify(current));
     passwordEl.value="";
     $("accountLoginMaster").value="";
     $("accountLoginMasterWrap").hidden=true;
     gate.hidden=true;
+    document.documentElement.classList.remove("account-restoring");
     document.body.classList.remove("account-locked");
     window.CarAppStartAccount(current.session,current.scope);
   }
@@ -89,8 +116,7 @@
     if(!NAME.test(canonical)||!validPassword(password))
       throw Error("Συμπλήρωσε σωστά username και password.");
     const serial=++requestSerial;
-    let saved=null;
-    try{saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
+    const saved=savedSession()?.value;
     const legacySession=saved?.code&&SESSION.test(saved.session||"")?saved.session:"";
     const masterField=$("accountLoginMasterWrap");
     const masterAdmin=masterField&&!masterField.hidden?
@@ -187,11 +213,16 @@
       "carServiceDraftV1","carServiceAiConversationV1"];
     for(const key of keys)localStorage.removeItem(key+":"+current.scope);
     localStorage.removeItem(ACTIVE);
+    localStorage.removeItem(REMEMBER);
+    try{sessionStorage.removeItem(ACTIVE);}catch{}
     location.reload();
   }
   window.CarAccountLogout=logout;
   window.CarAccountLock=()=>{
-    localStorage.removeItem(ACTIVE);location.reload();
+    localStorage.removeItem(ACTIVE);
+    localStorage.removeItem(REMEMBER);
+    try{sessionStorage.removeItem(ACTIVE);}catch{}
+    location.reload();
   };
   window.CarAccountShowCode=async()=>{
     if(!current)return;
@@ -221,9 +252,9 @@
         username:current.username,currentPassword,newPassword
       },current.session);
       if(result.scope!==current.scope)throw Error("Ασυμφωνία λογαριασμού.");
-      localStorage.setItem(ACTIVE,JSON.stringify({
+      persistSession({
         username:current.username,scope:current.scope,session:result.session
-      }));
+      },rememberEl.checked);
       $("accountCurrentPassword").value="";
       $("accountNewPassword").value="";
       location.reload();
@@ -257,26 +288,36 @@
   // Restore a valid session without the old password. Previous PIN-based
   // local sessions can migrate automatically only if they belong to one of
   // the explicitly mapped historical scopes.
-  let last=null;
-  try{last=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
+  const saved=savedSession();
+  const last=saved?.value||null;
   if(valid(last)){
+    rememberEl.checked=saved.remember;
     usernameEl.value=last.username;
     const serial=++requestSerial,abort=new AbortController();
     autoAbort=abort;
-    notice("Επανασύνδεση…");
+    // The pre-paint splash is visible; the login form stays hidden until
+    // the existing session has been validated by Cloudflare.
+    notice("");
     api("/api/account/session",{},last.session,{signal:abort.signal,timeoutMs:8000})
       .then(result=>{
-        if(serial===requestSerial&&result.scope===last.scope)start(last);
+        if(serial===requestSerial&&result.scope===last.scope)
+          start(last,{remember:saved.remember});
       }).catch(error=>{
         if(serial!==requestSerial||error.cancelled)return;
         notice(error.status===401?
           "Η σύνδεση έληξε. Βάλε το password σου.":
           error.message,true);
-      }).finally(()=>{if(autoAbort===abort)autoAbort=null;});
+      }).finally(()=>{
+        if(autoAbort===abort)autoAbort=null;
+        document.documentElement.classList.remove("account-restoring");
+      });
   }else if(last?.code){
+    document.documentElement.classList.remove("account-restoring");
     // Prior app versions kept the PIN locally. Never expose or auto-send it
     // from a publicly served JavaScript mapping. The user signs in with
     // their new username/password and the server links to their old history.
     notice("Συνδέσου με το νέο username και password. Το παλιό ιστορικό παραμένει στον λογαριασμό σου.");
+  }else{
+    document.documentElement.classList.remove("account-restoring");
   }
 })();
