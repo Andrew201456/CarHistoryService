@@ -18,7 +18,7 @@ assert(html.includes('id="accountInstallBtn"'),"Login install button missing");
 assert(html.includes('id="installBtn"'),"Home install button missing");
 assert(!features.includes("function setupInstall()"),"Do not attach a second installer after login");
 assert(css.includes(".install-trigger[hidden]"));
-assert(sw.includes('carhistory-shell-v29'));
+assert(sw.includes('carhistory-shell-v30'));
 assert.doesNotThrow(()=>new Function(script));
 
 function mount({ua="Mozilla/5.0 (Linux; Android 14) Chrome/131",
