@@ -545,8 +545,8 @@ window.CarAppCopyLegacyLocal=copyLegacyLocal;
 
 let items=[],reminders=[],settings={interval:10000,current:""},editId=null,historyFilter="all";
 const $=id=>document.getElementById(id);
-const HISTORY_KINDS=["regular","repair","tires","improvements"];
-const itemKind=it=>it.kind==="improvements"?"improvements":
+const HISTORY_KINDS=["regular","repair","tires","improvements","expenses"];
+const itemKind=it=>it.kind==="expenses"?"expenses":it.kind==="improvements"?"improvements":
   it.kind==="tires"?"tires":it.regular===false?"repair":"regular";
 const isKindVisible=kind=>settings.homeVisibleKinds?.[kind]!==false;
 function renderAccountPreferences(){
@@ -566,18 +566,22 @@ $("accountCategorySettings").addEventListener("change",event=>{
 function setServiceKind(kind){
   const selected=HISTORY_KINDS.includes(kind)?kind:"regular";
   $("serviceKind").value=selected;
-  $("kmFieldLabel").textContent=selected==="tires"?"Χιλιόμετρα τοποθέτησης":"Χιλιόμετρα";
+  $("kmFieldLabel").textContent=selected==="tires"?"Χιλιόμετρα τοποθέτησης":selected==="expenses"?"Χιλιόμετρα (προαιρετικό)":"Χιλιόμετρα";
   $("regular").checked=selected==="regular";
   $("tireFields").hidden=selected!=="tires";
   $("improvementQuickActions").hidden=selected!=="improvements";
-  $("regularQuickActions").hidden=selected==="improvements";
+  $("expenseQuickActions").hidden=selected!=="expenses";
+  $("regularQuickActions").hidden=selected==="improvements"||selected==="expenses";
+  document.querySelector('label[for="where"]').textContent=selected==="expenses"?"Πάροχος / φορέας":"Συνεργείο";
   $("serviceKindHint").textContent=selected==="regular"
     ?"Τα τακτικά service μετράνε για τον υπολογισμό του επόμενου."
     :selected==="repair"
       ?"Οι επισκευές δεν επηρεάζουν το επόμενο τακτικό service."
       :selected==="tires"
         ?"Οι αλλαγές ελαστικών εμφανίζονται χωριστά και υπολογίζουν πότε χρειάζεται η επόμενη."
-        :"Κράτησε όλες τις αναβαθμίσεις σου, όπως Stage 1, εξάτμιση ή ανάρτηση. Δεν αλλάζουν το επόμενο τακτικό service.";
+        :selected==="expenses"
+          ?"Ασφάλεια, ΚΤΕΟ, τέλη και άλλες πληρωμές. Μετράνε στα συνολικά ετήσια έξοδα, όχι στο επόμενο service."
+          :"Κράτησε όλες τις αναβαθμίσεις σου, όπως Stage 1, εξάτμιση ή ανάρτηση. Δεν αλλάζουν το επόμενο τακτικό service.";
 }
 $("serviceKind").addEventListener("change",()=>setServiceKind($("serviceKind").value));
 function load(){
@@ -924,12 +928,12 @@ function render(){
     const parts=(it.parts||[]).filter(p=>p.name||p.cost);
     const t=total(it);
     const noteTxt=[it.what,it.notes].filter(Boolean).join("\n");
-    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":itemKind(it)==="improvements"?"βελτίωση":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
+    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":itemKind(it)==="improvements"?"βελτίωση":itemKind(it)==="expenses"?"έξοδο":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
     ${parts.length?`<ul class="parts">${parts.map(p=>`<li><span>${hl(p.name||"",q)}</span><span class="c">${p.cost?hl(money(num(p.cost)),q):""}</span></li>`).join("")}</ul>`:""}
     ${itemKind(it)==="tires"&&intOf(it.km)>0&&intOf(it.tireLifeKm)>0?`<div class="tire-history-note"><strong>${esc(it.tireName||"Ελαστικά")}</strong> · Εκτιμώμενη αλλαγή στα ${fmtKm(intOf(it.km)+intOf(it.tireLifeKm))}${intOf(settings.current)>0?" · "+(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)>=0?"Απομένουν "+fmtKm(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)):"Έχουν ξεπεραστεί κατά "+fmtKm(intOf(settings.current)-intOf(it.km)-intOf(it.tireLifeKm))):""}</div>`:""}
     ${noteTxt?`<div class="notes">${hl(noteTxt,q)}</div>`:""}
     ${num(it.labor)||num(it.cost)?`<div class="meta">Εργασία / άλλα: ${money(num(it.labor)+num(it.cost))}</div>`:""}
-    ${it.where?`<div class="meta">Συνεργείο: ${hl(it.where,q)}</div>`:""}
+    ${it.where?`<div class="meta">${itemKind(it)==="expenses"?"Πάροχος / φορέας":"Συνεργείο"}: ${hl(it.where,q)}</div>`:""}
     ${(t+num(it.cost))>0?`<div class="total"><span>Σύνολο</span><span>${money(t+num(it.cost))}</span></div>`:""}
     <div class="actions"><button data-e="${it.id}">Επεξεργασία</button><button class="del" data-d="${it.id}">Διαγραφή</button></div></div>`}).join("");
 }
