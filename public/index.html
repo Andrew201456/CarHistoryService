@@ -1064,6 +1064,14 @@ async function sync(){
       const base=readBase();
       const local=currentData();
       const startGeneration=localGeneration;
+      // A cloud account unexpectedly returning zero entries must NEVER erase
+      // a previously synced local history. Keep a recoverable copy until the
+      // owner has inspected the account/source. This prevents silent loss.
+      if(remote.items.length===0&&local.items.length>0&&
+         Array.isArray(base?.items)&&base.items.length>0){
+        setSt("Προσοχή: το Cloudflare επέστρεψε άδειο ιστορικό. Διατήρησα το τοπικό αντίγραφο — πήγαινε στο Account → Έλεγχος ανάκτησης.",true);
+        return;
+      }
       // First launch on a new device: trust the existing server dataset.
       // Do not let empty local defaults overwrite its current odometer.
       if(!base && localStorage.getItem(PENDINGKEY)!=="1" &&
