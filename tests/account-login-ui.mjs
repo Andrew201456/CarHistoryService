@@ -107,22 +107,22 @@ returning.el.accountPassword.value="wrong";
 await returning.el.accountLoginForm.fire("submit");
 assert.match(returning.el.accountMessage.textContent,/Λάθος username/);
 assert.equal(returning.el.accountLoginBtn.disabled,false);
-returning.el.accountPassword.value="1234";
+returning.el.accountPassword.value="UI-TEST-PASSWORD";
 await returning.el.accountLoginForm.fire("submit");
 assert.equal(returning.started.length,1);
 assert.equal(returning.started[0].scope,scope);
 assert.equal(returning.sent.at(-1).body.username,"ANDREAS");
-assert.equal(returning.sent.at(-1).body.password,"1234");
+assert.equal(returning.sent.at(-1).body.password,"UI-TEST-PASSWORD");
 assert.equal(returning.el.accountPassword.value,"");
 const persistent=JSON.parse(returning.localStorage.getItem("carServiceActiveAccountV3"));
 assert.equal(persistent.username,"ANDREAS");
 assert.equal(persistent.scope,scope);
 assert.equal(persistent.session,session);
-assert(!JSON.stringify(persistent).includes("1234"),"No password in localStorage");
+assert(!JSON.stringify(persistent).includes("UI-TEST-PASSWORD"),"No password in localStorage");
 
 const legacyFirstLogin=mount();
 legacyFirstLogin.el.accountUsername.value="Vasdim";
-legacyFirstLogin.el.accountPassword.value="5555";
+legacyFirstLogin.el.accountPassword.value="UI-TEST-LEGACY-PASSWORD";
 assert.equal(legacyFirstLogin.el.accountLoginMasterWrap.hidden,true);
 await legacyFirstLogin.el.accountLoginForm.fire("submit");
 assert.equal(legacyFirstLogin.el.accountLoginMasterWrap.hidden,false,
@@ -157,7 +157,7 @@ assert(!JSON.stringify(register.localStorage.getItem("carServiceActiveAccountV3"
 const changed=mount({username:"ANDREAS",scope,session});
 for(let i=0;i<30;i++)await Promise.resolve();
 assert.equal(changed.started.length,1,"Saved session should restore before password change");
-changed.el.accountCurrentPassword.value="1234";
+changed.el.accountCurrentPassword.value="UI-TEST-PASSWORD";
 changed.el.accountNewPassword.value="strong-new-password";
 await changed.el.accountPasswordForm.fire("submit");
 assert.equal(changed.state.reloaded,1);
