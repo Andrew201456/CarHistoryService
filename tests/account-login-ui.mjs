@@ -61,10 +61,15 @@ function mount(initial=null){
     if(url==="/api/account/login"){
       if(body.password==="wrong")
         return {ok:false,status:401,json:async()=>({error:"Λάθος username ή password."})};
+      if(body.username==="VASDIM"&&body.masterAdmin==="incorrect-admin-code")
+        return {ok:false,status:403,json:async()=>({
+          error:"Ο master admin κωδικός δεν ταιριάζει με το Cloudflare Secret.",
+          masterRequired:true,masterError:"mismatch"
+        })};
       if(body.username==="VASDIM"&&body.masterAdmin!=="SECRET-FOR-TEST-ONLY")
         return {ok:false,status:428,json:async()=>({
-          error:"Για την πρώτη ενεργοποίηση χρειάζεται ο master admin κωδικός.",
-          masterRequired:true
+          error:"Για την πρώτη ενεργοποίηση συμπλήρωσε τον master admin κωδικό.",
+          masterRequired:true,masterError:"missing"
         })};
       return {ok:true,status:200,json:async()=>({username:body.username,scope,session})};
     }
@@ -128,6 +133,11 @@ await legacyFirstLogin.el.accountLoginForm.fire("submit");
 assert.equal(legacyFirstLogin.el.accountLoginMasterWrap.hidden,false,
   "Legacy activation should request master only when required");
 assert.match(legacyFirstLogin.el.accountMessage.textContent,/master admin/);
+legacyFirstLogin.el.accountLoginMaster.value="incorrect-admin-code";
+await legacyFirstLogin.el.accountLoginForm.fire("submit");
+assert.match(legacyFirstLogin.el.accountMessage.textContent,/δεν ταιριάζει/);
+assert.equal(legacyFirstLogin.el.accountLoginMaster.value,"",
+  "Incorrect master must be cleared");
 legacyFirstLogin.el.accountLoginMaster.value="SECRET-FOR-TEST-ONLY";
 await legacyFirstLogin.el.accountLoginForm.fire("submit");
 assert.equal(legacyFirstLogin.started.length,1);
