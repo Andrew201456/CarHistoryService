@@ -318,8 +318,8 @@ export default {
         method:"POST",body:JSON.stringify({ip:req.headers.get("CF-Connecting-IP")||"unknown"})
       });
       if(!allowed.ok)return jsonNoStore({error:"Πολλές προσπάθειες. Δοκίμασε αργότερα."},429);
-      if(!env.CAR_MASTER_ADMIN||String(env.CAR_MASTER_ADMIN).length<16)
-        return jsonNoStore({error:"Ο διαχειριστής δεν έχει ρυθμίσει ακόμη τον master κωδικό στο Cloudflare."},503);
+      if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<16)
+        return jsonNoStore({error:"Το CAR_MASTER_ADMIN στο Cloudflare λείπει ή έχει λιγότερους από 16 χαρακτήρες. Ρύθμισέ το ως Production Secret."},503);
       if(!safeEqual(master,env.CAR_MASTER_ADMIN))
         return jsonNoStore({error:"Λάθος master admin κωδικός."},403);
       const registry=identityStub(env,username);
@@ -379,11 +379,28 @@ export default {
           });
           proven=checked.ok;
         }
-        if(!proven&&env.CAR_MASTER_ADMIN&&String(env.CAR_MASTER_ADMIN).length>=16&&
-           safeEqual(String(payload.masterAdmin||""),env.CAR_MASTER_ADMIN))
+        if(!proven){
+          // A missing or too-short configured secret is a server setup issue,
+          // not an incorrect login password. Give a diagnostic status without
+          // disclosing any secret value or attempting to compare insecurely.
+          if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<16)
+            return jsonNoStore({
+              error:"Το CAR_MASTER_ADMIN στο Cloudflare λείπει ή έχει λιγότερους από 16 χαρακτήρες. Ρύθμισέ το ως Production Secret.",
+              masterRequired:true,masterError:"configuration"
+            },503);
+          const supplied=String(payload.masterAdmin||"");
+          if(!supplied)
+            return jsonNoStore({
+              error:"Για την πρώτη ενεργοποίηση συμπλήρωσε τον master admin κωδικό που όρισες στο Cloudflare.",
+              masterRequired:true,masterError:"missing"
+            },428);
+          if(!safeEqual(supplied,env.CAR_MASTER_ADMIN))
+            return jsonNoStore({
+              error:"Ο master admin κωδικός δεν ταιριάζει με το Cloudflare Secret. Έλεγξε ακριβώς τους χαρακτήρες και το Production environment.",
+              masterRequired:true,masterError:"mismatch"
+            },403);
           proven=true;
-        if(!proven)
-          return jsonNoStore({error:"Για την πρώτη ενεργοποίηση χρειάζεται ο master admin κωδικός.",masterRequired:true},428);
+        }
         const salt=passwordSalt(),verifier=await passwordVerifier(password,salt);
         const claimed=await identityFetch(registry,"create",{username,scope:legacyScope,salt,verifier});
         if(!claimed.ok&&claimed.status!==409)
