@@ -17,7 +17,8 @@ assert(css.includes(".account-card [hidden]{display:none!important}"));
 for(const id of ["accountGate","accountLoginForm","accountUsername","accountPassword",
   "accountLoginBtn","accountLoginBtnText","accountRegisterPanel","accountBackToLogin",
   "accountCustomForm","accountCustomUsername","accountCustomPassword",
-  "accountMasterAdmin","accountCustomCreate","accountPasswordForm",
+  "accountMasterAdmin","accountLoginMasterWrap","accountLoginMaster",
+  "accountCustomCreate","accountPasswordForm",
   "accountCurrentPassword","accountNewPassword","accountChangePassword"]){
   assert(html.includes('id="'+id+'"'),"Missing "+id);
 }
@@ -60,6 +61,11 @@ function mount(initial=null){
     if(url==="/api/account/login"){
       if(body.password==="wrong")
         return {ok:false,status:401,json:async()=>({error:"Λάθος username ή password."})};
+      if(body.username==="VASDIM"&&body.masterAdmin!=="SECRET-FOR-TEST-ONLY")
+        return {ok:false,status:428,json:async()=>({
+          error:"Για την πρώτη ενεργοποίηση χρειάζεται ο master admin κωδικός.",
+          masterRequired:true
+        })};
       return {ok:true,status:200,json:async()=>({username:body.username,scope,session})};
     }
     if(url==="/api/account/create"){
@@ -113,6 +119,22 @@ assert.equal(persistent.username,"ANDREAS");
 assert.equal(persistent.scope,scope);
 assert.equal(persistent.session,session);
 assert(!JSON.stringify(persistent).includes("1234"),"No password in localStorage");
+
+const legacyFirstLogin=mount();
+legacyFirstLogin.el.accountUsername.value="Vasdim";
+legacyFirstLogin.el.accountPassword.value="5555";
+assert.equal(legacyFirstLogin.el.accountLoginMasterWrap.hidden,true);
+await legacyFirstLogin.el.accountLoginForm.fire("submit");
+assert.equal(legacyFirstLogin.el.accountLoginMasterWrap.hidden,false,
+  "Legacy activation should request master only when required");
+assert.match(legacyFirstLogin.el.accountMessage.textContent,/master admin/);
+legacyFirstLogin.el.accountLoginMaster.value="SECRET-FOR-TEST-ONLY";
+await legacyFirstLogin.el.accountLoginForm.fire("submit");
+assert.equal(legacyFirstLogin.started.length,1);
+assert.equal(legacyFirstLogin.el.accountLoginMasterWrap.hidden,true);
+assert.equal(legacyFirstLogin.el.accountLoginMaster.value,"");
+assert(!JSON.stringify(legacyFirstLogin.localStorage.getItem("carServiceActiveAccountV3"))
+  .includes("SECRET-FOR-TEST-ONLY"),"Master secret must never persist");
 
 const register=mount();
 await register.el.accountOpenRegister.fire("click");
