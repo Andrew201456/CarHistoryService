@@ -358,42 +358,9 @@
     }
   });
 
-  // PWA: Android native install prompt, concise manual Safari guidance.
-  (function setupInstall(){
-    const button=$("installBtn"),help=$("installHelp");
-    if(!button||!help)return;
-    const ua=navigator.userAgent||"";
-    const ios=/iPad|iPhone|iPod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-    const android=/Android/i.test(ua);
-    const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
-    let deferred=null,installed=false;
-    function visible(){button.hidden=installed||standalone()||!(ios||android||deferred)}
-    window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;visible()});
-    window.addEventListener("appinstalled",()=>{installed=true;deferred=null;visible()});
-    button.addEventListener("click",async()=>{
-      if(standalone())return;
-      if(deferred){
-        const choice=deferred;deferred=null;
-        try{
-          await choice.prompt();
-          const result=await choice.userChoice;
-          if(result.outcome==="accepted"){button.hidden=true;return}
-        }catch(e){console.warn("Native prompt failed",e)}
-      }
-      $("installHelpText").textContent=ios ?
-        "Στο Safari πάτησε «Κοινοποίηση» → «Προσθήκη στην Αρχική οθόνη» → «Προσθήκη». Αν είσαι σε άλλον browser, άνοιξε πρώτα την εφαρμογή στο Safari." :
-        "Στο μενού ⋮ του Chrome πάτησε «Εγκατάσταση εφαρμογής» ή «Προσθήκη στην αρχική οθόνη».";
-      if(!help.open)help.showModal();
-      visible();
-    });
-    $("installDismiss").addEventListener("click",()=>help.close());
-    matchMedia("(display-mode: standalone)").addEventListener?.("change",visible);
-    window.addEventListener("pageshow",visible);
-    visible();
-    if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
-      navigator.serviceWorker.register("/sw.js").catch(e=>console.info("Offline shell unavailable",e));
-    }
-  })();
+  // Android installation and service-worker initialization now run before
+  // login in the self-contained install runtime in index.html, so an install
+  // event cannot be missed while the sign-in screen is displayed.
 
   renderExtras();
 })();
