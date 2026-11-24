@@ -30,10 +30,20 @@
   }
   function safeMime(file){
     const ext=(file.name.split(".").pop()||"").toLowerCase();
-    const type=MIME[ext];
-    if(!type||file.size<=0||file.size>LIMIT)return null;
-    if(file.type&&file.type!=="application/octet-stream"&&file.type!==type)return null;
-    return type;
+    const byExt=MIME[ext];
+    if(!byExt||file.size<=0||file.size>LIMIT)return null;
+    if(!file.type||file.type==="application/octet-stream")return byExt;
+    // iOS Photos may convert a HEIC image to JPEG while keeping its old name.
+    if(file.type===byExt)return byExt;
+    if(byExt.startsWith("image/")&&Object.values(MIME).includes(file.type)&&
+       file.type.startsWith("image/"))return file.type;
+    return null;
+  }
+  function normalizedName(fileName,mime){
+    const expected=Object.entries(MIME).find(([,value])=>value===mime)?.[0];
+    if(!expected)return fileName;
+    const ext=(fileName.split(".").pop()||"").toLowerCase();
+    return MIME[ext]===mime?fileName:fileName.replace(/\.[^/.]+$/,"")+"."+expected;
   }
   function goodDate(s){
     if(!s)return true;
@@ -131,10 +141,13 @@
   }
   async function upload(record){
     if(record.scope!==scope)throw Error("Ο λογαριασμός άλλαξε.");
+    const mime=record.mime&&record.mime!=="application/octet-stream"?
+      record.mime:(MIME[(record.fileName||"").split(".").pop().toLowerCase()]||"");
+    const fileName=normalizedName(record.fileName,mime);
     const result=await api("/api/documents",{method:"POST",json:{
       clientKey:record.id,kind:record.kind,title:record.title||"",
-      expiry:record.expiry||"",cost:record.cost??"",mime:record.mime,
-      fileName:record.fileName,size:record.size
+      expiry:record.expiry||"",cost:record.cost??"",mime,
+      fileName,size:record.size
     }});
     if(!result?.id||!Number.isInteger(result.chunkSize)||result.chunkSize<65536)
       throw Error("Το Cloudflare επέστρεψε μη έγκυρη απάντηση.");
@@ -358,7 +371,7 @@
     const id=crypto.randomUUID();
     const record={
       key:recordKey(id),id,scope:owner,kind,title:$("documentTitle").value.trim().slice(0,100),
-      expiry,cost,fileName:file.name.split(/[\\/]/).pop().slice(0,160),
+      expiry,cost,fileName:normalizedName(file.name.split(/[\\/]/).pop().slice(0,160),mime),
       mime,size:file.size,blob:file,createdAt:Date.now()
     };
     busy=true;$("documentSave").disabled=true;
