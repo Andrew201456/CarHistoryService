@@ -1223,7 +1223,6 @@ $("impAdd").onclick=()=>{
     openBtn=$("accountOpenRegister");
   const SCOPE=/^[a-f0-9]{64}$/,SESSION=/^ST-[a-f0-9]{64}-[A-F0-9]{48}$/,
     NAME=/^[A-Z][A-Z0-9._-]{1,31}$/;
-  const LEGACY_USER={1234:"ANDREAS","0000":"NICK",5555:"VASDIM"};
   let current=null,busy=false,requestSerial=0,autoAbort=null;
   const normalizedUser=value=>String(value||"").trim().normalize("NFKC").toUpperCase();
   const validPassword=value=>typeof value==="string"&&[...value].length>=4&&
@@ -1457,14 +1456,11 @@ $("impAdd").onclick=()=>{
           "Η σύνδεση έληξε. Βάλε το password σου.":
           error.message,true);
       }).finally(()=>{if(autoAbort===abort)autoAbort=null;});
-  }else if(last?.code&&LEGACY_USER[last.code]){
-    const migratedUser=LEGACY_USER[last.code];
-    usernameEl.value=migratedUser.slice(0,1)+migratedUser.slice(1).toLowerCase();
-    notice("Μεταφορά προηγούμενου λογαριασμού…");
-    credentialsLogin(migratedUser,last.code,{auto:true,expectedScope:last.scope})
-      .catch(error=>notice(
-        "Το ιστορικό παραμένει ασφαλές. Συνδέσου με username/password. "+
-        (error.message||""),true));
+  }else if(last?.code){
+    // Prior app versions kept the PIN locally. Never expose or auto-send it
+    // from a publicly served JavaScript mapping. The user signs in with
+    // their new username/password and the server links to their old history.
+    notice("Συνδέσου με το νέο username και password. Το παλιό ιστορικό παραμένει στον λογαριασμό σου.");
   }
 })();
 </script>
