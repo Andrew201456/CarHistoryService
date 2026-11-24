@@ -758,9 +758,19 @@ nav button.on{color:var(--accent);font-weight:600}
       <button class="sec" id="mk">Δημιουργία αντιγράφου</button>
       <button class="sec" id="cp">Αντιγραφή κειμένου</button>
       <button class="sec" id="rs">Επαναφορά από κείμενο</button>
+      <div class="legacy-transfer recovery-check">
+        <strong>Έλεγχος ανάκτησης ιστορικού</strong>
+        <p class="note">Ασφαλής έλεγχος χωρίς αλλαγή δεδομένων. Δείχνει αν οι παλιές εγγραφές υπάρχουν στο Cloudflare.</p>
+        <form id="accountRecoveryForm" novalidate>
+          <label for="accountRecoveryMaster">Master admin κωδικός</label>
+          <input id="accountRecoveryMaster" type="password" autocomplete="off" placeholder="Ο master κωδικός σου" required>
+          <button class="sec" type="submit" id="accountRecoveryCheck">Έλεγχος παλιάς βάσης</button>
+        </form>
+        <p class="note" id="accountRecoveryStatus" role="status" aria-live="polite" style="white-space:pre-wrap"></p>
+      </div>
       <div id="legacyTransferBox" class="legacy-transfer">
-        <strong>Μεταφορά παλιού ιστορικού</strong>
-        <p class="note">Αν είχες δεδομένα στην αρχική έκδοση με κοινό κωδικό, μπορείς να τα μεταφέρεις μία φορά σε άδειο λογαριασμό.</p>
+        <strong>Μεταφορά παλιού κοινού ιστορικού</strong>
+        <p class="note">Μόνο για την πολύ παλιά κοινή βάση της εφαρμογής (PASSCODE). Δεν αφορά τους προσωπικούς λογαριασμούς Andreas, Nick ή Vasdim και δεν δέχεται τα PIN τους.</p>
         <label for="legacyAccountCode">Παλιός κωδικός</label>
         <input id="legacyAccountCode" type="password" autocomplete="off" placeholder="Παλιός κωδικός πρόσβασης">
         <button class="sec" type="button" id="legacyTransfer">Μεταφορά ιστορικού</button>
