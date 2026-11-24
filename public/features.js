@@ -71,11 +71,34 @@
   }
 
   const obligationKinds=[
-    {field:"dueInsurance",cost:"costInsurance",name:"Ασφάλεια",icon:"🛡️"},
-    {field:"dueKteo",cost:"costKteo",name:"ΚΤΕΟ",icon:"🔧"},
-    {field:"dueTax",cost:"costTax",name:"Τέλη",icon:"📄"},
-    {field:"dueEmissions",cost:"costEmissions",name:"Κάρτα καυσαερίων",icon:"🌿"}
+    {key:"insurance",field:"dueInsurance",cost:"costInsurance",name:"Ασφάλεια",icon:"🛡️"},
+    {key:"kteo",field:"dueKteo",cost:"costKteo",name:"ΚΤΕΟ",icon:"🔧"},
+    {key:"tax",field:"dueTax",cost:"costTax",name:"Τέλη",icon:"📄"},
+    {key:"emissions",field:"dueEmissions",cost:"costEmissions",name:"Κάρτα καυσαερίων",icon:"🌿"}
   ];
+  // Document dates and amounts are the same obligation fields used in the
+  // dashboard. Linked uploads update them through the existing account sync.
+  window.CarHistoryObligations={
+    get(kind){
+      const entry=obligationKinds.find(x=>x.key===kind);
+      return entry?{expiry:settings[entry.field]||"",cost:settings[entry.cost]??""}:null;
+    },
+    update(kind,expiry,cost,replace=true){
+      const entry=obligationKinds.find(x=>x.key===kind);
+      if(!entry)return;
+      let changed=false;
+      if(expiry&&dateInfo(expiry)&&
+        (replace||!settings[entry.field])&&settings[entry.field]!==expiry){
+        settings[entry.field]=expiry;changed=true;
+      }
+      if(cost!==undefined&&cost!==null&&cost!==""&&
+        (replace||settings[entry.cost]==null||settings[entry.cost]==="")&&
+        String(settings[entry.cost]??"")!==String(cost)){
+        settings[entry.cost]=String(cost);changed=true;
+      }
+      if(changed){store();renderDueSummary();}
+    }
+  };
   const DAY=86400000;
   function dateInfo(value,now=new Date()){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||"")))return null;
@@ -114,16 +137,18 @@
       const savedCost=settings[kind.cost];
       if(costInput&&document.activeElement!==costInput&&costInput.value!==String(savedCost??""))
         costInput.value=String(savedCost??"");
-      if(!info)continue;
-      configured++;
-      const state=obligationState(info.days);
-      if(state.className!=="ok")urgent++;
+      const hasDocument=!!window.CarHistoryDocuments?.hasKind(kind.key);
+      if(!info&&!hasDocument)continue;
+      if(info)configured++;
+      const state=info?obligationState(info.days):{className:"ok",text:"Χωρίς καταχωρημένη λήξη"};
+      if(info&&state.className!=="ok")urgent++;
       cards.push('<div class="due-chip '+state.className+'"><span class="due-chip-top">'+
         '<span class="due-icon" aria-hidden="true">'+kind.icon+'</span><span>'+
-        esc(kind.name)+'</span></span><strong>'+esc(info.date)+'</strong>'+
+        esc(kind.name)+'</span></span><strong>'+esc(info?info.date:"Έγγραφο οχήματος")+'</strong>'+
         '<small>'+esc(state.text||"Προγραμματισμένη λήξη")+
         (settings[kind.cost]!==undefined&&settings[kind.cost]!==""?" · "+euro(num(settings[kind.cost])):"")+
-        '</small></div>');
+        '</small><button type="button" class="due-document-button" data-document-kind="'+kind.key+'">'+
+        (hasDocument?"📄 Άνοιγμα εγγράφου":"＋ Προσθήκη εγγράφου")+'</button></div>');
     }
     const tires=isKindVisible("tires")?latestTires():null;
     if(tires){
@@ -181,6 +206,11 @@
     renderDueSummary();
   });
   $("dueSummary").addEventListener("click",event=>{
+    const documentButton=event.target.closest("[data-document-kind]");
+    if(documentButton){
+      window.CarHistoryDocuments?.openKind(documentButton.dataset.documentKind);
+      return;
+    }
     const trigger=event.target.closest("[data-due-settings]");
     if(!trigger)return;
     const panel=$("obligationsPanel");
