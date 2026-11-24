@@ -130,6 +130,27 @@ assert.equal(persistent.scope,scope);
 assert.equal(persistent.session,session);
 assert(!JSON.stringify(persistent).includes("UI-TEST-PASSWORD"),"No password in localStorage");
 
+const bootScript=html.match(/<script id="accountRestoreBoot">([\\s\\S]*?)<\\/script>/)?.[1];
+assert(bootScript,"Prepaint session boot script missing");
+function testBoot(sessionArea,localArea){
+  const classes=new Set();
+  const document={documentElement:{classList:{add:k=>classes.add(k)}}};
+  const storage=map=>({getItem:k=>map.get(k)||null});
+  new Function("document","sessionStorage","localStorage",bootScript)(
+    document,storage(sessionArea),storage(localArea));
+  return classes.has("account-restoring");
+}
+const savedAccount={username:"ANDREAS",scope,session};
+assert.equal(testBoot(new Map(),new Map([["carServiceActiveAccountV3",
+  JSON.stringify(savedAccount)]])),true,
+  "Remembered account should hide login before browser first paint");
+assert.equal(testBoot(new Map([["carServiceActiveAccountV3",
+  JSON.stringify(savedAccount)]]),new Map()),true,
+  "Existing same-tab session should also avoid login flash");
+assert.equal(testBoot(new Map(),new Map()),false,
+  "No saved session should display login normally");
+assert(html.includes("html.account-restoring body.account-locked .account-gate"));
+
 const optional=mount();
 assert.equal(optional.el.accountRememberMe.checked,true);
 optional.el.accountRememberMe.checked=false;
