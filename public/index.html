@@ -164,6 +164,17 @@ nav button.on{color:var(--accent);font-weight:600}
   }
   .account-gate .account-register-note{font-size:.82rem;color:var(--mute);margin:0 0 16px}
   .account-gate .account-message:empty{display:none}
+  .account-gate .account-install-trigger{
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    width:100%;min-height:45px;margin-top:15px;padding:10px 13px;
+    border:1px solid var(--line,#e3e6ea);border-radius:11px;
+    background:var(--bg,#f4f5f7);color:var(--ink,#1b1f24);
+    font:inherit;font-size:.85rem;font-weight:730;cursor:pointer
+  }
+  .account-gate .account-install-trigger svg{
+    width:18px;height:18px;flex:none;max-width:18px;max-height:18px
+  }
+  .account-gate .account-install-trigger[hidden]{display:none!important}
   .account-gate .account-message.error{color:var(--danger,#c0392b)}
   .account-gate #accountRegisterPanel{font-size:.88rem}
   .account-gate #accountRegisterPanel h2{font-size:1.4rem;margin:0 0 8px}
@@ -245,6 +256,13 @@ nav button.on{color:var(--accent);font-weight:600}
       </form>
     </div>
     <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
+    <button type="button" id="accountInstallBtn" class="account-install-trigger" hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v12m-4-4 4 4 4-4M5 17v3h14v-3"/>
+      </svg>
+      Εγκατάσταση
+    </button>
   </div>
 </section>
 
@@ -254,7 +272,13 @@ nav button.on{color:var(--accent);font-weight:600}
 <section class="view on" id="v-list">
   <header class="home-header">
     <div><h1>Το αυτοκίνητό μου</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
-    <button type="button" id="installBtn" class="install-trigger" hidden>Εγκατάσταση</button>
+    <button type="button" id="installBtn" class="install-trigger" hidden>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v12m-4-4 4 4 4-4M5 17v3h14v-3"/>
+      </svg>
+      Εγκατάσταση
+    </button>
   </header>
   <div id="syncst" role="status" aria-live="polite"></div>
   <div class="next" id="next"></div>
@@ -1212,6 +1236,98 @@ $("impAdd").onclick=()=>{
 </script>
 <!-- Login runtime lives with the login markup. No stale separate JS file
      can leave the sign-in button without a submit handler. -->
+<!-- Install is available before login so Android's PWA prompt is not
+     missed while signing into an existing car-history account. -->
+<script id="androidInstallRuntime">
+(function(){
+  "use strict";
+  const loginButton=document.getElementById("accountInstallBtn");
+  const homeButton=document.getElementById("installBtn");
+  const modal=document.getElementById("installHelp");
+  const modalText=document.getElementById("installHelpText");
+  const dismiss=document.getElementById("installDismiss");
+  const buttons=[loginButton,homeButton].filter(Boolean);
+  const android=/Android/i.test(navigator.userAgent||"")||
+    /Android/i.test(navigator.userAgentData?.platform||"");
+  const installedKey="carhistory-pwa-installed-v1";
+  const displayMode=window.matchMedia?.("(display-mode: standalone)");
+  let deferredPrompt=null;
+  let installedThisSession=false;
+  const savedInstalled=()=>{
+    try{return localStorage.getItem(installedKey)==="1";}catch{return false;}
+  };
+  const saveInstalled=value=>{
+    try{
+      if(value)localStorage.setItem(installedKey,"1");
+      else localStorage.removeItem(installedKey);
+    }catch{}
+  };
+  const isInstalled=()=>installedThisSession||savedInstalled()||
+    !!displayMode?.matches||navigator.standalone===true||
+    window.matchMedia?.("(display-mode: fullscreen)")?.matches===true;
+  const refresh=()=>{
+    const show=android&&!isInstalled();
+    for(const button of buttons)button.hidden=!show;
+  };
+  window.addEventListener("beforeinstallprompt",event=>{
+    if(!android)return;
+    event.preventDefault();
+    deferredPrompt=event;
+    // If the user removed the app since the last visit, Chrome can offer
+    // installation again. Its native event is more current than our flag.
+    if(savedInstalled()){
+      saveInstalled(false);
+      installedThisSession=false;
+    }
+    refresh();
+  });
+  window.addEventListener("appinstalled",()=>{
+    installedThisSession=true;
+    deferredPrompt=null;
+    saveInstalled(true);
+    if(modal?.open)modal.close();
+    refresh();
+  });
+  async function install(){
+    if(!android||isInstalled()){refresh();return;}
+    if(deferredPrompt){
+      const pending=deferredPrompt;
+      deferredPrompt=null;
+      try{
+        await pending.prompt();
+        const selected=await pending.userChoice;
+        if(selected?.outcome==="accepted"){
+          installedThisSession=true;
+          saveInstalled(true);
+        }
+        refresh();
+        return;
+      }catch(error){
+        console.info("Android native install prompt unavailable",error);
+      }
+    }
+    if(!modal||!modalText)return;
+    modalText.textContent=
+      "Άνοιξε την εφαρμογή στο Chrome του Android και από το μενού ⋮ επίλεξε «Εγκατάσταση εφαρμογής» ή «Προσθήκη στην Αρχική οθόνη».";
+    if(!modal.open)modal.showModal();
+    refresh();
+  }
+  for(const button of buttons)button.addEventListener("click",install);
+  dismiss?.addEventListener("click",()=>modal?.close());
+  displayMode?.addEventListener?.("change",refresh);
+  window.addEventListener("pageshow",refresh);
+  window.addEventListener("focus",refresh);
+  window.addEventListener("storage",event=>{
+    if(event.key===installedKey)refresh();
+  });
+  refresh();
+  if("serviceWorker" in navigator&&
+     (location.protocol==="https:"||location.hostname==="localhost")){
+    navigator.serviceWorker.register("/sw.js")
+      .catch(error=>console.info("Offline app shell unavailable",error));
+  }
+})();
+</script>
 <script id="accountLoginRuntime">
 /* Username/password login. The only persistent credential on the client is
    an expiring account session. Passwords and master admin secret are NEVER
