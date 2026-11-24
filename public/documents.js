@@ -213,6 +213,12 @@
       $("documentSave").disabled=false;
     }
   });
+  $("documentsShortcut")?.addEventListener("click",()=>{
+    const panel=$("documentsPanel");
+    if(!panel)return;
+    panel.open=true;
+    panel.scrollIntoView({behavior:"smooth",block:"start"});
+  });
   window.addEventListener("carhistory:ready",()=>{accountReady();});
   window.addEventListener("pagehide",clearUrls);
   if(window.CarHistoryAccountReady) accountReady();
