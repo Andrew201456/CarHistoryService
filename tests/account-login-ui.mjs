@@ -74,11 +74,19 @@ function mount() {
   };
   const document={getElementById:id=>els[id],body:{classList:{remove(){}}}};
   const window={CarAppStartAccount:(code,s)=>started.push({code,scope:s}),addEventListener(){}};
+  const AbortControllerStub=class{
+    constructor(){
+      this.signal={aborted:false,addEventListener(){},removeEventListener(){}};
+    }
+    abort(){this.signal.aborted=true;}
+  };
   new Function("document","window","localStorage","fetch","navigator","location",
-    "crypto","TextEncoder","prompt","alert","confirm",js)(
+    "crypto","TextEncoder","prompt","alert","confirm",
+    "AbortController","setTimeout","clearTimeout",js)(
     document,window,localStorage,fetch,
     {onLine:true,clipboard:{writeText:async()=>{}}},
-    {reload(){}},{subtle:{}},class{},()=>{},()=>{},()=>true
+    {reload(){}},{subtle:{}},class{},()=>{},()=>{},()=>true,
+    AbortControllerStub,()=>1,()=>{}
   );
   return {els,started,requests,localStorage,scope,session};
 }
