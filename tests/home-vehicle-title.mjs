@@ -24,8 +24,8 @@ const heading={textContent:""};
 const element=id=>id==="homeVehicleName"?heading:null;
 const window={};
 const settings={vehicleProfile:{make:"Ford",model:"Focus",year:"2007"}};
-const update=new Function("settings","document","window",
-  snippet+"\nreturn updateHomeVehicleTitle;")(settings,{getElementById:element},window);
+const update=new Function("settings","window","$",
+  snippet+"\nreturn updateHomeVehicleTitle;")(settings,window,element);
 update();
 assert.equal(heading.textContent,"Ford Focus 2007");
 settings.vehicleProfile={make:"BMW",model:"320d",year:""};
