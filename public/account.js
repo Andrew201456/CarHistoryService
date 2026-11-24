@@ -51,6 +51,7 @@
       if(!r.ok){
         const error=new Error(data.error||"Σφάλμα σύνδεσης ("+r.status+").");
         error.status=r.status;
+        error.masterRequired=!!data.masterRequired;
         throw error;
       }
       return data;
@@ -72,6 +73,8 @@
     // Do not persist password or master admin, including for legacy accounts.
     localStorage.setItem(ACTIVE,JSON.stringify(current));
     passwordEl.value="";
+    $("accountLoginMaster").value="";
+    $("accountLoginMasterWrap").hidden=true;
     gate.hidden=true;
     document.body.classList.remove("account-locked");
     window.CarAppStartAccount(current.session,current.scope);
@@ -85,8 +88,19 @@
     if(!NAME.test(canonical)||!validPassword(password))
       throw Error("Συμπλήρωσε σωστά username και password.");
     const serial=++requestSerial;
-    const result=await api("/api/account/login",{username:canonical,password},
-      "",{timeoutMs:auto?12000:18000});
+    let saved=null;
+    try{saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
+    const legacySession=saved?.code&&SESSION.test(saved.session||"")?saved.session:"";
+    const masterField=$("accountLoginMasterWrap");
+    const masterAdmin=masterField&&!masterField.hidden?
+      $("accountLoginMaster").value:"";
+    const result=await api("/api/account/login",{
+      username:canonical,password,
+      ...(legacySession?{legacySession}:{}),
+      ...(masterAdmin?{masterAdmin}:{})
+    },"",{timeoutMs:auto?12000:18000});
+    if(masterAdmin)$("accountLoginMaster").value="";
+    masterField.hidden=true;
     if(serial!==requestSerial)return;
     if(expectedScope&&result.scope!==expectedScope)
       throw Error("Το νέο username δεν αντιστοιχεί στο παλιό ιστορικό. Η σύνδεση ακυρώθηκε.");
@@ -104,13 +118,21 @@
       await credentialsLogin(usernameEl.value,passwordEl.value);
       if(current)notice("");
     }catch(error){
-      usernameEl.setAttribute("aria-invalid","true");
-      passwordEl.setAttribute("aria-invalid","true");
-      notice(error.message||"Η σύνδεση απέτυχε.",true);
+      if(error.masterRequired){
+        $("accountLoginMasterWrap").hidden=false;
+        $("accountLoginMaster").focus();
+        notice(error.message||"Συμπλήρωσε τον master admin κωδικό για την πρώτη ενεργοποίηση.",true);
+      }else{
+        usernameEl.setAttribute("aria-invalid","true");
+        passwordEl.setAttribute("aria-invalid","true");
+        notice(error.message||"Η σύνδεση απέτυχε.",true);
+      }
     }finally{setBusy(false);}
   });
   usernameEl.addEventListener("input",()=>{
     cancelRestore();usernameEl.removeAttribute("aria-invalid");
+    $("accountLoginMasterWrap").hidden=true;
+    $("accountLoginMaster").value="";
   });
   passwordEl.addEventListener("input",()=>{
     cancelRestore();passwordEl.removeAttribute("aria-invalid");
