@@ -91,6 +91,9 @@
     const p=getProfile();
     const title=[p.make,p.model,p.year].filter(Boolean).join(" ");
     $("aiVehicleSummary").textContent=title||"Πρόσθεσε το αυτοκίνητό σου";
+    // Keep the home page title in sync immediately after editing the vehicle,
+    // without requiring a reload or another authenticated cloud sync.
+    window.CarHistoryUpdateHomeTitle?.();
     const details=[p.engine,p.fuel,p.trim].filter(Boolean);
     $("aiVehicleSubtitle").textContent=details.join(" · ")||(
       hasProfile(p)?"Άνοιξε για επεξεργασία":"Μάρκα, μοντέλο, χρονιά, κινητήρας…"
