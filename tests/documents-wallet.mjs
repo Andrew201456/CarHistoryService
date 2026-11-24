@@ -43,7 +43,7 @@ assert(worker.includes('const account=await getAccount(req,env);'),
   "Private API must check the authenticated account");
 assert(worker.includes('DOCUMENT_CHUNK=384*1024'));
 assert(worker.includes('DOCUMENT_ACCOUNT_LIMIT=100*1024*1024'));
-assert(sw.includes('carhistory-shell-v24'));
+assert(sw.includes('carhistory-shell-v25'));
 assert(sw.includes('"/documents.js"'));
 assert(sw.includes('url.pathname.startsWith("/api/")'),"Service worker must not cache private endpoints");
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
