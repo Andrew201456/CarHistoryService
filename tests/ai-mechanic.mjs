@@ -139,7 +139,7 @@ assert(css.includes(".ai-profile-dialog"),"Vehicle profile needs its own styling
 assert(css.includes(".ai-conversation"),"Conversation styling should exist");
 assert(css.includes(".ai-conversation"));
 assert(css.includes(".ai-profile-dialog"));
-assert(sw.includes('carhistory-shell-v22'));
+assert(sw.includes('carhistory-shell-v23'));
 assert(sw.includes('"/ai-mechanic.js"'));
 assert(!worker.includes("OpenAI_API_KEY"),"AI must use existing binding, not exposed API keys");
 console.log("PASS: structured car profile, legacy car field, diagnostic context, authenticated chat and redesigned UI");
