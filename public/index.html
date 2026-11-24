@@ -627,9 +627,17 @@ nav button.on{color:var(--accent);font-weight:600}
 </section>
 
 <section class="view" id="v-import">
-  <h1>🤖 Εισαγωγή από κείμενο</h1>
-  <p class="note">Κάνε επικόλληση το ιστορικό service όπως είναι (π.χ. από το σάιτ της Ford). Το AI θα το διαβάσει και θα σου δείξει τι κατάλαβε. Τίποτα δεν αποθηκεύεται μέχρι να το επιβεβαιώσεις.</p>
-  <textarea id="impTxt" placeholder="Επικόλληση εδώ..." spellcheck="false"></textarea>
+  <h1>🤖 Εισαγωγή με AI</h1>
+  <p class="note">Φωτογράφισε το βιβλίο service ή επικόλλησε κείμενο. Έλεγξε τις εγγραφές πριν τις αποθηκεύσεις.</p>
+  <label for="impPhotos" class="import-photo-picker">
+    <span class="import-photo-picker-icon" aria-hidden="true">📷</span>
+    <span><strong>Προσθήκη φωτογραφιών</strong><small>Βιβλίο service · αποδείξεις · έως 8 εικόνες</small></span>
+    <span class="import-photo-picker-plus" aria-hidden="true">+</span>
+  </label>
+  <input type="file" id="impPhotos" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif" multiple class="import-photo-native" aria-label="Φωτογραφίες βιβλίου service">
+  <div id="impPhotoList" class="import-photo-list" aria-live="polite"></div>
+  <label for="impTxt" class="import-text-label">Κείμενο (προαιρετικά)</label>
+  <textarea id="impTxt" placeholder="Ή επικόλληση ιστορικού service…" spellcheck="false"></textarea>
   <label class="chk"><input type="checkbox" id="impReg" checked> Να μετράνε ως τακτικό service</label>
   <button class="main" id="impGo">Ανάλυση με AI</button>
   <p class="note" id="impMsg" style="margin-top:12px"></p>
@@ -1395,7 +1403,65 @@ $("rs").onclick=()=>{
 };
 $("chpw").onclick=()=>window.CarAccountLogout?.();
 $("accountShowCode").onclick=()=>window.CarAccountShowCode?.();
-/* Εισαγωγή με AI */
+/* Εισαγωγή με AI: service-book photos share the existing editable review flow. */
+const impPhotos=$("impPhotos"),impPhotoList=$("impPhotoList");
+let queuedPhotos=[],importBusy=false;
+const MAX_IMPORT_PHOTOS=8,MAX_IMPORT_FILE=18*1024*1024;
+function renderImpPhotos(){
+  impPhotoList.innerHTML="";
+  queuedPhotos.forEach((photo,i)=>{
+    const row=document.createElement("div");row.className="import-photo-item";
+    const img=document.createElement("img");img.src=photo.url;img.alt="Φωτογραφία "+(i+1);img.loading="lazy";
+    const name=document.createElement("span");name.textContent=photo.file.name||"Φωτογραφία "+(i+1);
+    const remove=document.createElement("button");remove.type="button";remove.textContent="✕";
+    remove.dataset.removePhoto=String(i);remove.disabled=importBusy;
+    remove.setAttribute("aria-label","Αφαίρεση φωτογραφίας "+(i+1));
+    row.append(img,name,remove);impPhotoList.append(row);
+  });
+}
+impPhotos.addEventListener("change",()=>{
+  let ignored=0;
+  for(const file of Array.from(impPhotos.files||[])){
+    if(queuedPhotos.length>=MAX_IMPORT_PHOTOS||file.size>MAX_IMPORT_FILE||file.size===0||
+       (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type)&&
+        !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name))){ignored++;continue}
+    queuedPhotos.push({file,url:URL.createObjectURL(file)});
+  }
+  impPhotos.value="";renderImpPhotos();
+  setImp(ignored?"Κάποιες εικόνες παραλείφθηκαν (μέχρι 8 φωτογραφίες, 18 MB ανά αρχείο).":"");
+});
+impPhotoList.addEventListener("click",event=>{
+  const remove=event.target.closest("button[data-remove-photo]");
+  if(!remove||importBusy)return;
+  const photo=queuedPhotos.splice(Number(remove.dataset.removePhoto),1)[0];
+  if(photo)URL.revokeObjectURL(photo.url);
+  renderImpPhotos();
+});
+async function photoToDataUrl(file){
+  const source=URL.createObjectURL(file);
+  try{
+    const img=new Image();
+    await new Promise((resolve,reject)=>{
+      img.onload=resolve;img.onerror=()=>reject(Error(
+        "Δεν ανοίγει η φωτογραφία. Για HEIC δοκίμασε να τη μετατρέψεις σε JPG."));
+      img.src=source;
+    });
+    if(!img.naturalWidth||!img.naturalHeight)throw Error("Μη έγκυρη εικόνα.");
+    const ratio=Math.min(1,1800/Math.max(img.naturalWidth,img.naturalHeight));
+    const canvas=document.createElement("canvas");
+    canvas.width=Math.max(1,Math.round(img.naturalWidth*ratio));
+    canvas.height=Math.max(1,Math.round(img.naturalHeight*ratio));
+    const ctx=canvas.getContext("2d");
+    if(!ctx)throw Error("Δεν ήταν δυνατή η μετατροπή εικόνας.");
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    for(const quality of [.88,.76,.62,.48]){
+      const data=canvas.toDataURL("image/jpeg",quality);
+      if(data.length<=3_100_000)return data;
+    }
+    throw Error("Η εικόνα παραμένει πολύ μεγάλη. Φωτογράφισε μόνο τη σελίδα service.");
+  }finally{URL.revokeObjectURL(source)}
+}
 let imported=[];
 function setImp(m){$("impMsg").textContent=m||""}
 function chunkText(t,max){const out=[];let cur="";for(const l of t.split("\n")){if(cur&&(cur.length+l.length)>max){out.push(cur);cur=""}cur+=l+"\n"}if(cur.trim())out.push(cur);return out}
@@ -1443,31 +1509,66 @@ $("impList").addEventListener("click",e=>{
   if(b.dataset.ap!==undefined){imported[+b.dataset.ap].parts.push({name:"",cost:""});renderImp()}
 });
 $("impGo").onclick=async()=>{
-  const t=$("impTxt").value.trim();if(!t){setImp("Κάνε πρώτα επικόλληση κείμενο.");return}
-  const p=ACTIVE_TOKEN;if(!p||!accountIsCurrent()){setImp("Συνδέσου πρώτα στον λογαριασμό σου.");return}
-  const chunks=chunkText(t,5000);let all=[];
-  $("impGo").disabled=true;imported=[];renderImp();
+  if(importBusy)return;
+  const t=$("impTxt").value.trim(),photos=queuedPhotos.slice();
+  if(!t&&!photos.length){setImp("Πρόσθεσε φωτογραφίες ή επικόλλησε κείμενο.");return}
+  const p=ACTIVE_TOKEN;
+  if(!p||!accountIsCurrent()){setImp("Συνδέσου πρώτα στον λογαριασμό σου.");return}
+  importBusy=true;$("impGo").disabled=true;impPhotos.disabled=true;
+  imported=[];renderImp();renderImpPhotos();
   try{
+    const texts=[];
+    for(let i=0;i<photos.length;i++){
+      setImp("Διαβάζω φωτογραφία "+(i+1)+" από "+photos.length+"…");
+      const image=await photoToDataUrl(photos[i].file);
+      const response=await fetch("/api/parse-image",{
+        method:"POST",cache:"no-store",
+        headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},
+        body:JSON.stringify({image})
+      });
+      if(response.status===401){window.CarAccountLock?.();throw Error("Η σύνδεση έληξε.")}
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||"Αδυναμία ανάγνωσης φωτογραφίας ("+response.status+").");
+      if(data.text?.trim())texts.push("Σελίδα "+(i+1)+":\n"+data.text.trim());
+    }
+    if(t)texts.push(t);
+    const chunks=chunkText(texts.join("\n\n"),5000);
+    let all=[];
     for(let i=0;i<chunks.length;i++){
-      setImp("Ανάλυση "+(i+1)+" από "+chunks.length+"...");
-      const r=await fetch("/api/parse",{method:"POST",headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},body:JSON.stringify({text:chunks[i]})});
-      if(r.status===401){window.CarAccountLock?.();throw new Error("Η σύνδεση έληξε.")}
-      if(!r.ok)throw new Error("Σφάλμα server ("+r.status+")");
-      const d=await r.json();all=all.concat(Array.isArray(d.entries)?d.entries:[]);
+      setImp("Ετοιμάζω εγγραφές "+(i+1)+" από "+chunks.length+"…");
+      const response=await fetch("/api/parse",{
+        method:"POST",cache:"no-store",
+        headers:{Authorization:"Bearer "+p,"Content-Type":"application/json"},
+        body:JSON.stringify({text:chunks[i]})
+      });
+      if(response.status===401){window.CarAccountLock?.();throw Error("Η σύνδεση έληξε.")}
+      if(!response.ok)throw Error("Ανάλυση AI απέτυχε ("+response.status+").");
+      const data=await response.json();
+      all=all.concat(Array.isArray(data.entries)?data.entries:[]);
     }
     imported=all.map(cleanEntry).filter(e=>e.parts.length||e.notes||e.km);
-    imported.forEach(e=>{if(isDup(e))e.on=false});
-    setImp(imported.length?"Βρέθηκαν "+imported.length+" καταχωρήσεις. Έλεγξέ τις και πάτα «Προσθήκη».":"Δεν βρέθηκε τίποτα. Δοκίμασε με λιγότερο κείμενο.");
+    const seen=new Set();
+    imported.forEach(e=>{
+      const key=e.date&&e.km?e.date+"|"+String(intOf(e.km)):"";
+      if(isDup(e)||(key&&seen.has(key)))e.on=false;
+      if(key)seen.add(key);
+    });
+    setImp(imported.length?
+      "Βρέθηκαν "+imported.length+" εγγραφές. Έλεγξε ημερομηνίες, χλμ. και εργασίες πριν την προσθήκη.":
+      "Δεν βρέθηκαν αναγνώσιμες εγγραφές. Δοκίμασε καθαρότερη φωτογραφία.");
     renderImp();
-  }catch(e){setImp("Πρόβλημα: "+e.message)}
-  $("impGo").disabled=false;
+  }catch(error){setImp("Πρόβλημα: "+(error?.message||"Αδυναμία ανάλυσης."))}
+  finally{importBusy=false;$("impGo").disabled=false;impPhotos.disabled=false;renderImpPhotos()}
 };
 $("impAdd").onclick=()=>{
   const sel=imported.filter(e=>e.on);if(!sel.length)return;
   const reg=$("impReg").checked;
   sel.forEach(e=>items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:e.date,km:String(intOf(e.km)||""),parts:e.parts.map(p=>({name:p.name.trim(),cost:p.cost.trim()})).filter(p=>p.name||p.cost),labor:String(e.labor||"").trim(),where:String(e.where||"").trim(),notes:String(e.notes||"").trim(),regular:reg}));
   store();render();
-  imported=[];renderImp();$("impTxt").value="";setImp("Προστέθηκαν "+sel.length+" καταχωρήσεις.");show("list");
+  imported=[];renderImp();$("impTxt").value="";
+  for(const photo of queuedPhotos)URL.revokeObjectURL(photo.url);
+  queuedPhotos=[];renderImpPhotos();
+  setImp("Προστέθηκαν "+sel.length+" καταχωρήσεις.");show("list");
 };
 
 // Account gate initializes the app after credential verification.
