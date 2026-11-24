@@ -418,7 +418,7 @@ nav button.on{color:var(--accent);font-weight:600}
 
 <section class="view on" id="v-list">
   <header class="home-header">
-    <div><h1>Το αυτοκίνητό μου</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
+    <div class="home-vehicle-heading"><h1 id="homeVehicleName">Καταχώρησε αυτοκίνητο</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
     <button type="button" id="installBtn" class="install-trigger" hidden>
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1194,7 +1194,20 @@ $("next").addEventListener("change",e=>{
 
 /* Λίστα */
 function haystack(it){return [fmtDate(it.date),it.date,it.km,it.where,it.notes,it.what,it.labor,it.cost,it.tireName].concat((it.parts||[]).map(p=>p.name+" "+p.cost)).join(" ")}
+function updateHomeVehicleTitle(){
+  // The AI vehicle form writes to settings.vehicleProfile, which is already
+  // synced across devices with the existing vehicle history.
+  const p=settings.vehicleProfile;
+  const values=p&&typeof p==="object"&&!Array.isArray(p)?p:{};
+  const title=["make","model","year"]
+    .map(key=>typeof values[key]==="string"?values[key].trim():"")
+    .filter(Boolean).join(" ");
+  const heading=$("homeVehicleName");
+  if(heading)heading.textContent=title||"Καταχώρησε αυτοκίνητο";
+}
+window.CarHistoryUpdateHomeTitle=updateHomeVehicleTitle;
 function render(){
+  updateHomeVehicleTitle();
   renderNext();
   const q=$("q").value.trim(),nq=norm(q);
   if(historyFilter!=="all"&&!isKindVisible(historyFilter))historyFilter="all";
