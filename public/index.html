@@ -169,12 +169,40 @@ nav button.on{color:var(--accent);font-weight:600}
     <summary><span>Υποχρεώσεις αυτοκινήτου</span><span class="summary-right"><b id="obligationsCount"></b><span aria-hidden="true">⌄</span></span></summary>
     <p class="subtext">Συμπλήρωσε τις δικές σου ημερομηνίες λήξης. Θα εμφανίζονται επάνω, δίπλα στην υπενθύμιση service.</p>
     <div class="obligations-editor">
-      <div><label for="dueInsurance">Ασφάλεια</label><input id="dueInsurance" type="date"></div>
-      <div><label for="dueKteo">ΚΤΕΟ</label><input id="dueKteo" type="date"></div>
-      <div><label for="dueTax">Τέλη κυκλοφορίας</label><input id="dueTax" type="date"></div>
-      <div><label for="dueEmissions">Κάρτα καυσαερίων</label><input id="dueEmissions" type="date"></div>
+      <div><label for="dueInsurance">Ασφάλεια · λήξη</label><input id="dueInsurance" type="date"><label for="costInsurance">Τελευταίο κόστος (€)</label><input id="costInsurance" type="number" min="0" max="999999" step="0.01" inputmode="decimal" placeholder="π.χ. 260"></div>
+      <div><label for="dueKteo">ΚΤΕΟ · λήξη</label><input id="dueKteo" type="date"><label for="costKteo">Τελευταίο κόστος (€)</label><input id="costKteo" type="number" min="0" max="999999" step="0.01" inputmode="decimal" placeholder="π.χ. 50"></div>
+      <div><label for="dueTax">Τέλη · λήξη</label><input id="dueTax" type="date"><label for="costTax">Τελευταίο κόστος (€)</label><input id="costTax" type="number" min="0" max="999999" step="0.01" inputmode="decimal" placeholder="π.χ. 280"></div>
+      <div><label for="dueEmissions">Κάρτα καυσαερίων · λήξη</label><input id="dueEmissions" type="date"><label for="costEmissions">Τελευταίο κόστος (€)</label><input id="costEmissions" type="number" min="0" max="999999" step="0.01" inputmode="decimal" placeholder="π.χ. 10"></div>
     </div>
-    <p class="subtext">Οι ημερομηνίες αποθηκεύονται αυτόματα στον λογαριασμό σου. Ανανεώνεις την ημερομηνία μόλις εξοφλήσεις ή ανανεώσεις την υποχρέωση.</p>
+    <p class="subtext">Η ημερομηνία και το τελευταίο κόστος συγχρονίζονται στον λογαριασμό. Για να μετρά η πληρωμή στα ετήσια έξοδα, πρόσθεσέ την και στο ιστορικό ως «Έξοδα οχήματος».</p>
+  </details>
+  <details class="extra-panel document-panel" id="documentsPanel">
+    <summary><span>📁 Έγγραφα αυτοκινήτου</span><span class="summary-right"><b id="documentsCount">0</b><span aria-hidden="true">⌄</span></span></summary>
+    <p class="subtext">Ασφάλεια, ΚΤΕΟ, δίπλωμα, άδεια κυκλοφορίας και αποδείξεις. Τα αρχεία μένουν μόνο σε αυτή τη συσκευή και δεν συγχρονίζονται.</p>
+    <form id="documentForm" class="document-form">
+      <label for="documentKind">Είδος εγγράφου</label>
+      <select id="documentKind">
+        <option value="insurance">Ασφαλιστήριο / πράσινη κάρτα</option>
+        <option value="kteo">Δελτίο ΚΤΕΟ</option>
+        <option value="license">Δίπλωμα οδήγησης</option>
+        <option value="registration">Άδεια κυκλοφορίας</option>
+        <option value="tax">Απόδειξη τελών κυκλοφορίας</option>
+        <option value="emissions">Κάρτα καυσαερίων</option>
+        <option value="roadside">Οδική βοήθεια</option>
+        <option value="receipt">Τιμολόγιο / απόδειξη</option>
+        <option value="other">Άλλο έγγραφο</option>
+      </select>
+      <label for="documentTitle">Όνομα / περιγραφή (προαιρετικό)</label>
+      <input id="documentTitle" maxlength="100" placeholder="π.χ. Ασφάλεια 2026">
+      <label for="documentExpiry">Ημερομηνία λήξης (προαιρετικό)</label>
+      <input id="documentExpiry" type="date">
+      <label for="documentFile">PDF ή φωτογραφία</label>
+      <input id="documentFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/*" required>
+      <button class="main document-save" id="documentSave" type="submit">+ Αποθήκευση εγγράφου</button>
+      <p class="document-status" id="documentStatus" role="status" aria-live="polite"></p>
+    </form>
+    <div id="documentsList" class="document-list"></div>
+    <p class="document-privacy">Μέγιστο 25 MB ανά αρχείο. Τα έγγραφα δεν συμπεριλαμβάνονται στα online αντίγραφα και μπορεί να χαθούν αν καθαρίσεις τα δεδομένα του browser. Κράτα και τα πρωτότυπα.</p>
   </details>
   <details class="extra-panel" id="reminderPanel">
     <summary><span>Υπενθυμίσεις συντήρησης</span><span class="summary-right"><b id="reminderCount"></b><span aria-hidden="true">⌄</span></span></summary>
@@ -202,6 +230,7 @@ nav button.on{color:var(--accent);font-weight:600}
     <button type="button" data-filter="repair" aria-pressed="false">Επισκευές</button>
     <button type="button" data-filter="tires" aria-pressed="false">Ελαστικά</button>
     <button type="button" data-filter="improvements" aria-pressed="false">Βελτιώσεις</button>
+    <button type="button" data-filter="expenses" aria-pressed="false">Έξοδα οχήματος</button>
   </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
@@ -231,6 +260,15 @@ nav button.on{color:var(--accent);font-weight:600}
     <button type="button" data-quick="Ανάρτηση">Ανάρτηση</button>
     <button type="button" data-quick="Αναβάθμιση φρένων">Φρένα</button>
   </div>
+  <div id="expenseQuickActions" class="quick-actions" aria-label="Γρήγορη προσθήκη εξόδου" hidden>
+    <button type="button" data-quick="Ασφάλεια">Ασφάλεια</button>
+    <button type="button" data-quick="ΚΤΕΟ">ΚΤΕΟ</button>
+    <button type="button" data-quick="Τέλη κυκλοφορίας">Τέλη</button>
+    <button type="button" data-quick="Κάρτα καυσαερίων">Καυσαέρια</button>
+    <button type="button" data-quick="Οδική βοήθεια">Οδική βοήθεια</button>
+    <button type="button" data-quick="Δίπλωμα / παράβολα">Παράβολα</button>
+    <button type="button" data-quick="Άλλο έξοδο οχήματος">Άλλο</button>
+  </div>
   <div id="parts"></div>
   <button class="sec" id="addPart" type="button" style="margin-top:0">+ Άλλο εξάρτημα</button>
 
@@ -248,6 +286,7 @@ nav button.on{color:var(--accent);font-weight:600}
       <option value="repair">Επισκευή</option>
       <option value="tires">Ελαστικά</option>
       <option value="improvements">Βελτιώσεις</option>
+      <option value="expenses">Έξοδα οχήματος</option>
     </select>
     <small id="serviceKindHint">Τα τακτικά service μετράνε για τον υπολογισμό του επόμενου.</small>
     <input id="regular" type="checkbox" checked hidden aria-hidden="true">
@@ -354,6 +393,11 @@ nav button.on{color:var(--accent);font-weight:600}
         <span class="account-category-symbol" aria-hidden="true">⚡</span>
         <span class="account-category-copy"><strong>Βελτιώσεις</strong><small>Stage, εξάτμιση και αναβαθμίσεις</small></span>
         <input type="checkbox" data-visible-kind="improvements" checked><span class="account-switch" aria-hidden="true"></span>
+      </label>
+      <label class="account-category-option">
+        <span class="account-category-symbol" aria-hidden="true">💳</span>
+        <span class="account-category-copy"><strong>Έξοδα οχήματος</strong><small>ΚΤΕΟ, ασφάλεια, τέλη και παράβολα</small></span>
+        <input type="checkbox" data-visible-kind="expenses" checked><span class="account-switch" aria-hidden="true"></span>
       </label>
     </div>
     <p class="account-pref-note">Η απόκρυψη επηρεάζει μόνο την εμφάνιση στην αρχική. Δεν διαγράφει κανένα ιστορικό και μπορείς να επαναφέρεις τις κατηγορίες όποτε θέλεις.</p>
@@ -1037,6 +1081,7 @@ $("impAdd").onclick=()=>{
 </script>
 <script src="/account.js"></script>
 <script src="/features.js"></script>
+<script src="/documents.js"></script>
 <script src="/ai-mechanic.js"></script>
 </body>
 </html>
