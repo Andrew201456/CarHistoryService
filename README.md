@@ -13,13 +13,13 @@ A mobile-first service history app (Greek) built on Cloudflare Workers, Static A
 - Per-account authenticated server sync with revision checks and three-way merge of concurrent edits.
 - Fifth bottom-tab "AI Μηχανικός": streamlined chat with a structured, editable vehicle profile, service-history-aware diagnosis and local chat history.
 
-## Τρέχουσα σύνδεση — Username / Password / Master admin (v23)
+## Τρέχουσα σύνδεση — Username / Password / Master admin (v25)
 
 Η τρέχουσα έκδοση χρησιμοποιεί **Username + Password**. Το κουμπί δημιουργίας λογαριασμού στο login ανοίγει φόρμα για **Username, Password και Master admin κωδικό**. Ο master χρησιμοποιείται **μόνο για έγκριση νέου λογαριασμού** ή πρώτη ενεργοποίηση παλαιού ιστορικού, ποτέ ως κοινό password χρηστών. Τα usernames γράφονται με λατινικούς χαρακτήρες (2–32, χωρίς κενά), και είναι case-insensitive. Οι κωδικοί πρόσβασης είναι case-sensitive. Τα passwords και ο master **δεν αποθηκεύονται στο localStorage** και δεν επιστρέφονται από το API· αποθηκεύεται μόνο η λήγουσα συνεδρία.
 
 ### Απαραίτητη ρύθμιση πριν το production deployment
 
-Η εφαρμογή **δεν περιέχει master admin κωδικό στο GitHub**. Ο διαχειριστής επιλέγει μόνος του έναν νέο, **μοναδικό μυστικό κωδικό τουλάχιστον 16 χαρακτήρων** και τον αποθηκεύει στο Cloudflare Worker ως Secret `CAR_MASTER_ADMIN`. Μην τον στείλεις στο chat, μη βάλεις τον master στο repository, στο `wrangler.jsonc`, σε GitHub commits ή σε `vars`.
+Η εφαρμογή **δεν περιέχει master admin κωδικό στο GitHub**. Ο διαχειριστής επιλέγει μόνος του έναν νέο, **μοναδικό μυστικό κωδικό τουλάχιστον 10 χαρακτήρων** και τον αποθηκεύει στο Cloudflare Worker ως Secret `CAR_MASTER_ADMIN`. Μην τον στείλεις στο chat, μη βάλεις τον master στο repository, στο `wrangler.jsonc`, σε GitHub commits ή σε `vars`.
 
 ```sh
 npx wrangler secret put CAR_MASTER_ADMIN
@@ -61,7 +61,7 @@ node tests/cloud-documents.mjs
 ### Βήματα Cloudflare Dashboard
 
 1. Μπες στο [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **carhistoryservice** (πρόσεξε να είναι ο ήδη υπάρχων Worker και όχι νέο project).
-2. **Settings → Variables and Secrets → Add**. Επιλογή **Secret**, όνομα ακριβώς `CAR_MASTER_ADMIN`, τιμή έναν δικό σου ισχυρό, τυχαίο κωδικό **τουλάχιστον 16 χαρακτήρων**. Αποθήκευσε / δημοσίευσε τη ρύθμιση όπου απαιτεί το UI. **Ποτέ** στο GitHub, σε απλή text variable, ή σε chat.
+2. **Settings → Variables and Secrets → Add**. Επιλογή **Secret**, όνομα ακριβώς `CAR_MASTER_ADMIN`, τιμή έναν δικό σου ισχυρό, τυχαίο κωδικό **τουλάχιστον 10 χαρακτήρων**. Αποθήκευσε / δημοσίευσε τη ρύθμιση όπου απαιτεί το UI. **Ποτέ** στο GitHub, σε απλή text variable, ή σε chat.
 3. Έλεγξε την **Deployments/Builds** καρτέλα για το **τελευταίο επιτυχημένο** deployment από `main` μετά το τελευταίο commit. Αν ο Worker δεν έχει ενεργό GitHub auto-deploy, από το directory του project τρέξε `npx wrangler deploy` (με Cloudflare authentication). Το commit μόνο του δεν εγγυάται live δημοσίευση.
 4. Στην εγκατεστημένη PWA **μην καθαρίσεις τα δεδομένα** και μην την αφαιρέσεις πριν επιβεβαιωθεί ο cloud συγχρονισμός παλιών εγγράφων. Σύνδεσε έναν-έναν τους υπάρχοντες χρήστες με τα στοιχεία που έχουν συμφωνηθεί. Στην **πρώτη** ενεργοποίηση ενδέχεται να εμφανιστεί master field, εκτός αν υπάρχει ήδη επαληθευμένη προηγούμενη συνεδρία.
 5. Έλεγξε ιστορικό και έγγραφα για κάθε λογαριασμό, μετά από κάθε πρώτη σύνδεση. Στην καρτέλα **Account → Αλλαγή password**, βάλε ισχυρό νέο password (12–16+ χαρακτήρες). Όταν ολοκληρωθούν οι δοκιμές, ενεργοποίησε `CAR_LOGIN_LIMIT_ENABLED=true`.
