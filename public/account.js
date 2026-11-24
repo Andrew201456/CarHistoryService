@@ -52,6 +52,7 @@
         const error=new Error(data.error||"Σφάλμα σύνδεσης ("+r.status+").");
         error.status=r.status;
         error.masterRequired=!!data.masterRequired;
+        error.masterError=typeof data.masterError==="string"?data.masterError:"";
         throw error;
       }
       return data;
@@ -120,7 +121,9 @@
     }catch(error){
       if(error.masterRequired){
         $("accountLoginMasterWrap").hidden=false;
-        $("accountLoginMaster").focus();
+        // A wrongly entered master must not linger in a password field.
+        if(error.masterError==="mismatch")$("accountLoginMaster").value="";
+        if(error.masterError!=="configuration")$("accountLoginMaster").focus();
         notice(error.message||"Συμπλήρωσε τον master admin κωδικό για την πρώτη ενεργοποίηση.",true);
       }else{
         usernameEl.setAttribute("aria-invalid","true");
