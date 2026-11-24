@@ -211,6 +211,11 @@ nav button.on{color:var(--accent);font-weight:600}
         <input id="accountPassword" name="password" type="password"
           autocomplete="current-password" placeholder="Password"
           aria-describedby="accountMessage" required>
+        <div id="accountLoginMasterWrap" hidden>
+          <label for="accountLoginMaster">Master admin (μόνο στην πρώτη μεταφορά)</label>
+          <input id="accountLoginMaster" type="password" autocomplete="off"
+            placeholder="Για ενεργοποίηση παλιού ιστορικού">
+        </div>
         <button class="account-primary account-login-button" id="accountLoginBtn"
           type="submit" aria-busy="false">
           <span id="accountLoginBtnText">Σύνδεση</span>
