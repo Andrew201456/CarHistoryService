@@ -62,6 +62,132 @@ const generatedCode = () => {
 };
 const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
+/* Private cloud documents in the EXISTING per-account SQLite Durable Object.
+   Each chunk is 384 KiB (well below the 2 MiB value limit). No new R2 bucket
+   or public bucket URLs are required, and /api/documents always checks auth. */
+const DOCUMENT_CHUNK=384*1024;
+const DOCUMENT_FILE_LIMIT=25*1024*1024;
+const DOCUMENT_ACCOUNT_LIMIT=100*1024*1024;
+const DOCUMENT_COUNT_LIMIT=50;
+const DOCUMENT_KINDS=new Set(["insurance","kteo","tax","emissions","license","registration","roadside","receipt","other"]);
+const DOCUMENT_TYPES=new Set(["application/pdf","image/jpeg","image/png","image/webp","image/heic","image/heif"]);
+const DOCUMENT_ID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const docKey=id=>"car-doc:meta:"+id;
+const docPart=(id,n)=>"car-doc:part:"+id+":"+n;
+const jsonDocument=(body,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+async function documentMetadata(storage){
+  return [...(await storage.list({prefix:"car-doc:meta:"})).values()];
+}
+function cleanDocumentMeta(meta){
+  const {id,kind,title,expiry,cost,fileName,mime,size,createdAt,clientKey}=meta;
+  return {id,kind,title,expiry,cost,fileName,mime,size,createdAt,clientKey};
+}
+async function deleteDocumentParts(storage,meta){
+  for(let n=0;n<meta.parts;n++)await storage.delete(docPart(meta.id,n));
+  await storage.delete(docKey(meta.id));
+}
+function validDocumentDate(value){
+  if(!value)return true;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+  const d=new Date(value+"T00:00:00Z");
+  return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===value;
+}
+async function handlePrivateDocuments(req,state){
+  const url=new URL(req.url),storage=state.storage,segments=url.pathname.split("/").filter(Boolean);
+  if(segments[0]!=="docs")return jsonDocument({error:"not found"},404);
+  if(segments.length===1&&req.method==="GET"){
+    const docs=(await documentMetadata(storage)).filter(v=>v.status==="ready")
+      .map(cleanDocumentMeta).sort((a,b)=>b.createdAt-a.createdAt);
+    return jsonDocument({documents:docs,chunkSize:DOCUMENT_CHUNK});
+  }
+  if(segments.length===1&&req.method==="POST"){
+    let input;
+    try{input=await req.json();}catch{return jsonDocument({error:"Μη έγκυρα στοιχεία εγγράφου."},400);}
+    const kind=String(input?.kind||""),mime=String(input?.mime||""),
+      title=String(input?.title||"").trim().slice(0,100),
+      fileName=String(input?.fileName||"").split(/[\\/]/).pop().slice(0,160),
+      expiry=String(input?.expiry||""),clientKey=String(input?.clientKey||""),
+      size=Number(input?.size),cost=input?.cost==null||input.cost===""?"":Number(input.cost);
+    if(!DOCUMENT_KINDS.has(kind)||!DOCUMENT_TYPES.has(mime)||!fileName||
+       !Number.isSafeInteger(size)||size<1||size>DOCUMENT_FILE_LIMIT||
+       !validDocumentDate(expiry)||!Number.isFinite(cost)&&cost!==""||
+       cost!==""&&(cost<0||cost>999999)||
+       !/^[a-zA-Z0-9-]{8,80}$/.test(clientKey))
+      return jsonDocument({error:"Μη έγκυρο έγγραφο, μορφή ή μέγεθος (έως 25 MB)."},400);
+    const records=await documentMetadata(storage);
+    const previous=records.find(v=>v.clientKey===clientKey);
+    if(previous)return jsonDocument({id:previous.id,status:previous.status,chunkSize:DOCUMENT_CHUNK});
+    // Remove uploads interrupted over 24 hours ago before enforcing quotas.
+    const active=[];
+    for(const record of records){
+      if(record.status!=="ready"&&Date.now()-record.createdAt>86400000){
+        await deleteDocumentParts(storage,record);
+      }else active.push(record);
+    }
+    if(active.length>=DOCUMENT_COUNT_LIMIT||
+       active.reduce((sum,v)=>sum+v.size,0)+size>DOCUMENT_ACCOUNT_LIMIT)
+      return jsonDocument({error:"Ο λογαριασμός έφτασε το όριο των 50 εγγράφων / 100 MB."},413);
+    const id=crypto.randomUUID();
+    const meta={id,clientKey,kind,title,expiry,cost,fileName,mime,size,
+      parts:Math.ceil(size/DOCUMENT_CHUNK),status:"pending",createdAt:Date.now()};
+    await storage.put(docKey(id),meta);
+    return jsonDocument({id,status:"pending",chunkSize:DOCUMENT_CHUNK},201);
+  }
+  const id=segments[1];
+  if(!DOCUMENT_ID_RE.test(id||""))return jsonDocument({error:"Μη έγκυρο αναγνωριστικό."},400);
+  const meta=await storage.get(docKey(id));
+  if(!meta)return jsonDocument({error:"Δεν βρέθηκε το έγγραφο."},404);
+  if(segments.length===2&&req.method==="DELETE"){
+    await deleteDocumentParts(storage,meta);
+    return jsonDocument({ok:true});
+  }
+  if(segments.length===4&&segments[2]==="chunk"&&req.method==="PUT"){
+    if(meta.status!=="pending")return jsonDocument({error:"Το έγγραφο έχει ήδη ολοκληρωθεί."},409);
+    const rawIndex=segments[3];
+    if(!/^(0|[1-9][0-9]{0,2})$/.test(rawIndex))return jsonDocument({error:"Μη έγκυρο τμήμα."},400);
+    const index=Number(rawIndex);
+    if(index>=meta.parts)return jsonDocument({error:"Τμήμα εκτός ορίων."},400);
+    const bytes=await req.arrayBuffer();
+    const expected=Math.min(DOCUMENT_CHUNK,meta.size-index*DOCUMENT_CHUNK);
+    if(bytes.byteLength!==expected)return jsonDocument({error:"Μη έγκυρο μέγεθος τμήματος."},413);
+    await storage.put(docPart(id,index),new Uint8Array(bytes));
+    return jsonDocument({ok:true,index});
+  }
+  if(segments.length===3&&segments[2]==="complete"&&req.method==="POST"){
+    if(meta.status==="ready")return jsonDocument({ok:true,document:cleanDocumentMeta(meta)});
+    for(let index=0;index<meta.parts;index++){
+      const bytes=await storage.get(docPart(id,index));
+      if(!(bytes instanceof Uint8Array)||
+         bytes.byteLength!==Math.min(DOCUMENT_CHUNK,meta.size-index*DOCUMENT_CHUNK))
+        return jsonDocument({error:"Η αποστολή είναι ελλιπής. Προσπάθησε ξανά."},409);
+    }
+    meta.status="ready";
+    await storage.put(docKey(id),meta);
+    return jsonDocument({ok:true,document:cleanDocumentMeta(meta)});
+  }
+  if(segments.length===2&&req.method==="GET"){
+    if(meta.status!=="ready")return jsonDocument({error:"Η αποστολή δεν έχει ολοκληρωθεί."},409);
+    let index=0;
+    const stream=new ReadableStream({
+      async pull(controller){
+        if(index>=meta.parts){controller.close();return;}
+        try{
+          const value=await storage.get(docPart(id,index++));
+          if(!(value instanceof Uint8Array))throw new Error("Missing document part");
+          controller.enqueue(value);
+        }catch(error){controller.error(error);}
+      }
+    });
+    return new Response(stream,{headers:{
+      "Content-Type":meta.mime,
+      "Content-Length":String(meta.size),
+      "Content-Disposition":"attachment; filename*=UTF-8''"+encodeURIComponent(meta.fileName),
+      "Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"
+    }});
+  }
+  return jsonDocument({error:"Μη υποστηριζόμενη ενέργεια."},405);
+}
+
 function tokenFrom(req){return (req.headers.get("Authorization")||"").replace(/^Bearer /,"");}
 async function resolveAccount(code,env){
   if(!isValidNewCode(code))return null;
@@ -232,6 +358,28 @@ export default {
       return jsonNoStore({ok:true});
     }
 
+    // Account-protected file vault: all operations use the same authenticated
+    // Durable Object as this account's service history.
+    if (url.pathname==="/api/documents"||url.pathname.startsWith("/api/documents/")) {
+      const account=await getAccount(req,env);
+      if(!account)return jsonNoStore({error:"Η σύνδεση έληξε. Συνδέσου ξανά."},401);
+      const suffix=url.pathname.slice("/api/documents".length);
+      if(suffix&&!/^\/[0-9a-f-]{36}(?:\/chunk\/[0-9]{1,3}|\/complete)?$/.test(suffix))
+        return jsonNoStore({error:"Μη έγκυρη διαδρομή εγγράφου."},404);
+      if(!["GET","POST","PUT","DELETE"].includes(req.method))
+        return jsonNoStore({error:"Method not allowed"},405);
+      if(req.method==="PUT"&&Number(req.headers.get("Content-Length")||"0")>DOCUMENT_CHUNK)
+        return jsonNoStore({error:"Το τμήμα είναι πολύ μεγάλο."},413);
+      // The caller's bearer token NEVER reaches document storage; the Worker
+      // verified it before forwarding to its account-specific Durable Object.
+      const forwarded=new Request("https://car-data.internal/docs"+suffix,{
+        method:req.method,
+        headers:{"Content-Type":req.headers.get("Content-Type")||"application/octet-stream"},
+        ...(req.method==="GET"?{}:{body:await req.arrayBuffer()})
+      });
+      return account.stub.fetch(forwarded);
+    }
+
     if (url.pathname === "/api/data") {
       const account=await getAccount(req,env);
       if(!account)return jsonNoStore({error:"Δεν υπάρχει έγκυρος λογαριασμός."},401);
@@ -300,6 +448,8 @@ export class CarServiceStore {
     const json = (data, status = 200) =>
       Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 
+    if(url.pathname==="/docs"||url.pathname.startsWith("/docs/"))
+      return handlePrivateDocuments(request,this.state);
     if(url.pathname==="/login-check"&&request.method==="POST"){
       let data={};
       try{data=await request.json();}catch{}
