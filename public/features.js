@@ -185,6 +185,10 @@
       '<button type="button" data-due-settings aria-label="Επεξεργασία ημερομηνιών">Ημερομηνίες ⚙</button></div>'+
       '<div class="due-cards">'+cards.join("")+'</div>';
   }
+  $("obligationsPanel").addEventListener("click",event=>{
+    const action=event.target.closest("[data-obligation-document]");
+    if(action)window.CarHistoryDocuments?.openKind(action.dataset.obligationDocument);
+  });
   $("obligationsPanel").addEventListener("change",event=>{
     const field=event.target.id;
     const dateKind=obligationKinds.find(kind=>kind.field===field);
