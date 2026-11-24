@@ -130,7 +130,7 @@ assert.equal(persistent.scope,scope);
 assert.equal(persistent.session,session);
 assert(!JSON.stringify(persistent).includes("UI-TEST-PASSWORD"),"No password in localStorage");
 
-const bootScript=html.match(/<script id="accountRestoreBoot">([\\s\\S]*?)<\\/script>/)?.[1];
+const bootScript=html.split('<script id="accountRestoreBoot">')[1]?.split("</script>")[0];
 assert(bootScript,"Prepaint session boot script missing");
 function testBoot(sessionArea,localArea){
   const classes=new Set();
