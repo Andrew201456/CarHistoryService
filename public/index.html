@@ -1562,13 +1562,27 @@ $("impGo").onclick=async()=>{
 };
 $("impAdd").onclick=()=>{
   const sel=imported.filter(e=>e.on);if(!sel.length)return;
+  // Check again AFTER manual edits. Keep duplicates in the review screen
+  // instead of silently re-importing a service already in this account.
+  const seen=new Set(items.filter(e=>e.date&&intOf(e.km)).map(e=>e.date+"|"+intOf(e.km)));
+  const fresh=[],duplicates=[];
+  for(const e of sel){
+    const key=e.date&&intOf(e.km)?e.date+"|"+intOf(e.km):"";
+    if(key&&seen.has(key))duplicates.push(e);
+    else{fresh.push(e);if(key)seen.add(key)}
+  }
+  if(!fresh.length){
+    setImp("Οι επιλεγμένες εγγραφές υπάρχουν ήδη (ίδια ημερομηνία και χλμ.).");
+    return;
+  }
   const reg=$("impReg").checked;
-  sel.forEach(e=>items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:e.date,km:String(intOf(e.km)||""),parts:e.parts.map(p=>({name:p.name.trim(),cost:p.cost.trim()})).filter(p=>p.name||p.cost),labor:String(e.labor||"").trim(),where:String(e.where||"").trim(),notes:String(e.notes||"").trim(),regular:reg}));
+  fresh.forEach(e=>items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date:e.date,km:String(intOf(e.km)||""),parts:e.parts.map(p=>({name:p.name.trim(),cost:p.cost.trim()})).filter(p=>p.name||p.cost),labor:String(e.labor||"").trim(),where:String(e.where||"").trim(),notes:String(e.notes||"").trim(),regular:reg}));
   store();render();
   imported=[];renderImp();$("impTxt").value="";
   for(const photo of queuedPhotos)URL.revokeObjectURL(photo.url);
   queuedPhotos=[];renderImpPhotos();
-  setImp("Προστέθηκαν "+sel.length+" καταχωρήσεις.");show("list");
+  setImp("Προστέθηκαν "+fresh.length+" καταχωρήσεις."+
+    (duplicates.length?" Παραλείφθηκαν "+duplicates.length+" διπλές.":""));show("list");
 };
 
 // Account gate initializes the app after credential verification.
