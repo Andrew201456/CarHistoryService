@@ -12,6 +12,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 }
 .view>h1 {margin:0 0 18px}
 .home-header {display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:2px 0 14px}
+.home-vehicle-heading {flex:1;min-width:0}
+.home-vehicle-heading h1 {overflow-wrap:anywhere;word-break:normal;line-height:1.2}
 .home-header p {margin:4px 0 0;color:var(--mute);font-size:.9rem;line-height:1.4}
 .app-badge {align-self:flex-start;white-space:nowrap;font-size:.64rem;letter-spacing:1.4px;
   font-weight:800;color:var(--accent);background:var(--soft);border-radius:8px;padding:7px 9px}
