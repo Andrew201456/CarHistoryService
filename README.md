@@ -154,6 +154,6 @@ The static shell can load offline after a successful initial visit. The AI impor
 ```bash
 npx wrangler deploy
 ```
-Μετά τον έλεγχο πρόσβασης και επιτυχούς deployment, βεβαιώσου ότι η εφαρμογή φορτώνει νέα cache `carhistory-shell-v22` και ότι μετά από επανεκκίνηση βλέπεις τα έγγραφα σε δεύτερη συσκευή συνδεδεμένη στον ίδιο λογαριασμό.
+Μετά τον έλεγχο πρόσβασης και επιτυχούς deployment, βεβαιώσου ότι η εφαρμογή φορτώνει νέα cache `carhistory-shell-v23` και ότι μετά από επανεκκίνηση βλέπεις τα έγγραφα σε δεύτερη συσκευή συνδεδεμένη στον ίδιο λογαριασμό.
 
 Δοκιμές: `node tests/documents-wallet.mjs`, `node tests/cloud-documents.mjs`, `node tests/vehicle-deadlines.mjs`.
