@@ -28,7 +28,7 @@ assert(css.includes(':root[data-theme="dark"]'));
 assert(css.includes("prefers-reduced-motion:reduce"));
 assert(css.includes("safe-area-inset-bottom"),"Floating dock needs iPhone/Android safe-area");
 assert(css.includes("color-mix"),"Tints should adapt to the user's theme");
-assert(sw.includes("carhistory-shell-v31"),"Installed PWA must refresh cached styles");
+assert(sw.includes("carhistory-shell-v32"),"Installed PWA must refresh cached styles");
 assert(html.includes('id="homeVehicleName"'));
 assert(html.includes('id="accountRecoveryForm"'));
 assert(html.includes('id="accountRememberMe"'));
