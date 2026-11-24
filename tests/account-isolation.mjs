@@ -117,8 +117,9 @@ const shortMaster=await json(await call("/api/account/login","POST",{
 }));
 assert.equal(shortMaster.status,503);
 assert.equal(shortMaster.data.masterError,"configuration");
-assert.match(shortMaster.data.error,/16 χαρακτήρες/);
-env.CAR_MASTER_ADMIN=correctMaster;
+assert.match(shortMaster.data.error,/10 χαρακτήρες/);
+env.CAR_MASTER_ADMIN="tenChars01"; // exactly 10 characters
+assert.equal(env.CAR_MASTER_ADMIN.length,10);
 
 const logins={};
 for(const [name,password] of Object.entries(sample)){
