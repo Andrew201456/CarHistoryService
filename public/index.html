@@ -850,8 +850,16 @@ function configureAccount(code,scope){
   localStorage.removeItem(PKEY);
 }
 function accountIsCurrent(){
-  try{return JSON.parse(localStorage.getItem(ACCOUNT_SESSION_KEY)||"null")?.scope===ACTIVE_SCOPE;}
-  catch{return false;}
+  // Remember-me OFF uses sessionStorage, not localStorage. Without this check
+  // the app silently skips all Cloudflare syncing and displays an empty local
+  // history even though the user's cloud records are intact.
+  for(const storage of [sessionStorage,localStorage]){
+    try{
+      const saved=JSON.parse(storage.getItem(ACCOUNT_SESSION_KEY)||"null");
+      if(saved?.scope===ACTIVE_SCOPE&&saved?.session===ACTIVE_TOKEN)return true;
+    }catch{}
+  }
+  return false;
 }
 function copyLegacyLocal(){
   // Only called by the owner after a successful authorized server migration.
