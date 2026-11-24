@@ -11,7 +11,7 @@ const styles=readFileSync(resolve(root,"public/ui.css"),"utf8");
 const required=["regular","repair","tires","improvements","expenses"];
 const gateStart=source.indexOf('<section id="accountGate"');
 const gate=source.slice(gateStart,source.indexOf('</section>',gateStart)+10);
-assert(gate.includes("account-login-subtitle"),"Login should have a small welcome subtitle");
+assert(!gate.includes("account-login-subtitle"),"Minimal colorful login must not include extra subtitle");
 assert(source.includes('id="v-account"'),"Account must replace backup tab");
 assert(source.includes('data-v="account"'));
 assert(!source.includes('data-v="backup"'));
