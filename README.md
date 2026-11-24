@@ -13,6 +13,12 @@ A mobile-first service history app (Greek) built on Cloudflare Workers, Static A
 - Per-account authenticated server sync with revision checks and three-way merge of concurrent edits.
 - Fifth bottom-tab "AI Μηχανικός": streamlined chat with a structured, editable vehicle profile, service-history-aware diagnosis and local chat history.
 
+### Εγκατάσταση στο Android (v26)
+
+Η εφαρμογή διαθέτει κουμπί **Εγκατάσταση** στο login και στην αρχική για Android. Στο Chrome χρησιμοποιεί το native `beforeinstallprompt` όταν είναι διαθέσιμο και εμφανίζει οδηγίες για εγκατάσταση από το μενού ⋮ αν ο browser δεν προσφέρει prompt. Το κουμπί κρύβεται όταν η PWA ανοίγει εγκατεστημένη σε standalone/fullscreen, όταν εκπέμπεται `appinstalled`, ή όταν υπάρχει αποθηκευμένη ένδειξη επιτυχούς εγκατάστασης στον ίδιο browser. Αν η εφαρμογή απεγκατασταθεί και ο browser προσφέρει εκ νέου `beforeinstallprompt`, η ένδειξη καθαρίζεται και το κουμπί επανέρχεται. Δεν εμφανίζεται σε iPhone ή desktop. Χωρίς πρόσθετη σύνδεση/έλεγχο λογαριασμού.
+
+Έλεγχος: `node tests/android-install.mjs`. Απαιτείται δημοσίευση του νέου Worker και ανανέωση του PWA shell `carhistory-shell-v26` για να εμφανιστεί η αλλαγή.
+
 ## Τρέχουσα σύνδεση — Username / Password / Master admin (v25)
 
 Η τρέχουσα έκδοση χρησιμοποιεί **Username + Password**. Το κουμπί δημιουργίας λογαριασμού στο login ανοίγει φόρμα για **Username, Password και Master admin κωδικό**. Ο master χρησιμοποιείται **μόνο για έγκριση νέου λογαριασμού** ή πρώτη ενεργοποίηση παλαιού ιστορικού, ποτέ ως κοινό password χρηστών. Τα usernames γράφονται με λατινικούς χαρακτήρες (2–32, χωρίς κενά), και είναι case-insensitive. Οι κωδικοί πρόσβασης είναι case-sensitive. Τα passwords και ο master **δεν αποθηκεύονται στο localStorage** και δεν επιστρέφονται από το API· αποθηκεύεται μόνο η λήγουσα συνεδρία.
