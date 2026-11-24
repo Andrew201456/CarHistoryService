@@ -452,6 +452,56 @@ export default {
         jsonNoStore({error:"Η σύνδεση έχει λήξει. Συνδέσου ξανά."},401);
     }
 
+    // Read-only incident diagnostic. Never changes any Durable Object,
+    // even when the identity points at the wrong account scope. The master
+    // secret and an authenticated session are both required.
+    if (url.pathname === "/api/account/recovery-check" && req.method === "POST") {
+      const account=await getAccount(req,env);
+      if(!account)return jsonNoStore({error:"Συνδέσου πρώτα στον λογαριασμό."},401);
+      let body={};
+      try{body=await req.json();}catch{}
+      const username=cleanUsername(body.username);
+      if(!LEGACY_USER_SCOPES.has(username))
+        return jsonNoStore({error:"Ο έλεγχος αφορά τους αρχικούς λογαριασμούς."},400);
+      if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<10||
+         !safeEqual(String(body.masterAdmin||""),env.CAR_MASTER_ADMIN))
+        return jsonNoStore({error:"Απαιτείται ο σωστός master admin κωδικός για τον ασφαλή έλεγχο."},403);
+      const describe=await identityFetch(identityStub(env,username),"describe",{});
+      if(!describe.ok)return jsonNoStore({error:"Δεν βρέθηκε το username στον ενεργό Worker."},404);
+      const identity=await describe.json();
+      if(identity.scope!==account.scope||identity.username!==username)
+        return jsonNoStore({error:"Ο λογαριασμός σύνδεσης δεν αντιστοιχεί στο username."},403);
+      const snapshot=async stub=>{
+        const data=await stub.fetch("https://car-data.internal/data");
+        const payload=data.ok?await data.json():null;
+        const docResult=await stub.fetch("https://car-data.internal/docs");
+        const docs=docResult.ok?await docResult.json():null;
+        return {
+          exists:!!payload,
+          entries:payload?.items?.length||0,
+          reminders:payload?.reminders?.length||0,
+          savedFields:Object.keys(payload?.settings||{}).length,
+          documents:docs?.documents?.length||0,
+          revision:payload?.revision||0
+        };
+      };
+      const expectedScope=LEGACY_USER_SCOPES.get(username);
+      const legacy=accountScopeStub(env,expectedScope);
+      const primary=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-primary"));
+      const [active,original,shared]=await Promise.all([
+        snapshot(account.stub),
+        expectedScope===account.scope?snapshot(account.stub):snapshot(legacy),
+        snapshot(primary)
+      ]);
+      return jsonNoStore({
+        username,
+        sameOriginalAccount:account.scope===expectedScope,
+        active,original,
+        sharedLegacy:shared,
+        warning:"Έλεγχος μόνο για ανάγνωση. Καμία μεταφορά ή αντικατάσταση δεν εκτελέστηκε."
+      });
+    }
+
     if (url.pathname === "/api/account/migrate" && req.method === "POST") {
       const account=await getAccount(req,env);
       if(!account)return jsonNoStore({error:"Πρώτα συνδέσου στον νέο σου λογαριασμό."},401);
@@ -591,6 +641,9 @@ export class CarServiceStore {
       const action=url.pathname.slice("/identity/".length);
       const identity=await this.state.storage.get("identity");
       if(action==="exists")return json({exists:!!identity},identity?200:404);
+      if(action==="describe")
+        return identity?json({username:identity.username,scope:identity.scope}):
+          json({error:"not found"},404);
       let input={};
       try{input=await request.json();}catch{}
       if(action==="create"){
