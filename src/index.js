@@ -363,6 +363,22 @@ export default {
         const existing=await old.fetch("https://car-data.internal/data");
         if(!existing.ok)
           return jsonNoStore({error:"Το παλιό ιστορικό δεν βρέθηκε στο Cloudflare. Δεν δημιουργήθηκε άδειος λογαριασμός."},409);
+        // First-time activation requires proof of an existing authenticated
+        // session from that exact historical account OR the owner's master
+        // secret. A leaked four-digit PIN alone cannot claim a legacy vault.
+        let proven=false;
+        const legacy=SESSION_RE.exec(String(payload.legacySession||""));
+        if(legacy&&legacy[1]===legacyScope){
+          const checked=await old.fetch("https://car-data.internal/session-verify",{
+            method:"POST",body:JSON.stringify({secret:legacy[2]})
+          });
+          proven=checked.ok;
+        }
+        if(!proven&&env.CAR_MASTER_ADMIN&&String(env.CAR_MASTER_ADMIN).length>=16&&
+           safeEqual(String(payload.masterAdmin||""),env.CAR_MASTER_ADMIN))
+          proven=true;
+        if(!proven)
+          return jsonNoStore({error:"Για την πρώτη ενεργοποίηση χρειάζεται ο master admin κωδικός.",masterRequired:true},428);
         const salt=passwordSalt(),verifier=await passwordVerifier(password,salt);
         const claimed=await identityFetch(registry,"create",{username,scope:legacyScope,salt,verifier});
         if(!claimed.ok&&claimed.status!==409)
