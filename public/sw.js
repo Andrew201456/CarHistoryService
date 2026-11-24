@@ -1,7 +1,7 @@
 /* Cache only the application shell; never cache authenticated /api requests. */
-const CACHE="carhistory-shell-v18";
+const CACHE="carhistory-shell-v19";
 const ASSETS=[
- "/","/index.html","/ui.css","/features.js","/ai-mechanic.js","/account.js","/manifest.webmanifest",
+ "/","/index.html","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/account.js","/manifest.webmanifest",
  "/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
 ];
 self.addEventListener("install",event=>{
@@ -26,7 +26,7 @@ self.addEventListener("fetch",event=>{
   // A stale cache-first account.js paired with a freshly fetched index.html
   // can break the login button. Prefer the network for app scripts/styles,
   // while retaining cached copies for true offline operation.
-  if(["/account.js","/ui.css","/features.js","/ai-mechanic.js"].includes(url.pathname)){
+  if(["/account.js","/ui.css","/features.js","/documents.js","/ai-mechanic.js"].includes(url.pathname)){
     event.respondWith(fetch(event.request).then(response=>{
       if(response.ok){
         const cachedCopy=response.clone();
