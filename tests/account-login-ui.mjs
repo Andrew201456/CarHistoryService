@@ -130,6 +130,19 @@ assert.equal(persistent.scope,scope);
 assert.equal(persistent.session,session);
 assert(!JSON.stringify(persistent).includes("UI-TEST-PASSWORD"),"No password in localStorage");
 
+const optional=mount();
+assert.equal(optional.el.accountRememberMe.checked,true);
+optional.el.accountRememberMe.checked=false;
+optional.el.accountUsername.value="Andreas";
+optional.el.accountPassword.value="UI-TEST-PASSWORD";
+await optional.el.accountLoginForm.fire("submit");
+assert.equal(optional.localStorage.getItem("carServiceActiveAccountV3"),null,
+  "Unchecked remember-me should not persist login across browser restarts");
+assert.equal(JSON.parse(optional.sessionStorage.getItem("carServiceActiveAccountV3")).scope,scope);
+const sameTab=mount({username:"ANDREAS",scope,session},{source:"session"});
+for(let i=0;i<30;i++)await Promise.resolve();
+assert.equal(sameTab.started.length,1);
+assert.equal(sameTab.el.accountRememberMe.checked,false);
 const legacyFirstLogin=mount();
 legacyFirstLogin.el.accountUsername.value="Vasdim";
 legacyFirstLogin.el.accountPassword.value="UI-TEST-LEGACY-PASSWORD";
@@ -178,4 +191,4 @@ await changed.el.accountPasswordForm.fire("submit");
 assert.equal(changed.state.reloaded,1);
 assert.equal(JSON.parse(changed.localStorage.getItem("carServiceActiveAccountV3")).session,updatedSession);
 assert.equal(changed.el.accountNewPassword.value,"");
-console.log("PASS: inline username/password login, master-only registration, no saved passwords, session restore and password change");
+console.log("PASS: remember-me and tab sessions, master signup, session restore, and password change");
