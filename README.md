@@ -13,7 +13,46 @@ A mobile-first service history app (Greek) built on Cloudflare Workers, Static A
 - Per-account authenticated server sync with revision checks and three-way merge of concurrent edits.
 - Fifth bottom-tab "AI Μηχανικός": streamlined chat with a structured, editable vehicle profile, service-history-aware diagnosis and local chat history.
 
-## Προσωπικοί λογαριασμοί και απομόνωση ιστορικού (v13)
+## Τρέχουσα σύνδεση — Username / Password / Master admin (v22)
+
+Η τρέχουσα έκδοση χρησιμοποιεί **Username + Password**. Το κουμπί δημιουργίας λογαριασμού στο login ανοίγει φόρμα για **Username, Password και Master admin κωδικό**. Ο master χρησιμοποιείται **μόνο για έγκριση νέου λογαριασμού** ή πρώτη ενεργοποίηση παλαιού ιστορικού, ποτέ ως κοινό password χρηστών. Τα usernames γράφονται με λατινικούς χαρακτήρες (2–32, χωρίς κενά), και είναι case-insensitive. Οι κωδικοί πρόσβασης είναι case-sensitive. Τα passwords και ο master **δεν αποθηκεύονται στο localStorage** και δεν επιστρέφονται από το API· αποθηκεύεται μόνο η λήγουσα συνεδρία.
+
+### Απαραίτητη ρύθμιση πριν το production deployment
+
+Η εφαρμογή **δεν περιέχει master admin κωδικό στο GitHub**. Ο διαχειριστής επιλέγει μόνος του έναν νέο, **μοναδικό μυστικό κωδικό τουλάχιστον 16 χαρακτήρων** και τον αποθηκεύει στο Cloudflare Worker ως Secret `CAR_MASTER_ADMIN`. Μην τον στείλεις στο chat, μη βάλεις τον master στο repository, στο `wrangler.jsonc`, σε GitHub commits ή σε `vars`.
+
+```sh
+npx wrangler secret put CAR_MASTER_ADMIN
+npx wrangler deploy
+```
+
+Το πρώτο command ζητάει τον master κωδικό από τον τερματικό και τον αποθηκεύει στο Cloudflare. Το δεύτερο δημοσιεύει τον νέο Worker. Εναλλακτικά μπορείς να ορίσεις το ίδιο Secret στο Cloudflare Dashboard του **υπάρχοντος** Worker. Δεν χρειάζονται νέα Durable Object bindings, R2, KV namespaces ή migrations.
+
+**Πριν από οποιοδήποτε deployment:** βεβαιώσου ότι έχεις τα παλιά ιστορικά στο Cloudflare και, όπου είναι δυνατόν, κράτησε αντίγραφο των υπηρεσιών και των εγγράφων. **Μη διαγράψεις** τον υπάρχοντα Worker, Durable Objects, KV ή τα τοπικά δεδομένα στις τρεις συσκευές.
+
+### Τα τρία υπάρχοντα ιστορικά (χωρίς αντιγραφή ή απώλεια)
+
+Η αντιστοίχιση των παλιών scopes είναι:
+- **Andreas** → παλιό account scope της υπάρχουσας τετραψήφιας σύνδεσής του.
+- **Nick** → παλιό account scope της υπάρχουσας τετραψήφιας σύνδεσής του.
+- **Vasdim** → παλιό account scope της υπάρχουσας τετραψήφιας σύνδεσής του.
+
+Η πρώτη σύνδεση με το ορισμένο username/password **δεν δημιουργεί νέα βάση**: κάνει binding του username στην **ίδια** βάση Durable Object. Έτσι μένουν ανέπαφα το ιστορικό service, τα χιλιόμετρα, οι υποχρεώσεις, οι υπενθυμίσεις, τα settings και τα PDF/εικόνες ήδη αποθηκευμένα στον ίδιο λογαριασμό. Αν ο παλιός Durable Object λείπει, το API **σταματά με μήνυμα σφάλματος** αντί να ανοίξει κενή βάση.
+
+**Ασφάλεια πρώτης ενεργοποίησης:** η πρώτη σύνδεση απαιτεί επιπλέον **είτε ενεργή παλιά συνεδρία από την ίδια συσκευή είτε τον master admin κωδικό**. Αν χρειάζεται ο master, η οθόνη σύνδεσης εμφανίζει **προσωρινό** σχετικό πεδίο. Μετά την επιτυχημένη ενεργοποίηση, η σύνδεση γίνεται μόνο με Username + Password. Οι παλιές συνεδρίες ακυρώνονται, όπως και η αποδοχή παλιών raw bearer codes. Η αλλαγή password από την καρτέλα **Account** ακυρώνει επίσης τις προηγούμενες συνεδρίες.
+
+**Προειδοποίηση:** τα υπάρχοντα σύντομα passwords 4 ψηφίων είναι ιδιαίτερα αδύναμα για λογαριασμούς με ασφάλειες, διπλώματα και προσωπικά έγγραφα. Η εφαρμογή επιτρέπει προσωρινά τη μετάβαση με αυτά, αλλά προτείνεται να αλλαχθούν αμέσως σε διαφορετικά, ισχυρά passwords 12–16+ χαρακτήρων. Η αποθήκευση χρησιμοποιεί salted PBKDF2-SHA256 και ο Worker περιορίζει τις αποτυχημένες συνδέσεις. Τα δεδομένα εγγράφων **δεν είναι end-to-end κρυπτογραφημένα** από την εφαρμογή.
+
+Δοκιμές πριν από το deployment:
+
+```sh
+node tests/account-isolation.mjs
+node tests/account-login-ui.mjs
+node tests/documents-wallet.mjs
+node tests/cloud-documents.mjs
+```
+
+## Ιστορικό παλιάς σύνδεσης (v13 — αντικαταστάθηκε από v22)
 
 Η πρώτη οθόνη είναι πλέον **μόνο σύνδεση**: ένα πεδίο κωδικού και ένα κουμπί «Σύνδεση». Η μικρή επιλογή «Δημιουργία λογαριασμού» οδηγεί σε ξεχωριστή οθόνη με το πεδίο για δικό σου κωδικό, τυχαίο 4ψήφιο και κουμπί επιστροφής. Όταν δημιουργηθεί λογαριασμός, οι επιλογές κρύβονται μέχρι ο χρήστης να αποθηκεύσει τον νέο κωδικό. Δεν άλλαξε κανένα API, δικαίωμα πρόσβασης ή ιστορικό.
 
@@ -115,6 +154,6 @@ The static shell can load offline after a successful initial visit. The AI impor
 ```bash
 npx wrangler deploy
 ```
-Μετά τον έλεγχο πρόσβασης και επιτυχούς deployment, βεβαιώσου ότι η εφαρμογή φορτώνει νέα cache `carhistory-shell-v20` και ότι μετά από επανεκκίνηση βλέπεις τα έγγραφα σε δεύτερη συσκευή συνδεδεμένη στον ίδιο λογαριασμό.
+Μετά τον έλεγχο πρόσβασης και επιτυχούς deployment, βεβαιώσου ότι η εφαρμογή φορτώνει νέα cache `carhistory-shell-v22` και ότι μετά από επανεκκίνηση βλέπεις τα έγγραφα σε δεύτερη συσκευή συνδεδεμένη στον ίδιο λογαριασμό.
 
 Δοκιμές: `node tests/documents-wallet.mjs`, `node tests/cloud-documents.mjs`, `node tests/vehicle-deadlines.mjs`.
