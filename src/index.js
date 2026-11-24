@@ -43,8 +43,8 @@ const SCHEMA = {
 };
 
 // A user may choose any visible code (digits, Greek, Latin, symbols), without
-// fixed length or CS- prefix. Short codes are weak; all NEW accounts must use
-// rate-limited login and expiring sessions, never the raw code on data routes.
+// fixed length or CS- prefix. Legacy codes are NOT accepted on data routes.
+// Account sessions are expiring; login throttle is temporarily opt-in.
 const SESSION_RE = /^ST-([0-9a-f]{64})-([A-F0-9]{48})$/;
 const normalizeAccountCode = value => String(value??"").trim().normalize("NFKC").toUpperCase();
 const isValidNewCode = code =>
@@ -345,8 +345,13 @@ export default {
       const username=cleanUsername(payload.username),password=payload.password;
       if(!validUser(username)||!validPassword(password))
         return jsonNoStore({error:"Λάθος username ή password."},401);
-      const limited=await limitAccountLogin(req,env,username);
-      if(!limited.ok)return jsonNoStore({error:"Πολλές προσπάθειες σύνδεσης. Δοκίμασε αργότερα."},429);
+      // Temporary debugging mode (off by default): account login attempts
+      // are not throttled. Set CAR_LOGIN_LIMIT_ENABLED="true" in Cloudflare
+      // when troubleshooting is complete to restore IP/username limits.
+      if(env.CAR_LOGIN_LIMIT_ENABLED==="true"){
+        const limited=await limitAccountLogin(req,env,username);
+        if(!limited.ok)return jsonNoStore({error:"Πολλές προσπάθειες σύνδεσης. Δοκίμασε αργότερα."},429);
+      }
       const registry=identityStub(env,username);
       const validated=await identityFetch(registry,"authenticate",{password});
       let scope=null;
