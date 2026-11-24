@@ -281,12 +281,14 @@
         (v.exists?(v.entries+" καταχωρήσεις, "+v.reminders+
           " υπενθυμίσεις, "+v.documents+" έγγραφα (revision "+v.revision+")"):
           "δεν βρέθηκε ιστορικό");
-      let localCount=0,localBase=0;
+      let localCount=0,localBase=0,veryOldLocalCount=0;
       try{
         const local=JSON.parse(localStorage.getItem("carServiceLog:"+current.scope)||"[]");
         if(Array.isArray(local))localCount=local.length;
         const base=JSON.parse(localStorage.getItem("carServiceSyncBaseV2:"+current.scope)||"null");
         if(Array.isArray(base?.items))localBase=base.items.length;
+        const older=JSON.parse(localStorage.getItem("carServiceLog")||"[]");
+        if(Array.isArray(older))veryOldLocalCount=older.length;
       }catch{}
       const parts=[
         "Λογαριασμός: "+report.username,
@@ -295,6 +297,7 @@
         pretty("Πολύ παλιά κοινή βάση",report.sharedLegacy),
         "Τοπικό αντίγραφο συσκευής: "+localCount+
           " καταχωρήσεις (προηγούμενο συγχρονισμένο: "+localBase+")",
+        "Πολύ παλιό τοπικό αντίγραφο: "+veryOldLocalCount+" καταχωρήσεις",
         report.sameOriginalAccount?
           "Η νέα σύνδεση δείχνει στην αρχική βάση PIN.":
           "ΠΡΟΣΟΧΗ: Η νέα σύνδεση δείχνει σε διαφορετική βάση από το παλιό PIN."
@@ -303,7 +306,7 @@
         parts.push("Οι παλιές εγγραφές βρέθηκαν! Μη μεταφέρεις τίποτα ακόμη.");
       else if(report.active.entries>0)
         parts.push("Το Cloudflare έχει καταχωρήσεις. Αν η οθόνη είναι άδεια, έλεγξε τον συγχρονισμό.");
-      else if(localCount>0||localBase>0)
+      else if(localCount>0||localBase>0||veryOldLocalCount>0)
         parts.push("Υπάρχει τοπικό ίχνος ιστορικού. Μην καθαρίσεις δεδομένα εφαρμογής/browser.");
       else
         parts.push("Δεν επιβεβαιώθηκαν εγγραφές σε αυτήν τη βάση. Έλεγξε και παλιότερη συσκευή/αντίγραφο.");
