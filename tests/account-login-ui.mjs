@@ -8,7 +8,17 @@ import {fileURLToPath} from "node:url";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const html=readFileSync(resolve(root,"public/index.html"),"utf8");
-const js=readFileSync(resolve(root,"public/account.js"),"utf8");
+const storedJs=readFileSync(resolve(root,"public/account.js"),"utf8");
+const embedded=html.match(/<script id="accountLoginRuntime">([\s\S]*?)<\/script>/);
+assert(embedded,"Login must ship with its HTML to avoid stale PWA script versions");
+const js=embedded[1].trim();
+assert.equal(js,storedJs.trim(),"Embedded login runtime must match tested account.js");
+const critical=html.match(/<style id="accountCriticalStyles">([\s\S]*?)<\/style>/);
+assert(critical,"Critical login appearance must work even when /ui.css fails");
+assert(critical[1].includes("body.account-locked main"),"Other pages must stay hidden at login");
+assert(critical[1].includes(".account-options-trigger svg"),"Login SVG icon must be constrained");
+assert(critical[1].includes("width:21px!important"),"SVG may not inflate on iPhone");
+assert(!html.includes('<script src="/account.js"></script>'),"Do not load a duplicate cached login runtime");
 const css=readFileSync(resolve(root,"public/ui.css"),"utf8");
 assert(css.includes(".account-card [hidden]{display:none!important}"),
   "All hidden panels and controls must actually be invisible despite button CSS");
@@ -129,4 +139,4 @@ assert.equal(returning.started.length,1);
 assert.equal(returning.started[0].code,returning.session);
 assert.equal(returning.els.accountRegisterPanel.hidden,true);
 
-console.log("PASS: minimal login, separate registration/back, code collision, Greek custom code, random code, session login");
+console.log("PASS: self-contained login HTML/CSS/JS, small SVG, submit handling, registration and session login");
