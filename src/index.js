@@ -60,6 +60,43 @@ const generatedCode = () => {
   do{n=crypto.getRandomValues(new Uint32Array(1))[0];}while(n>=limit);
   return String(n%10000).padStart(4,"0");
 };
+/* Username/password identity records are stored in SEPARATE per-username
+   Durable Objects; account data remains in its existing per-account DO.
+   Converting a legacy PIN links the existing scope; never copies or clears data. */
+const LEGACY_USER_SCOPES=new Map([
+  ["ANDREAS","03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"],
+  ["NICK","9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0"],
+  ["VASDIM","c1f330d0aff31c1c87403f1e4347bcc21aff7c179908723535f2b31723702525"]
+]);
+const LOGIN_USER_RE=/^[A-Z][A-Z0-9._-]{1,31}$/;
+const cleanUsername=s=>String(s||"").trim().normalize("NFKC").toUpperCase();
+const validUser=s=>LOGIN_USER_RE.test(s);
+const validPassword=s=>typeof s==="string"&&[...s].length>=4&&[...s].length<=128&&
+ !/[\u0000-\u001f\u007f]/.test(s);
+const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+const unhex=s=>new Uint8Array(s.match(/../g).map(v=>parseInt(v,16)));
+const safeEqual=(a,b)=>{
+  if(typeof a!=="string"||typeof b!=="string")return false;
+  const A=new TextEncoder().encode(a),B=new TextEncoder().encode(b);
+  let diff=A.length^B.length;
+  for(let i=0;i<Math.max(A.length,B.length);i++)diff|=(A[i]||0)^(B[i]||0);
+  return diff===0;
+};
+const passwordSalt=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
+async function passwordVerifier(password,salt){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),
+    "PBKDF2",false,["deriveBits"]);
+  return hex(new Uint8Array(await crypto.subtle.deriveBits({
+    name:"PBKDF2",hash:"SHA-256",salt:unhex(salt),iterations:180000
+  },key,256)));
+}
+const identityStub=(env,username)=>env.CAR_DATA.get(
+  env.CAR_DATA.idFromName("car-service-identity-"+username));
+const identityFetch=(stub,action,body)=>stub.fetch("https://car-data.internal/identity/"+action,{
+  method:"POST",body:JSON.stringify(body)
+});
+const accountScopeStub=(env,scope)=>env.CAR_DATA.get(
+  env.CAR_DATA.idFromName("car-service-user-"+scope));
 const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /* Private cloud documents in the EXISTING per-account SQLite Durable Object.
@@ -266,52 +303,109 @@ export default {
     // Every account uses a separate SQLite Durable Object. A code for another
     // account CANNOT select, read or write this account's data.
     if (url.pathname === "/api/account/create" && req.method === "POST") {
-      let requestedCode="",manual=false;
-      try{
-        const payload=await req.json();
-        manual=Object.prototype.hasOwnProperty.call(payload||{},"code");
-        if(manual&&typeof payload.code!=="string")
-          return jsonNoStore({error:"Ο κωδικός πρέπει να είναι κείμενο."},400);
-        if(manual)requestedCode=normalizeAccountCode(payload.code);
-      }catch{return jsonNoStore({error:"Μη έγκυρα στοιχεία λογαριασμού."},400);}
-      if(manual&&!isValidNewCode(requestedCode)){
-        return jsonNoStore({error:"Βάλε έναν κωδικό 1–64 χαρακτήρων, χωρίς κρυφούς χαρακτήρες."},400);
-      }
-      // One IP cannot generate unlimited Durable Objects in one day.
-      const clientIP=req.headers.get("CF-Connecting-IP")||"unknown";
+      let payload={};
+      try{payload=await req.json();}catch{}
+      const username=cleanUsername(payload.username),password=payload.password,
+        master=String(payload.masterAdmin||"");
+      if(!validUser(username)||!validPassword(password))
+        return jsonNoStore({error:"Βάλε username 2–32 χαρακτήρων και password τουλάχιστον 4 χαρακτήρων."},400);
+      // These three identities are reserved for the existing account scopes.
+      // They can ONLY be activated through their original PIN and /login.
+      if(LEGACY_USER_SCOPES.has(username))
+        return jsonNoStore({error:"Αυτός ο χρήστης έχει ήδη ιστορικό. Κάνε σύνδεση."},409);
       const limiter=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-registration-limit"));
       const allowed=await limiter.fetch("https://car-data.internal/limit",{
-        method:"POST",body:JSON.stringify({ip:clientIP})
+        method:"POST",body:JSON.stringify({ip:req.headers.get("CF-Connecting-IP")||"unknown"})
       });
-      if(!allowed.ok)return jsonNoStore({error:"Πάρα πολλές δημιουργίες. Δοκίμασε αργότερα."},429);
-      for(let attempt=0;attempt<40;attempt++){
-        const code=requestedCode||generatedCode();
-        const hash=await sha256(code);
-        const stub=env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-user-"+hash));
-        // Must be atomic: the existing /bootstrap returns 200 even if the
-        // dataset already exists. Never grant access to someone else's account!
-        const made=await stub.fetch("https://car-data.internal/create-account",{
-          method:"POST",body:JSON.stringify({items:[],settings:{},reminders:[]})
-        });
-        if(made.status===409){
-          if(manual)return jsonNoStore({error:"Ο κωδικός χρησιμοποιείται ήδη. Διάλεξε άλλον."},409);
-          continue;
-        }
-        if(!made.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
-        return jsonNoStore({code,scope:hash,session:await newSession(stub,hash)});
-      }
-      return jsonNoStore({error:"Δεν δημιουργήθηκε μοναδικός κωδικός. Δοκίμασε ξανά."},503);
+      if(!allowed.ok)return jsonNoStore({error:"Πολλές προσπάθειες. Δοκίμασε αργότερα."},429);
+      if(!env.CAR_MASTER_ADMIN||String(env.CAR_MASTER_ADMIN).length<16)
+        return jsonNoStore({error:"Ο διαχειριστής δεν έχει ρυθμίσει ακόμη τον master κωδικό στο Cloudflare."},503);
+      if(!safeEqual(master,env.CAR_MASTER_ADMIN))
+        return jsonNoStore({error:"Λάθος master admin κωδικός."},403);
+      const registry=identityStub(env,username);
+      const exists=await identityFetch(registry,"exists",{});
+      if(exists.ok)return jsonNoStore({error:"Αυτό το username χρησιμοποιείται ήδη."},409);
+      // Random scope prevents password/username-derived account enumeration.
+      const scope=await sha256("new-car-account:"+crypto.randomUUID()+crypto.randomUUID());
+      const stub=accountScopeStub(env,scope);
+      const created=await stub.fetch("https://car-data.internal/create-account",{
+        method:"POST",body:JSON.stringify({items:[],settings:{},reminders:[]})
+      });
+      if(!created.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
+      const salt=passwordSalt(),verifier=await passwordVerifier(password,salt);
+      const claimed=await identityFetch(registry,"create",{username,scope,salt,verifier});
+      if(claimed.status===409)return jsonNoStore({error:"Το username χρησιμοποιείται ήδη."},409);
+      if(!claimed.ok)return jsonNoStore({error:"Δεν ολοκληρώθηκε η εγγραφή."},503);
+      return jsonNoStore({username,scope,session:await newSession(stub,scope)},201);
     }
 
     if (url.pathname === "/api/account/login" && req.method === "POST") {
-      let code="";
-      try{code=normalizeAccountCode((await req.json()).code);}catch{}
-      if(!isValidNewCode(code))return jsonNoStore({error:"Μη έγκυρος κωδικός."},401);
-      const limit=await limitAccountLogin(req,env,code);
-      if(!limit.ok)return jsonNoStore({error:"Έγιναν πολλές προσπάθειες. Δοκίμασε ξανά αργότερα."},429);
-      const account=await resolveAccount(code,env);
-      if(!account)return jsonNoStore({error:"Δεν βρέθηκε λογαριασμός με αυτόν τον κωδικό."},401);
-      return jsonNoStore({scope:account.scope,session:await newSession(account.stub,account.scope)});
+      let payload={};
+      try{payload=await req.json();}catch{}
+      const username=cleanUsername(payload.username),password=payload.password;
+      if(!validUser(username)||!validPassword(password))
+        return jsonNoStore({error:"Λάθος username ή password."},401);
+      const limited=await limitAccountLogin(req,env,username);
+      if(!limited.ok)return jsonNoStore({error:"Πολλές προσπάθειες σύνδεσης. Δοκίμασε αργότερα."},429);
+      const registry=identityStub(env,username);
+      const validated=await identityFetch(registry,"authenticate",{password});
+      let scope=null;
+      if(validated.ok){
+        scope=(await validated.json()).scope;
+      }else if(validated.status===404&&LEGACY_USER_SCOPES.has(username)){
+        // First login attaches the username to the exact historical DO.
+        // The PIN must match the expected legacy scope hash and the DO must
+        // already contain a dataset. Never create an empty replacement.
+        const legacyScope=LEGACY_USER_SCOPES.get(username);
+        if(!safeEqual(await sha256(normalizeAccountCode(password)),legacyScope))
+          return jsonNoStore({error:"Λάθος username ή password."},401);
+        const old=accountScopeStub(env,legacyScope);
+        const existing=await old.fetch("https://car-data.internal/data");
+        if(!existing.ok)
+          return jsonNoStore({error:"Το παλιό ιστορικό δεν βρέθηκε στο Cloudflare. Δεν δημιουργήθηκε άδειος λογαριασμός."},409);
+        const salt=passwordSalt(),verifier=await passwordVerifier(password,salt);
+        const claimed=await identityFetch(registry,"create",{username,scope:legacyScope,salt,verifier});
+        if(!claimed.ok&&claimed.status!==409)
+          return jsonNoStore({error:"Δεν ολοκληρώθηκε η μεταφορά. Δοκίμασε ξανά."},503);
+        if(claimed.status===409){
+          const retry=await identityFetch(registry,"authenticate",{password});
+          if(!retry.ok)return jsonNoStore({error:"Λάθος username ή password."},401);
+          scope=(await retry.json()).scope;
+        }else{
+          scope=legacyScope;
+          // Old sessions cannot continue to read personal documents.
+          await old.fetch("https://car-data.internal/sessions-revoke",{method:"POST"});
+        }
+      }else{
+        return jsonNoStore({error:"Λάθος username ή password."},401);
+      }
+      const account=accountScopeStub(env,scope);
+      const data=await account.fetch("https://car-data.internal/data");
+      if(!data.ok)return jsonNoStore({error:"Το ιστορικό του λογαριασμού δεν είναι διαθέσιμο."},503);
+      return jsonNoStore({username,scope,session:await newSession(account,scope)});
+    }
+
+    if (url.pathname === "/api/account/password" && req.method === "POST") {
+      const account=await getAccount(req,env);
+      if(!account)return jsonNoStore({error:"Η σύνδεση έχει λήξει."},401);
+      let payload={};
+      try{payload=await req.json();}catch{}
+      const username=cleanUsername(payload.username);
+      if(!validUser(username)||!validPassword(payload.currentPassword)||
+         !validPassword(payload.newPassword))
+        return jsonNoStore({error:"Μη έγκυρος κωδικός. Χρειάζονται τουλάχιστον 4 χαρακτήρες."},400);
+      if(payload.newPassword===payload.currentPassword)
+        return jsonNoStore({error:"Ο νέος κωδικός πρέπει να διαφέρει."},400);
+      const registry=identityStub(env,username);
+      const changed=await identityFetch(registry,"change",{
+        scope:account.scope,
+        currentPassword:payload.currentPassword,
+        newPassword:payload.newPassword
+      });
+      if(!changed.ok)return jsonNoStore({error:"Λάθος τωρινός κωδικός."},401);
+      await account.stub.fetch("https://car-data.internal/sessions-revoke",{method:"POST"});
+      return jsonNoStore({username,scope:account.scope,
+        session:await newSession(account.stub,account.scope)});
     }
 
     if (url.pathname === "/api/account/session" && req.method === "POST") {
@@ -455,6 +549,55 @@ export class CarServiceStore {
 
     if(url.pathname==="/docs"||url.pathname.startsWith("/docs/"))
       return handlePrivateDocuments(request,this.state);
+    if(url.pathname.startsWith("/identity/")&&request.method==="POST"){
+      const action=url.pathname.slice("/identity/".length);
+      const identity=await this.state.storage.get("identity");
+      if(action==="exists")return json({exists:!!identity},identity?200:404);
+      let input={};
+      try{input=await request.json();}catch{}
+      if(action==="create"){
+        if(!validUser(input.username)||!/^[a-f0-9]{64}$/.test(input.scope||"")||
+           !/^[a-f0-9]{32}$/.test(input.salt||"")||
+           !/^[a-f0-9]{64}$/.test(input.verifier||""))
+          return json({error:"invalid identity"},400);
+        const created=await this.state.storage.transaction(async tx=>{
+          if(await tx.get("identity"))return false;
+          await tx.put("identity",{
+            username:input.username,scope:input.scope,
+            salt:input.salt,verifier:input.verifier
+          });return true;
+        });
+        return json({ok:created},created?201:409);
+      }
+      if(action==="authenticate"){
+        if(!identity)return json({error:"not found"},404);
+        if(!validPassword(input.password))return json({error:"invalid login"},401);
+        const candidate=await passwordVerifier(input.password,identity.salt);
+        if(!safeEqual(candidate,identity.verifier))return json({error:"invalid login"},401);
+        return json({scope:identity.scope});
+      }
+      if(action==="change"){
+        if(!identity)return json({error:"not found"},404);
+        if(!validPassword(input.currentPassword)||!validPassword(input.newPassword)||
+          !safeEqual(identity.scope,String(input.scope||"")))
+          return json({error:"invalid change"},401);
+        const old=await passwordVerifier(input.currentPassword,identity.salt);
+        if(!safeEqual(old,identity.verifier))return json({error:"invalid login"},401);
+        const salt=passwordSalt(),verifier=await passwordVerifier(input.newPassword,salt);
+        const updated=await this.state.storage.transaction(async tx=>{
+          const latest=await tx.get("identity");
+          if(!latest||latest.verifier!==identity.verifier)return false;
+          await tx.put("identity",{...latest,salt,verifier});return true;
+        });
+        return json({ok:updated},updated?200:409);
+      }
+      return json({error:"not found"},404);
+    }
+    if(url.pathname==="/sessions-revoke"&&request.method==="POST"){
+      const epoch=(await this.state.storage.get("sessionEpoch"))||0;
+      await this.state.storage.put("sessionEpoch",epoch+1);
+      return json({ok:true});
+    }
     if(url.pathname==="/login-check"&&request.method==="POST"){
       let data={};
       try{data=await request.json();}catch{}
@@ -487,7 +630,10 @@ export class CarServiceStore {
       if(!existing)return json({error:"account missing"},404);
       const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
         new TextEncoder().encode(secret))),b=>b.toString(16).padStart(2,"0")).join("");
-      await this.state.storage.put("session:"+digest,Date.now()+30*86400000);
+      await this.state.storage.put("session:"+digest,{
+        expires:Date.now()+30*86400000,
+        epoch:(await this.state.storage.get("sessionEpoch"))||0
+      });
       return json({ok:true});
     }
     if(url.pathname==="/session-verify"&&request.method==="POST"){
@@ -496,8 +642,12 @@ export class CarServiceStore {
       if(!/^[A-F0-9]{48}$/.test(secret))return json({error:"invalid session"},401);
       const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
         new TextEncoder().encode(secret))),b=>b.toString(16).padStart(2,"0")).join("");
-      const expires=await this.state.storage.get("session:"+digest);
-      return json({ok:!!expires&&expires>Date.now()},expires&&expires>Date.now()?200:401);
+      const session=await this.state.storage.get("session:"+digest);
+      const epoch=(await this.state.storage.get("sessionEpoch"))||0;
+      const expiry=typeof session==="number"?session:session?.expires||0;
+      const issuedEpoch=typeof session==="number"?0:session?.epoch??-1;
+      const valid=expiry>Date.now()&&issuedEpoch===epoch;
+      return json({ok:valid},valid?200:401);
     }
     if(url.pathname==="/limit"&&request.method==="POST"){
       let ip;
