@@ -184,10 +184,20 @@ assert.equal((await json(await call("/api/documents","GET",null,changed.data.ses
   "Original ANDREAS");
 assert.equal((await call("/api/data","GET",null,logins.NICK.session)).status,200);
 assert.equal((await call("/api/data","GET",null,logins.VASDIM.session)).status,200);
+// During troubleshooting repeated login attempts must not return HTTP 429.
+for(let i=0;i<18;i++){
+  const attempt=await call("/api/account/login","POST",{
+    username:"SomeUnknownUser",password:"not-the-right-password"
+  },null,"203.0.113.52");
+  assert.equal(attempt.status,401,"Temporary debugging mode must not lock out login");
+}
+// The original protection remains explicitly restorable without another code commit.
+env.CAR_LOGIN_LIMIT_ENABLED="true";
 let throttled=null;
 for(let i=0;i<14;i++)
   throttled=await call("/api/account/login","POST",{
-    username:"SomeUnknownUser",password:"not-the-right-password"
-  },null,"203.0.113.52");
-assert.equal(throttled.status,429,"Brute-force throttle should remain active");
-console.log("PASS: master-gated registration, 3 in-place history/document migrations, username login, session revocation and account isolation");
+    username:"AnotherUnknownUser",password:"not-the-right-password"
+  },null,"203.0.113.74");
+assert.equal(throttled.status,429,"Opt-in login throttle should still work");
+delete env.CAR_LOGIN_LIMIT_ENABLED;
+console.log("PASS: master-gated accounts, 3 in-place history/document migrations, temporary unlimited debugging logins and restorable throttling");
