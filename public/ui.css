@@ -1332,3 +1332,64 @@ body:not(.account-locked) .document-kind{
     transition:none!important
   }
 }
+
+
+/* Service-book photo importer: a single tidy selection area. */
+.import-photo-picker{
+  display:flex;align-items:center;gap:12px;min-height:77px;
+  padding:13px 14px;margin:15px 0 8px;
+  border:1.5px dashed color-mix(in srgb,var(--accent) 47%,var(--line));
+  border-radius:17px;
+  background:color-mix(in srgb,var(--accent) 5%,var(--card));
+  color:var(--ink);cursor:pointer;
+  transition:border-color .18s,background-color .18s;
+}
+.import-photo-picker:hover,.import-photo-picker:focus-within{
+  border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 9%,var(--card))
+}
+.import-photo-picker-icon{
+  display:grid;place-items:center;
+  flex:0 0 46px;width:46px;height:46px;
+  border-radius:14px;background:var(--soft);font-size:1.42rem
+}
+.import-photo-picker>span:nth-child(2){flex:1;min-width:0}
+.import-photo-picker strong{display:block;font-size:.89rem;font-weight:800;line-height:1.35}
+.import-photo-picker small{display:block;font-size:.72rem;color:var(--mute);margin-top:4px;line-height:1.4}
+.import-photo-picker-plus{
+  display:grid;place-items:center;
+  width:29px;height:29px;border-radius:9px;
+  background:var(--accent);color:var(--accent-ink);font-weight:750;font-size:1.3rem
+}
+.import-photo-native{
+  position:absolute!important;width:1px!important;height:1px!important;
+  min-height:0!important;padding:0!important;margin:0!important;
+  opacity:0;overflow:hidden;clip-path:inset(50%)
+}
+.import-photo-native:focus-visible+.import-photo-list{
+  outline:2px solid var(--accent);outline-offset:3px
+}
+.import-photo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}
+.import-photo-list:empty{display:none}
+.import-photo-item{
+  display:flex;align-items:center;gap:9px;min-width:0;
+  padding:8px;border-radius:13px;
+  border:1px solid var(--line);background:var(--card)
+}
+.import-photo-item img{
+  flex:0 0 46px;width:46px;height:53px;object-fit:cover;
+  border-radius:9px;background:var(--soft)
+}
+.import-photo-item span{
+  flex:1;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;font-size:.73rem;color:var(--ink)
+}
+.import-photo-item button{
+  flex:0 0 34px;width:34px;height:34px;min-height:34px;padding:0;
+  border-radius:9px;color:var(--danger);background:var(--bg);font-size:1rem
+}
+.import-text-label{margin:14px 0 7px;font-size:.8rem;font-weight:750}
+#impTxt{min-height:100px}
+@media(max-width:380px){
+  .import-photo-list{grid-template-columns:1fr}
+}
