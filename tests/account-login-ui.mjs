@@ -133,7 +133,8 @@ assert.equal(register.el.accountMasterAdmin.value,"");
 assert(!JSON.stringify(register.localStorage.getItem("carServiceActiveAccountV3")).includes("SECRET-FOR-TEST-ONLY"));
 
 const changed=mount({username:"ANDREAS",scope,session});
-await Promise.resolve();await Promise.resolve();await Promise.resolve();
+for(let i=0;i<30;i++)await Promise.resolve();
+assert.equal(changed.started.length,1,"Saved session should restore before password change");
 changed.el.accountCurrentPassword.value="1234";
 changed.el.accountNewPassword.value="strong-new-password";
 await changed.el.accountPasswordForm.fire("submit");
