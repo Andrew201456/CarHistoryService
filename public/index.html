@@ -189,6 +189,151 @@ nav button.on{color:var(--accent);font-weight:600}
   .account-gate .account-created{padding:14px;border:1px solid var(--line,#e3e6ea);border-radius:12px}
   .account-gate .account-created code{display:block;overflow-wrap:anywhere;margin:10px 0}
   @media(max-width:380px){.account-gate .account-card{padding:22px 19px}}
+
+  /* Login-only color treatment. Scoped to avoid changing the main app. */
+  body.account-locked{
+    color:#eef9ff;background:#091323
+  }
+  body.account-locked .account-gate{
+    position:relative;isolation:isolate;
+    background:
+      radial-gradient(ellipse 65% 49% at 9% 8%,rgba(76,105,237,.32),transparent 81%),
+      radial-gradient(ellipse 64% 54% at 95% 91%,rgba(29,218,184,.22),transparent 80%),
+      radial-gradient(ellipse 44% 37% at 86% 13%,rgba(164,79,221,.16),transparent 85%),
+      linear-gradient(150deg,#0a1325,#11162a 52%,#0a1c29);
+    padding:max(22px,calc(env(safe-area-inset-top,0px) + 18px)) 16px
+      max(22px,calc(env(safe-area-inset-bottom,0px) + 18px))
+  }
+  body.account-locked .account-gate::before{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(171,198,240,.027) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(171,198,240,.027) 1px,transparent 1px);
+    background-size:36px 36px;
+    -webkit-mask-image:radial-gradient(ellipse at center,#000,transparent 78%);
+    mask-image:radial-gradient(ellipse at center,#000,transparent 78%)
+  }
+  .account-gate .account-card{
+    position:relative;overflow:hidden;
+    width:min(100%,405px);padding:29px 25px 26px;
+    border:1px solid transparent;border-radius:23px;
+    color:#edf8ff;
+    background:
+      linear-gradient(148deg,rgba(26,39,63,.97),rgba(14,27,43,.98)) padding-box,
+      linear-gradient(137deg,rgba(135,209,255,.63),rgba(144,126,240,.26) 53%,rgba(78,232,185,.55)) border-box;
+    box-shadow:0 25px 75px rgba(0,0,0,.35),
+      0 0 65px rgba(76,143,226,.07),inset 0 1px 0 rgba(255,255,255,.07)
+  }
+  .account-gate .account-card::before{
+    content:"";position:absolute;inset:0 0 auto;height:3px;pointer-events:none;
+    background:linear-gradient(90deg,#6df4d1 0%,#6acdf5 45%,#ba97fa 100%)
+  }
+  .account-gate .account-identity{margin:0 0 29px}
+  .account-gate .account-logo{
+    display:block;flex:0 0 45px;width:45px;height:45px;
+    max-width:45px;max-height:45px;border-radius:14px;
+    border:2px solid rgba(182,247,247,.65);
+    background:#b7e7f4;
+    box-shadow:0 6px 21px rgba(50,199,199,.18);
+    object-fit:cover
+  }
+  .account-gate .account-brand{
+    color:#e7fcff;font-size:.87rem;font-weight:850;letter-spacing:.7px
+  }
+  .account-gate .account-options-trigger{
+    width:43px;height:43px;min-width:43px;min-height:43px;
+    color:#9de5f2;border:1px solid rgba(126,179,215,.29);
+    border-radius:13px;background:rgba(109,176,228,.10);
+    transition:background .18s,border-color .18s,transform .18s
+  }
+  .account-gate .account-options-trigger:hover{
+    color:#d6fff6;background:rgba(90,206,190,.18);
+    border-color:rgba(128,237,212,.5)
+  }
+  .account-gate .account-options-trigger:active{transform:scale(.97)}
+  .account-gate #accountLoginPanel h1,
+  .account-gate #accountRegisterPanel h2{
+    font-size:1.78rem;line-height:1.2;letter-spacing:-.75px;
+    font-weight:830;margin:0 0 22px;color:#efffff;
+    background:linear-gradient(110deg,#fff 17%,#a9edff 67%,#d4bdff);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent
+  }
+  .account-gate #accountRegisterPanel h2{font-size:1.52rem;margin-bottom:22px}
+  .account-gate #accountLoginForm label,
+  .account-gate #accountRegisterPanel .account-custom-form label{
+    color:#c6d9ee;font-size:.78rem;font-weight:750;
+    margin:0 0 8px;letter-spacing:.08px
+  }
+  .account-gate #accountLoginForm label+input+label,
+  .account-gate #accountRegisterPanel .account-custom-form label:not(:first-child){
+    margin-top:14px
+  }
+  .account-gate #accountLoginForm input,
+  .account-gate #accountRegisterPanel .account-custom-form input{
+    width:100%;min-height:52px;
+    padding:12px 14px;border:1px solid rgba(137,180,220,.25);
+    border-radius:13px;background:rgba(7,17,32,.66);color:#f4fcff;
+    font-size:16px;font-weight:530;
+    -webkit-appearance:none;appearance:none;
+    transition:border-color .17s,box-shadow .17s,background .17s
+  }
+  .account-gate #accountLoginForm input::placeholder,
+  .account-gate #accountRegisterPanel .account-custom-form input::placeholder{
+    color:#809bb3;opacity:1
+  }
+  .account-gate #accountLoginForm input:focus,
+  .account-gate #accountRegisterPanel .account-custom-form input:focus{
+    border-color:#75e8d7;background:rgba(8,25,38,.9);
+    box-shadow:0 0 0 3px rgba(75,226,190,.13);outline:none
+  }
+  .account-gate #accountLoginForm input[aria-invalid="true"]{
+    border-color:#ff9aa9
+  }
+  .account-gate .account-login-button,
+  .account-gate #accountRegisterPanel .account-primary{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;min-height:54px;margin:21px 0 0;padding:12px 15px;
+    border:1px solid rgba(195,255,250,.46);border-radius:13px;
+    color:#0d253b;background:linear-gradient(112deg,#78f1d5,#79d4ff 53%,#aeaeff);
+    box-shadow:0 9px 26px rgba(63,197,220,.19),
+      inset 0 1px 0 rgba(255,255,255,.56);
+    font:inherit;font-size:.93rem;font-weight:820;
+    transition:filter .18s,transform .18s,box-shadow .18s
+  }
+  .account-gate .account-login-button svg{
+    width:19px;height:19px;flex:none;
+    transition:transform .18s
+  }
+  .account-gate .account-login-button:hover,
+  .account-gate #accountRegisterPanel .account-primary:hover{
+    filter:brightness(1.06);
+    box-shadow:0 11px 29px rgba(68,202,224,.27)
+  }
+  .account-gate .account-login-button:hover svg{transform:translateX(3px)}
+  .account-gate .account-login-button:active,
+  .account-gate #accountRegisterPanel .account-primary:active{transform:scale(.99)}
+  .account-gate .account-message{color:#a9e4e5}
+  .account-gate .account-message.error{color:#ffb2c1}
+  .account-gate .account-back{color:#9bdce6}
+  .account-gate .account-safety-note{color:#9eafc5}
+  .account-gate .account-install-trigger{
+    min-height:46px;margin-top:15px;border:1px solid rgba(122,210,224,.35);
+    border-radius:12px;color:#b9f6ed;background:rgba(58,175,184,.10);
+    transition:background .18s,border-color .18s
+  }
+  .account-gate .account-install-trigger:hover{
+    background:rgba(68,201,193,.18);border-color:#78e9d8
+  }
+  @media(max-width:390px){
+    .account-gate .account-card{padding:26px 19px 22px;border-radius:19px}
+    .account-gate #accountLoginPanel h1{font-size:1.62rem}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .account-gate .account-card *,
+    .account-gate .account-card *::before,
+    .account-gate .account-card *::after{transition:none!important}
+  }
 </style>
 </head>
 <body class="account-locked">
@@ -212,7 +357,6 @@ nav button.on{color:var(--accent);font-weight:600}
     </div>
     <div id="accountLoginPanel" class="account-panel">
       <h1>Καλώς ήρθες</h1>
-      <p class="account-login-subtitle">Το ιστορικό του αυτοκινήτου σου.</p>
       <form id="accountLoginForm" novalidate>
         <label for="accountUsername">Username</label>
         <input id="accountUsername" name="username" type="text" autocomplete="username"
@@ -232,13 +376,17 @@ nav button.on{color:var(--accent);font-weight:600}
         <button class="account-primary account-login-button" id="accountLoginBtn"
           type="submit" aria-busy="false">
           <span id="accountLoginBtnText">Σύνδεση</span>
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14m-6-6 6 6-6 6"/>
+          </svg>
         </button>
       </form>
     </div>
     <div id="accountRegisterPanel" class="account-panel" hidden>
       <button id="accountBackToLogin" class="account-back" type="button">← Πίσω στη σύνδεση</button>
       <h2>Νέος λογαριασμός</h2>
-      <p class="account-register-note">Η εγγραφή επιτρέπεται μόνο με τον προσωπικό master admin κωδικό.</p>
       <form id="accountCustomForm" class="account-custom-form" novalidate>
         <label for="accountCustomUsername">Username</label>
         <input id="accountCustomUsername" name="username" type="text" autocomplete="username"
@@ -251,7 +399,6 @@ nav button.on{color:var(--accent);font-weight:600}
         <label for="accountMasterAdmin">Master admin κωδικός</label>
         <input id="accountMasterAdmin" name="masterAdmin" type="password"
           autocomplete="off" required placeholder="Μόνο ο διαχειριστής">
-        <small class="account-safety-note">Προτείνεται ισχυρό password 12+ χαρακτήρων για προσωπικά έγγραφα.</small>
         <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία λογαριασμού</button>
       </form>
     </div>
