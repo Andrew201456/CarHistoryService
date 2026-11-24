@@ -141,6 +141,30 @@ for(const [name,password] of Object.entries(sample)){
   assert.equal((await call("/api/data","GET",null,oldTokens[name])).status,401,
     "Pre-migration sessions must be revoked");
 }
+const nickSnapshot=await json(await call("/api/data","GET",null,logins.NICK.session));
+const readOnlyReport=await json(await call("/api/account/recovery-check","POST",{
+  username:"Nick",masterAdmin:env.CAR_MASTER_ADMIN
+},logins.NICK.session));
+assert.equal(readOnlyReport.status,200,"Nick must be able to inspect original account safely");
+assert.equal(readOnlyReport.data.sameOriginalAccount,true);
+assert.equal(readOnlyReport.data.original.entries,1);
+assert.equal(readOnlyReport.data.active.entries,1);
+assert.equal(readOnlyReport.data.original.documents,1);
+assert.equal(readOnlyReport.data.username,"NICK");
+assert.equal((await call("/api/account/recovery-check","POST",{
+  username:"Nick",masterAdmin:"wrong-master"
+},logins.NICK.session)).status,403,
+  "Read-only recovery check must require the master secret");
+assert.equal((await call("/api/account/recovery-check","POST",{
+  username:"Nick",masterAdmin:env.CAR_MASTER_ADMIN
+},logins.ANDREAS.session)).status,403,
+  "Only the same logged-in identity may inspect the Nick recovery source");
+assert.equal((await call("/api/account/recovery-check","POST",{
+  username:"Nick",masterAdmin:env.CAR_MASTER_ADMIN
+})).status,401,"Anonymous requests must not inspect history");
+const nickAfter=await json(await call("/api/data","GET",null,logins.NICK.session));
+assert.deepEqual(nickAfter.data,nickSnapshot.data,
+  "Read-only diagnostic must never change or clear a cloud dataset");
 assert.notEqual(logins.ANDREAS.scope,logins.NICK.scope);
 assert.notEqual(logins.NICK.scope,logins.VASDIM.scope);
 assert.equal((await call("/api/data","GET",null,"a-different-token")).status,401);
