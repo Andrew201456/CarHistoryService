@@ -13,7 +13,7 @@ A mobile-first service history app (Greek) built on Cloudflare Workers, Static A
 - Per-account authenticated server sync with revision checks and three-way merge of concurrent edits.
 - Fifth bottom-tab "AI Μηχανικός": streamlined chat with a structured, editable vehicle profile, service-history-aware diagnosis and local chat history.
 
-## Τρέχουσα σύνδεση — Username / Password / Master admin (v22)
+## Τρέχουσα σύνδεση — Username / Password / Master admin (v23)
 
 Η τρέχουσα έκδοση χρησιμοποιεί **Username + Password**. Το κουμπί δημιουργίας λογαριασμού στο login ανοίγει φόρμα για **Username, Password και Master admin κωδικό**. Ο master χρησιμοποιείται **μόνο για έγκριση νέου λογαριασμού** ή πρώτη ενεργοποίηση παλαιού ιστορικού, ποτέ ως κοινό password χρηστών. Τα usernames γράφονται με λατινικούς χαρακτήρες (2–32, χωρίς κενά), και είναι case-insensitive. Οι κωδικοί πρόσβασης είναι case-sensitive. Τα passwords και ο master **δεν αποθηκεύονται στο localStorage** και δεν επιστρέφονται από το API· αποθηκεύεται μόνο η λήγουσα συνεδρία.
 
@@ -52,7 +52,7 @@ node tests/documents-wallet.mjs
 node tests/cloud-documents.mjs
 ```
 
-## Ιστορικό παλιάς σύνδεσης (v13 — αντικαταστάθηκε από v22)
+## Ιστορικό παλιάς σύνδεσης (v13 — αντικαταστάθηκε από v23)
 
 Η πρώτη οθόνη είναι πλέον **μόνο σύνδεση**: ένα πεδίο κωδικού και ένα κουμπί «Σύνδεση». Η μικρή επιλογή «Δημιουργία λογαριασμού» οδηγεί σε ξεχωριστή οθόνη με το πεδίο για δικό σου κωδικό, τυχαίο 4ψήφιο και κουμπί επιστροφής. Όταν δημιουργηθεί λογαριασμός, οι επιλογές κρύβονται μέχρι ο χρήστης να αποθηκεύσει τον νέο κωδικό. Δεν άλλαξε κανένα API, δικαίωμα πρόσβασης ή ιστορικό.
 
