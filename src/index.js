@@ -589,6 +589,47 @@ export default {
       return handleDiagnosticRequest(req, env);
     }
 
+    // Authenticated, in-memory service-book photo transcription. Images are
+    // never saved by this endpoint and the bearer token is never sent to AI.
+    if (url.pathname === "/api/parse-image" && req.method === "POST") {
+      if(!(await getAccount(req,env)))
+        return jsonNoStore({error:"Συνδέσου πρώτα στον λογαριασμό σου."},401);
+      const length=Number(req.headers.get("Content-Length")||0);
+      if(length>3_300_000)
+        return jsonNoStore({error:"Η φωτογραφία είναι πολύ μεγάλη. Μείωσε το μέγεθός της."},413);
+      let body={};
+      try{body=await req.json();}catch{
+        return jsonNoStore({error:"Μη έγκυρη φωτογραφία."},400);
+      }
+      const image=body?.image;
+      if(typeof image!=="string"||image.length>3_100_000||
+         !/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/]+={0,2}$/.test(image)||
+         image.length<200)
+        return jsonNoStore({error:"Επίλεξε καθαρή φωτογραφία JPG, PNG ή WebP."},400);
+      const photoPrompt=`Διάβασε μόνο το κείμενο που διακρίνεις σε αυτή τη φωτογραφία βιβλίου service, απόδειξης συνεργείου ή σελίδας με εγγραφές συντήρησης αυτοκινήτου.
+Μετέγραψε στα ελληνικά αναλυτικά κάθε πραγματική εγγραφή που είναι ορατή: ημερομηνία, χιλιόμετρα, εργασίες, ανταλλακτικά, τιμές, συνεργείο, παρατηρήσεις.
+Διατήρησε τη σχέση κάθε ημερομηνίας με τις εργασίες της. Αν βλέπεις πολλά service, ξεχώρισέ τα.
+ΜΗΝ μαντεύεις ή συμπληρώνεις κομμένα ή δυσανάγνωστα πεδία. Γράψε [δυσανάγνωστο] όπου χρειάζεται.
+Αγνόησε πλαίσια, διακοσμήσεις και άσχετες επιγραφές. Μόνο απλή μεταγραφή, όχι JSON.`;
+      try{
+        const vision=await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct",{
+          messages:[{role:"user",content:photoPrompt}],
+          image,max_tokens:2000,temperature:0
+        });
+        let text=typeof vision==="string"?vision:vision?.response||"";
+        if(typeof text!=="string")text=String(text||"");
+        text=text.trim().slice(0,11500);
+        if(!text||text.length<7)
+          return jsonNoStore({error:"Δεν διαβάστηκε κείμενο. Δοκίμασε πιο καθαρή φωτογραφία."},422);
+        return jsonNoStore({text});
+      }catch(error){
+        console.error("Service-book vision error",String(error?.message||error));
+        return jsonNoStore({
+          error:"Δεν ήταν διαθέσιμη η ανάγνωση φωτογραφίας. Έλεγξε ότι έχει ενεργοποιηθεί το Cloudflare Vision model και η άδειά του."
+        },502);
+      }
+    }
+
     if (url.pathname === "/api/parse" && req.method === "POST") {
       if (!(await getAccount(req, env))) return new Response("unauthorized", { status: 401 });
       let text = "";
