@@ -7,6 +7,8 @@ import {fileURLToPath} from "node:url";
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const html=readFileSync(resolve(root,"public/index.html"),"utf8");
 const script=readFileSync(resolve(root,"public/account.js"),"utf8");
+assert(html.includes('id="accountRememberMe"'));
+assert(html.includes('id="accountRestoreBoot"'));
 const css=readFileSync(resolve(root,"public/ui.css"),"utf8");
 const embedded=html.match(/<script id="accountLoginRuntime">([\s\S]*?)<\/script>/);
 assert(embedded,"Login runtime must be embedded to avoid stale PWA JS");
@@ -30,7 +32,7 @@ assert(!script.includes('password:current.password'),"Password must never be per
 class Element{
   constructor(id,hidden=false){
     this.id=id;this.hidden=hidden;this.value="";this.textContent="";
-    this.disabled=false;this.listeners={};this.attributes={};
+    this.disabled=false;this.checked=false;this.listeners={};this.attributes={};
     this.classList={toggle(){},remove(){}};
   }
   setAttribute(k,v){this.attributes[k]=String(v)}
@@ -41,20 +43,23 @@ class Element{
 }
 const scope="f".repeat(64),session="ST-"+scope+"-"+"B".repeat(48);
 const updatedSession="ST-"+scope+"-"+"C".repeat(48);
-function mount(initial=null){
+function mount(initial=null,{source="local"}={}){
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
   const el=Object.fromEntries(ids.map(id=>{
     const match=html.match(new RegExp('<[^>]+\\bid="'+id+'"[^>]*>'))?.[0]||"";
-    return [id,new Element(id,/\shidden(?:\s|>|=)/.test(match))];
+    const e=new Element(id,/\shidden(?:\s|>|=)/.test(match));
+    e.checked=/\schecked(?:\s|>|=)/.test(match);
+    return [id,e];
   }));
-  const data=new Map();
-  if(initial)data.set("carServiceActiveAccountV3",JSON.stringify(initial));
+  const data=new Map(),tabData=new Map();
+  if(initial)(source==="session"?tabData:data).set("carServiceActiveAccountV3",JSON.stringify(initial));
   const localStorage={
     getItem:k=>data.get(k)||null,
     setItem:(k,v)=>data.set(k,v),
     removeItem:k=>data.delete(k)
   };
-  const sent=[],started=[],state={reloaded:0};
+  const sessionStorage={getItem:k=>tabData.get(k)||null,setItem:(k,v)=>tabData.set(k,v),removeItem:k=>tabData.delete(k)};
+  const sent=[],started=[],state={reloaded:0,restoring:false};
   const fetch=async (url,options)=>{
     const body=JSON.parse(options.body||"{}");
     sent.push({url,body,headers:options.headers});
@@ -86,22 +91,22 @@ function mount(initial=null){
     };
     throw Error("Unexpected route "+url);
   };
-  const document={getElementById:id=>el[id],body:{classList:{remove(){}}}};
+  const document={getElementById:id=>el[id],body:{classList:{remove(){}}},documentElement:{classList:{remove(k){if(k==="account-restoring")state.restoring=false;}}}};
   const win={CarAppStartAccount:(token,which)=>started.push({token,scope:which}),
     addEventListener(){}};
   const AbortControllerStub=class{
     constructor(){this.signal={aborted:false,addEventListener(){},removeEventListener(){}}}
     abort(){this.signal.aborted=true}
   };
-  new Function("document","window","localStorage","fetch","navigator",
+  new Function("document","window","localStorage","sessionStorage","fetch","navigator",
     "location","prompt","alert","confirm","AbortController",
     "setTimeout","clearTimeout",script)(
-    document,win,localStorage,fetch,
+    document,win,localStorage,sessionStorage,fetch,
     {clipboard:{writeText:async()=>{}}},
     {reload(){state.reloaded++}},()=>{},()=>{},()=>true,
     AbortControllerStub,()=>1,()=>{}
   );
-  return {el,localStorage,started,sent,state};
+  return {el,localStorage,sessionStorage,started,sent,state};
 }
 
 const returning=mount();
