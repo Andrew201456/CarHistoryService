@@ -16,7 +16,7 @@
     png:"image/png",webp:"image/webp",heic:"image/heic",heif:"image/heif"};
   const form=$("documentForm"),list=$("documentsList"),message=$("documentStatus");
   if(!form||!list)return;
-  let scope="",db=null,cloud=[],local=[],merged=[],busy=false,migrating=false,
+  let scope="",db=null,cloud=[],local=[],merged=[],cloudReady=false,busy=false,migrating=false,
     refreshSerial=0,previewSerial=0,previewUrl=null;
   function notice(value,error=false){
     message.textContent=value||"";
@@ -130,6 +130,7 @@
     }finally{clearTimeout(timer);}
   }
   async function upload(record){
+    if(record.scope!==scope)throw Error("Ο λογαριασμός άλλαξε.");
     const result=await api("/api/documents",{method:"POST",json:{
       clientKey:record.id,kind:record.kind,title:record.title||"",
       expiry:record.expiry||"",cost:record.cost??"",mime:record.mime,
@@ -158,7 +159,7 @@
       return {...remote,remoteId:remote.id,cacheKey:cached?.key,
         blob:cached?.blob,cloud:true};
     });
-    for(const cached of local)if(!included.has(cached.id)){
+    for(const cached of local)if(!included.has(cached.id)&&(!cloudReady||!cached.cloudId)){
       merged.push({...cached,cloud:false});
     }
     merged.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -211,7 +212,9 @@
   async function getBlob(item){
     if(item.blob)return item.blob;
     if(!item.cloud)throw Error("Το αρχείο δεν βρέθηκε στη συσκευή.");
+    const owner=scope;
     const blob=await api("/api/documents/"+item.remoteId,{asBlob:true});
+    if(owner!==scope)throw Error("Ο λογαριασμός άλλαξε.");
     // Cache the cloud file so the browser can show it offline next time.
     try{
       const key=item.clientKey||item.remoteId;
@@ -317,17 +320,17 @@
       const result=await api("/api/documents");
       if(serial!==refreshSerial||owner!==scope)return;
       cloud=Array.isArray(result.documents)?result.documents:[];
-      available=true;
+      available=true;cloudReady=true;
     }catch(error){
       if(serial!==refreshSerial||owner!==scope)return;
-      cloud=[];
+      cloud=[];cloudReady=false;
       if(local.length)notice("Offline: τα τοπικά έγγραφα είναι διαθέσιμα. "+error.message,true);
       else notice("Cloudflare: "+error.message,true);
     }
     if(serial!==refreshSerial||owner!==scope)return;
     redraw();
     const synced=new Set(cloud.map(item=>item.clientKey));
-    const pending=local.filter(item=>!synced.has(item.id)&&item.blob);
+    const pending=local.filter(item=>!synced.has(item.id)&&!item.cloudId&&item.blob);
     if(available&&!skipMigration&&pending.length&&!migrating&&!busy)
       void migrateOldDocs(pending,owner);
   }
@@ -361,8 +364,10 @@
     busy=true;$("documentSave").disabled=true;
     let cached=false,uploaded=false,cloudId="";
     try{
-      try{await writeLocal(record);cached=true;}
-      catch(error){console.warn("Cannot cache document on device",error);}
+      try{
+        await writeLocal(record);cached=true;
+        if(owner===scope)window.CarHistoryObligations?.update(kind,expiry,cost,true);
+      }catch(error){console.warn("Cannot cache document on device",error);}
       cloudId=await upload(record);uploaded=true;
       if(cached)try{await writeLocal({...record,cloudId});}catch{}
       if(owner===scope){
@@ -396,7 +401,7 @@
     const next=window.CarHistoryAccountReady?window.CarHistoryAccountScope:"";
     if(!/^[0-9a-f]{64}$/.test(next||""))return;
     if(scope!==next){
-      scope=next;cloud=[];local=[];merged=[];refreshSerial++;previewSerial++;
+      scope=next;cloud=[];local=[];merged=[];cloudReady=false;refreshSerial++;previewSerial++;
       clearPreview();
       if($("documentPreview").open)$("documentPreview").close();
       form.reset();notice("");redraw();
