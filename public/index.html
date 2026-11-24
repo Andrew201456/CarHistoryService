@@ -155,6 +155,14 @@ nav button.on{color:var(--accent);font-weight:600}
     font:inherit;font-size:.87rem;cursor:pointer
   }
   .account-gate .account-message{font-size:.82rem;line-height:1.5;margin:13px 0 0}
+  .account-gate #accountLoginForm label+input+label,
+  .account-gate .account-custom-form label:not(:first-child){margin-top:13px}
+  .account-gate #accountRegisterPanel .account-custom-form input{
+    box-sizing:border-box;display:block;width:100%;min-height:51px;
+    background:var(--bg);border:1px solid var(--line);
+    border-radius:11px;color:var(--ink);font:inherit;font-size:16px;padding:11px 12px
+  }
+  .account-gate .account-register-note{font-size:.82rem;color:var(--mute);margin:0 0 16px}
   .account-gate .account-message:empty{display:none}
   .account-gate .account-message.error{color:var(--danger,#c0392b)}
   .account-gate #accountRegisterPanel{font-size:.88rem}
@@ -181,7 +189,7 @@ nav button.on{color:var(--accent);font-weight:600}
         <span class="account-brand">CAR HISTORY</span>
       </div>
       <button id="accountOpenRegister" class="account-options-trigger" type="button"
-        aria-label="Δημιουργία λογαριασμού" aria-controls="accountRegisterPanel"
+        aria-label="Νέος λογαριασμός" aria-controls="accountRegisterPanel"
         aria-expanded="false" title="Νέος λογαριασμός">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -191,14 +199,17 @@ nav button.on{color:var(--accent);font-weight:600}
         </svg>
       </button>
     </div>
-
     <div id="accountLoginPanel" class="account-panel">
       <h1>Καλώς ήρθες</h1>
       <p class="account-login-subtitle">Το ιστορικό του αυτοκινήτου σου.</p>
       <form id="accountLoginForm" novalidate>
-        <label for="accountCode">Κωδικός πρόσβασης</label>
-        <input id="accountCode" type="password" autocomplete="off" spellcheck="false"
-          enterkeyhint="go" placeholder="Γράψε τον κωδικό σου"
+        <label for="accountUsername">Username</label>
+        <input id="accountUsername" name="username" type="text" autocomplete="username"
+          autocapitalize="off" spellcheck="false" maxlength="32"
+          placeholder="Username" required>
+        <label for="accountPassword">Password</label>
+        <input id="accountPassword" name="password" type="password"
+          autocomplete="current-password" placeholder="Password"
           aria-describedby="accountMessage" required>
         <button class="account-primary account-login-button" id="accountLoginBtn"
           type="submit" aria-busy="false">
@@ -206,37 +217,29 @@ nav button.on{color:var(--accent);font-weight:600}
         </button>
       </form>
     </div>
-
     <div id="accountRegisterPanel" class="account-panel" hidden>
       <button id="accountBackToLogin" class="account-back" type="button">← Πίσω στη σύνδεση</button>
-
-      <div id="accountRegisterChoices">
-        <h2>Νέος λογαριασμός</h2>
-        <p>Διάλεξε τον δικό σου κωδικό ή πάρε έναν αυτόματα.</p>
-        <form id="accountCustomForm" class="account-custom-form">
-          <label for="accountCustomCode">Ο κωδικός που θέλεις</label>
-          <input id="accountCustomCode" type="text" autocomplete="off" spellcheck="false"
-            maxlength="64" placeholder="π.χ. 1234 ή 12345678ςς" required>
-          <p class="account-helper">Αριθμοί, γράμματα ή σύμβολα — όπως σε βολεύει.</p>
-          <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία λογαριασμού</button>
-        </form>
-        <div class="account-divider">ή</div>
-        <button id="accountCreate" type="button" class="account-secondary">Τυχαίος 4ψήφιος κωδικός</button>
-        <small class="account-safety-note">Φύλαξε τον κωδικό σου. Οι πολύ εύκολοι κωδικοί μπορούν να μαντευτούν.</small>
-      </div>
-
-      <div id="accountCreated" class="account-created" hidden>
-        <strong>Ο προσωπικός σου κωδικός</strong>
-        <code id="accountNewCode"></code>
-        <p><strong>Αποθήκευσέ τον!</strong> Θα τον χρειαστείς για να ξαναμπείς. Αν χαθεί, δεν υπάρχει αυτόματη ανάκτηση.</p>
-        <button id="accountCopy" type="button" class="account-secondary">Αντιγραφή κωδικού</button>
-        <button id="accountContinue" type="button" class="account-primary">Αποθήκευσα τον κωδικό — Συνέχεια</button>
-      </div>
+      <h2>Νέος λογαριασμός</h2>
+      <p class="account-register-note">Η εγγραφή επιτρέπεται μόνο με τον προσωπικό master admin κωδικό.</p>
+      <form id="accountCustomForm" class="account-custom-form" novalidate>
+        <label for="accountCustomUsername">Username</label>
+        <input id="accountCustomUsername" name="username" type="text" autocomplete="username"
+          autocapitalize="off" spellcheck="false" maxlength="32" required
+          placeholder="π.χ. Nikos">
+        <label for="accountCustomPassword">Password</label>
+        <input id="accountCustomPassword" name="password" type="password"
+          autocomplete="new-password" minlength="4" required
+          placeholder="Τουλάχιστον 4 χαρακτήρες">
+        <label for="accountMasterAdmin">Master admin κωδικός</label>
+        <input id="accountMasterAdmin" name="masterAdmin" type="password"
+          autocomplete="off" required placeholder="Μόνο ο διαχειριστής">
+        <small class="account-safety-note">Προτείνεται ισχυρό password 12+ χαρακτήρων για προσωπικά έγγραφα.</small>
+        <button id="accountCustomCreate" class="account-primary" type="submit">Δημιουργία λογαριασμού</button>
+      </form>
     </div>
     <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
   </div>
 </section>
-
 
 <main>
 
@@ -502,10 +505,21 @@ nav button.on{color:var(--accent);font-weight:600}
     <div class="account-info-row">
       <span>Συγχρονισμός</span><span class="account-status-label"><span aria-hidden="true">●</span> Αυτόματος με internet</span>
     </div>
-    <button class="account-action" type="button" id="accountShowCode">Αντιγραφή προσωπικού κωδικού</button>
+    <button class="account-action" type="button" id="accountShowCode">Αντιγραφή username</button>
+    <details class="account-password-panel">
+      <summary>Αλλαγή password</summary>
+      <form id="accountPasswordForm" novalidate>
+        <label for="accountCurrentPassword">Τωρινό password</label>
+        <input id="accountCurrentPassword" type="password" autocomplete="current-password" required>
+        <label for="accountNewPassword">Νέο password</label>
+        <input id="accountNewPassword" type="password" autocomplete="new-password" minlength="4" required>
+        <button class="account-action" id="accountChangePassword" type="submit">Αλλαγή κωδικού</button>
+      </form>
+      <p id="accountPasswordStatus" class="account-feedback" role="status"></p>
+    </details>
     <p class="account-feedback" id="bkmsg" role="status" aria-live="polite"></p>
     <button class="account-logout" type="button" id="chpw">Αποσύνδεση</button>
-    <p class="account-pref-note">Ο κωδικός σου είναι προσωπικός. Αν μοιραστείς τον κωδικό, θα μπορούν να δουν τις καταχωρήσεις σου.</p>
+    <p class="account-pref-note">Κράτησε το password σου ιδιωτικό. Για ασφάλεια εγγράφων προτείνεται κωδικός τουλάχιστον 12 χαρακτήρων.</p>
   </div>
 
   <details class="account-advanced">
