@@ -318,8 +318,8 @@ export default {
         method:"POST",body:JSON.stringify({ip:req.headers.get("CF-Connecting-IP")||"unknown"})
       });
       if(!allowed.ok)return jsonNoStore({error:"Πολλές προσπάθειες. Δοκίμασε αργότερα."},429);
-      if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<16)
-        return jsonNoStore({error:"Το CAR_MASTER_ADMIN στο Cloudflare λείπει ή έχει λιγότερους από 16 χαρακτήρες. Ρύθμισέ το ως Production Secret."},503);
+      if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<10)
+        return jsonNoStore({error:"Το CAR_MASTER_ADMIN στο Cloudflare λείπει ή έχει λιγότερους από 10 χαρακτήρες. Ρύθμισέ το ως Production Secret."},503);
       if(!safeEqual(master,env.CAR_MASTER_ADMIN))
         return jsonNoStore({error:"Λάθος master admin κωδικός."},403);
       const registry=identityStub(env,username);
@@ -383,9 +383,9 @@ export default {
           // A missing or too-short configured secret is a server setup issue,
           // not an incorrect login password. Give a diagnostic status without
           // disclosing any secret value or attempting to compare insecurely.
-          if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<16)
+          if(typeof env.CAR_MASTER_ADMIN!=="string"||env.CAR_MASTER_ADMIN.length<10)
             return jsonNoStore({
-              error:"Το CAR_MASTER_ADMIN στο Cloudflare λείπει ή έχει λιγότερους από 16 χαρακτήρες. Ρύθμισέ το ως Production Secret.",
+              error:"Το CAR_MASTER_ADMIN στο Cloudflare λείπει ή έχει λιγότερους από 10 χαρακτήρες. Ρύθμισέ το ως Production Secret.",
               masterRequired:true,masterError:"configuration"
             },503);
           const supplied=String(payload.masterAdmin||"");
