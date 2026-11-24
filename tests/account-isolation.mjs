@@ -104,9 +104,21 @@ assert.equal((await call("/api/account/create","POST",{
 assert.equal((await call("/api/account/login","POST",{
   username:"Andreas",password:sample.ANDREAS
 })).status,428,"Legacy identity cannot be claimed with password alone");
-assert.equal((await call("/api/account/login","POST",{
+const badMaster=await json(await call("/api/account/login","POST",{
   username:"Andreas",password:sample.ANDREAS,masterAdmin:"bad-master"
-})).status,428);
+}));
+assert.equal(badMaster.status,403);
+assert.equal(badMaster.data.masterError,"mismatch");
+assert.match(badMaster.data.error,/δεν ταιριάζει/);
+const correctMaster=env.CAR_MASTER_ADMIN;
+env.CAR_MASTER_ADMIN="short";
+const shortMaster=await json(await call("/api/account/login","POST",{
+  username:"Andreas",password:sample.ANDREAS,masterAdmin:"short"
+}));
+assert.equal(shortMaster.status,503);
+assert.equal(shortMaster.data.masterError,"configuration");
+assert.match(shortMaster.data.error,/16 χαρακτήρες/);
+env.CAR_MASTER_ADMIN=correctMaster;
 
 const logins={};
 for(const [name,password] of Object.entries(sample)){
