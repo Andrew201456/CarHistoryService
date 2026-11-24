@@ -8,7 +8,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const source=readFileSync(resolve(root,"public/index.html"),"utf8");
 const features=readFileSync(resolve(root,"public/features.js"),"utf8");
 const styles=readFileSync(resolve(root,"public/ui.css"),"utf8");
-const required=["regular","repair","tires","improvements"];
+const required=["regular","repair","tires","improvements","expenses"];
 const gateStart=source.indexOf('<section id="accountGate"');
 const gate=source.slice(gateStart,source.indexOf('</section>',gateStart)+10);
 assert(gate.includes("account-login-subtitle"),"Login should have a small welcome subtitle");
@@ -40,7 +40,7 @@ assert(styles.includes('.filters button[hidden],.quick-actions[hidden]{display:n
 
 // Exercise the real category helpers using a small document mock.
 const ids=["serviceKind","regular","kmFieldLabel","tireFields","improvementQuickActions",
-  "regularQuickActions","serviceKindHint","accountEntriesCount","accountCategorySettings"];
+  "expenseQuickActions","regularQuickActions","serviceKindHint","accountEntriesCount","accountCategorySettings"];
 const fields=Object.fromEntries(ids.map(id=>[id,{
   id,value:"",textContent:"",hidden:false,checked:false,listeners:{},
   addEventListener(name,cb){this.listeners[name]=cb}
@@ -48,7 +48,7 @@ const fields=Object.fromEntries(ids.map(id=>[id,{
 const checkboxes=required.map(visibleKind=>({
   dataset:{visibleKind},checked:false
 }));
-const document={querySelectorAll(selector){
+const document={querySelector(selector){if(selector==='label[for="where"]')return fields.whereLabel??=( {textContent:""} );throw Error("Unexpected querySelector: "+selector);},querySelectorAll(selector){
   if(selector==="[data-visible-kind]")return checkboxes;
   throw Error("Unexpected selector: "+selector);
 }};
@@ -64,7 +64,8 @@ const kinds=[
   {regular:true},                 // legacy maintenance
   {regular:false},                // legacy repair
   {kind:"tires",regular:false},
-  {kind:"improvements",regular:false,parts:[{name:"Stage 1",cost:"250"}]}
+  {kind:"improvements",regular:false,parts:[{name:"Stage 1",cost:"250"}]},
+  {kind:"expenses",regular:false,parts:[{name:"Ασφάλεια",cost:"260"}]}
 ];
 assert.deepEqual(kinds.map(helpers.itemKind),required);
 assert(required.every(helpers.isKindVisible),"All categories default visible");
@@ -77,6 +78,10 @@ assert.equal(fields.tireFields.hidden,true);
 assert.equal(fields.improvementQuickActions.hidden,false);
 assert.equal(fields.regularQuickActions.hidden,true);
 assert.match(fields.serviceKindHint.textContent,/Stage 1/);
+helpers.setServiceKind("expenses");
+assert.equal(fields.expenseQuickActions.hidden,false);
+assert.equal(fields.regularQuickActions.hidden,true);
+assert.match(fields.serviceKindHint.textContent,/ετήσια έξοδα/);
 helpers.setServiceKind("tires");
 assert.equal(fields.tireFields.hidden,false);
 assert.equal(fields.improvementQuickActions.hidden,true);
@@ -101,4 +106,4 @@ assert(helpers.isKindVisible("repair"));
 assert.equal(saveCount,2);
 assert.equal(renderCount,2);
 
-console.log("PASS: Account tab, hidden recovery tools, improvements, personal visibility and no deleted history");
+console.log("PASS: Account tab, improvements, vehicle expenses, personal visibility and no deleted history");
