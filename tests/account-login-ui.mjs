@@ -1,6 +1,4 @@
-/* Run: node tests/account-login-ui.mjs
- * The login screen is intentionally minimal; registration is a separate view.
- */
+/* Run: node tests/account-login-ui.mjs */
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {dirname,resolve} from "node:path";
@@ -8,143 +6,138 @@ import {fileURLToPath} from "node:url";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const html=readFileSync(resolve(root,"public/index.html"),"utf8");
-const storedJs=readFileSync(resolve(root,"public/account.js"),"utf8");
-const embedded=html.match(/<script id="accountLoginRuntime">([\s\S]*?)<\/script>/);
-assert(embedded,"Login must ship with its HTML to avoid stale PWA script versions");
-const js=embedded[1].trim();
-assert.equal(js,storedJs.trim(),"Embedded login runtime must match tested account.js");
-const critical=html.match(/<style id="accountCriticalStyles">([\s\S]*?)<\/style>/);
-assert(critical,"Critical login appearance must work even when /ui.css fails");
-assert(critical[1].includes("body.account-locked main"),"Other pages must stay hidden at login");
-assert(critical[1].includes(".account-options-trigger svg"),"Login SVG icon must be constrained");
-assert(critical[1].includes("width:21px!important"),"SVG may not inflate on iPhone");
-assert(!html.includes('<script src="/account.js"></script>'),"Do not load a duplicate cached login runtime");
+const script=readFileSync(resolve(root,"public/account.js"),"utf8");
 const css=readFileSync(resolve(root,"public/ui.css"),"utf8");
-assert(css.includes(".account-card [hidden]{display:none!important}"),
-  "All hidden panels and controls must actually be invisible despite button CSS");
-assert(html.includes('id="accountRegisterPanel" class="account-panel" hidden'));
-assert(html.includes('id="accountOpenRegister"'));
-assert(!html.includes('id="accountChooseCustom"'));
-assert(html.includes('class="account-options-trigger"'),"Account options icon should be discreet");
-assert(!html.includes('Δεν έχεις λογαριασμό;'),"Account creation not displayed by default");
-assert(html.includes('id="accountLoginBtnText"'),"Loading text should be present");
+const embedded=html.match(/<script id="accountLoginRuntime">([\s\S]*?)<\/script>/);
+assert(embedded,"Login runtime must be embedded to avoid stale PWA JS");
+assert.equal(embedded[1].trim(),script.trim());
+const critical=html.match(/<style id="accountCriticalStyles">([\s\S]*?)<\/style>/);
+assert(critical&&critical[1].includes(".account-options-trigger svg"));
+assert(css.includes(".account-card [hidden]{display:none!important}"));
+for(const id of ["accountGate","accountLoginForm","accountUsername","accountPassword",
+  "accountLoginBtn","accountLoginBtnText","accountRegisterPanel","accountBackToLogin",
+  "accountCustomForm","accountCustomUsername","accountCustomPassword",
+  "accountMasterAdmin","accountCustomCreate","accountPasswordForm",
+  "accountCurrentPassword","accountNewPassword","accountChangePassword"]){
+  assert(html.includes('id="'+id+'"'),"Missing "+id);
+}
+assert(!html.includes('id="accountCode"'),"Old PIN-only login must be removed");
+assert(!html.includes('id="accountCreate"'),"Unrestricted random-PIN registration removed");
+assert(!script.includes("LEGACY_USER="),"Do not expose legacy login credentials in public JS");
+assert(!script.includes('password:current.password'),"Password must never be persisted");
 
-class Element {
-  constructor(id,hidden=false) {
+class Element{
+  constructor(id,hidden=false){
     this.id=id;this.hidden=hidden;this.value="";this.textContent="";
     this.disabled=false;this.listeners={};this.attributes={};
     this.classList={toggle(){},remove(){}};
   }
-  setAttribute(key,value){this.attributes[key]=String(value)}
-  removeAttribute(key){delete this.attributes[key]}
-  addEventListener(event,cb){(this.listeners[event]??=[]).push(cb)}
-  async fire(event){for(const cb of this.listeners[event]||[])await cb({preventDefault(){}})}
+  setAttribute(k,v){this.attributes[k]=String(v)}
+  removeAttribute(k){delete this.attributes[k]}
+  addEventListener(type,fn){(this.listeners[type]??=[]).push(fn)}
+  async fire(type){for(const fn of this.listeners[type]||[])await fn({preventDefault(){}})}
   focus(){this.focused=true}
 }
-function mount() {
-  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
-  const els=Object.fromEntries(ids.map(id=>{
-    const tag=html.match(new RegExp('<[^>]+\\bid="'+id+'"[^>]*>'))?.[0]||"";
-    return [id,new Element(id,/\shidden(?:\s|>|=)/.test(tag))];
+const scope="f".repeat(64),session="ST-"+scope+"-"+"B".repeat(48);
+const updatedSession="ST-"+scope+"-"+"C".repeat(48);
+function mount(initial=null){
+  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+  const el=Object.fromEntries(ids.map(id=>{
+    const match=html.match(new RegExp('<[^>]+\\bid="'+id+'"[^>]*>'))?.[0]||"";
+    return [id,new Element(id,/\shidden(?:\s|>|=)/.test(match))];
   }));
-  const map=new Map();
+  const data=new Map();
+  if(initial)data.set("carServiceActiveAccountV3",JSON.stringify(initial));
   const localStorage={
-    getItem:key=>map.get(key)||null,
-    setItem:(key,value)=>map.set(key,value),
-    removeItem:key=>map.delete(key)
+    getItem:k=>data.get(k)||null,
+    setItem:(k,v)=>data.set(k,v),
+    removeItem:k=>data.delete(k)
   };
-  const scope="f".repeat(64);
-  const session="ST-"+scope+"-"+"B".repeat(48);
-  const requests=[],started=[];
-  const fetch=async(path,options)=>{
+  const sent=[],started=[],state={reloaded:0};
+  const fetch=async (url,options)=>{
     const body=JSON.parse(options.body||"{}");
-    requests.push({path,body});
-    if(path==="/api/account/create"){
-      if(body.code==="1234"){
-        return {ok:false,status:409,json:async()=>({error:"Ο κωδικός χρησιμοποιείται ήδη. Διάλεξε άλλον."})};
-      }
-      return {ok:true,status:200,json:async()=>({code:body.code||"5678",scope,session})};
+    sent.push({url,body,headers:options.headers});
+    if(url==="/api/account/login"){
+      if(body.password==="wrong")
+        return {ok:false,status:401,json:async()=>({error:"Λάθος username ή password."})};
+      return {ok:true,status:200,json:async()=>({username:body.username,scope,session})};
     }
-    if(path==="/api/account/login"){
-      if(body.code==="WRONG")return {ok:false,status:401,json:async()=>({error:"Λάθος κωδικός"})};
-      return {ok:true,status:200,json:async()=>({scope,session})};
+    if(url==="/api/account/create"){
+      if(body.masterAdmin!=="SECRET-FOR-TEST-ONLY")
+        return {ok:false,status:403,json:async()=>({error:"Λάθος master admin κωδικός."})};
+      return {ok:true,status:201,json:async()=>({username:body.username,scope,session})};
     }
-    if(path==="/api/account/session")return {ok:true,status:200,json:async()=>({scope})};
-    throw new Error("Unexpected URL: "+path);
+    if(url==="/api/account/session")return {
+      ok:true,status:200,json:async()=>({scope})
+    };
+    if(url==="/api/account/password")return {
+      ok:true,status:200,json:async()=>({scope,session:updatedSession})
+    };
+    throw Error("Unexpected route "+url);
   };
-  const document={getElementById:id=>els[id],body:{classList:{remove(){}}}};
-  const window={CarAppStartAccount:(code,s)=>started.push({code,scope:s}),addEventListener(){}};
+  const document={getElementById:id=>el[id],body:{classList:{remove(){}}}};
+  const win={CarAppStartAccount:(token,which)=>started.push({token,scope:which}),
+    addEventListener(){}};
   const AbortControllerStub=class{
-    constructor(){
-      this.signal={aborted:false,addEventListener(){},removeEventListener(){}};
-    }
-    abort(){this.signal.aborted=true;}
+    constructor(){this.signal={aborted:false,addEventListener(){},removeEventListener(){}}}
+    abort(){this.signal.aborted=true}
   };
-  new Function("document","window","localStorage","fetch","navigator","location",
-    "crypto","TextEncoder","prompt","alert","confirm",
-    "AbortController","setTimeout","clearTimeout",js)(
-    document,window,localStorage,fetch,
-    {onLine:true,clipboard:{writeText:async()=>{}}},
-    {reload(){}},{subtle:{}},class{},()=>{},()=>{},()=>true,
+  new Function("document","window","localStorage","fetch","navigator",
+    "location","prompt","alert","confirm","AbortController",
+    "setTimeout","clearTimeout",script)(
+    document,win,localStorage,fetch,
+    {clipboard:{writeText:async()=>{}}},
+    {reload(){state.reloaded++}},()=>{},()=>{},()=>true,
     AbortControllerStub,()=>1,()=>{}
   );
-  return {els,started,requests,localStorage,scope,session};
+  return {el,localStorage,started,sent,state};
 }
 
-// Initial state: one code box and one login button, no registration options.
-const app=mount();
-const e=app.els;
-assert.equal(e.accountLoginPanel.hidden,false);
-assert.equal(e.accountRegisterPanel.hidden,true);
-assert.equal(e.accountCreated.hidden,true);
-await e.accountOpenRegister.fire("click");
-assert.equal(e.accountLoginPanel.hidden,true);
-assert.equal(e.accountRegisterPanel.hidden,false);
-assert.equal(e.accountRegisterChoices.hidden,false);
-assert.equal(e.accountOpenRegister.hidden,true);
-await e.accountBackToLogin.fire("click");
-assert.equal(e.accountOpenRegister.hidden,false);
-assert.equal(e.accountLoginPanel.hidden,false);
-assert.equal(e.accountRegisterPanel.hidden,true);
-
-// Registration: rejected codes stay on the registration screen.
-await e.accountOpenRegister.fire("click");
-e.accountCustomCode.value="1234";
-await e.accountCustomForm.fire("submit");
-assert.match(e.accountMessage.textContent,/χρησιμοποιείται ήδη/);
-assert.equal(e.accountRegisterChoices.hidden,false);
-assert.equal(e.accountCreated.hidden,true);
-e.accountCustomCode.value="12345678ςς";
-await e.accountCustomForm.fire("submit");
-assert.equal(app.requests.at(-1).body.code,"12345678ΣΣ");
-assert.equal(e.accountNewCode.textContent,"12345678ΣΣ");
-assert.equal(e.accountRegisterChoices.hidden,true);
-assert.equal(e.accountCreated.hidden,false);
-assert.equal(e.accountBackToLogin.hidden,true);
-await e.accountContinue.fire("click");
-assert.equal(e.accountGate.hidden,true);
-assert.equal(app.started[0].code,app.session);
-assert.equal(JSON.parse(app.localStorage.getItem("carServiceActiveAccountV3")).code,"12345678ΣΣ");
-
-// Generated registration is available ONLY inside the separate registration view.
-const random=mount();
-await random.els.accountOpenRegister.fire("click");
-await random.els.accountCreate.fire("click");
-assert.equal(random.els.accountNewCode.textContent,"5678");
-assert.equal(random.els.accountCreated.hidden,false);
-
-// Existing-user login remains a single action.
 const returning=mount();
-returning.els.accountCode.value="WRONG";
-await returning.els.accountLoginForm.fire("submit");
-assert.equal(returning.els.accountLoginBtn.disabled,false);
-assert.equal(returning.els.accountLoginBtnText.textContent,"Σύνδεση");
-assert.match(returning.els.accountMessage.textContent,/Λάθος κωδικός/);
-returning.els.accountCode.value="5678";
-await returning.els.accountCode.fire("input");
-await returning.els.accountLoginForm.fire("submit");
+assert.equal(returning.el.accountLoginPanel.hidden,false);
+assert.equal(returning.el.accountRegisterPanel.hidden,true);
+returning.el.accountUsername.value="Andreas";
+returning.el.accountPassword.value="wrong";
+await returning.el.accountLoginForm.fire("submit");
+assert.match(returning.el.accountMessage.textContent,/Λάθος username/);
+assert.equal(returning.el.accountLoginBtn.disabled,false);
+returning.el.accountPassword.value="1234";
+await returning.el.accountLoginForm.fire("submit");
 assert.equal(returning.started.length,1);
-assert.equal(returning.started[0].code,returning.session);
-assert.equal(returning.els.accountRegisterPanel.hidden,true);
+assert.equal(returning.started[0].scope,scope);
+assert.equal(returning.sent.at(-1).body.username,"ANDREAS");
+assert.equal(returning.sent.at(-1).body.password,"1234");
+assert.equal(returning.el.accountPassword.value,"");
+const persistent=JSON.parse(returning.localStorage.getItem("carServiceActiveAccountV3"));
+assert.equal(persistent.username,"ANDREAS");
+assert.equal(persistent.scope,scope);
+assert.equal(persistent.session,session);
+assert(!JSON.stringify(persistent).includes("1234"),"No password in localStorage");
 
-console.log("PASS: self-contained login HTML/CSS/JS, small SVG, submit handling, registration and session login");
+const register=mount();
+await register.el.accountOpenRegister.fire("click");
+assert.equal(register.el.accountRegisterPanel.hidden,false);
+assert.equal(register.el.accountLoginPanel.hidden,true);
+register.el.accountCustomUsername.value="Nikos";
+register.el.accountCustomPassword.value="secure-password-123!";
+register.el.accountMasterAdmin.value="incorrect";
+await register.el.accountCustomForm.fire("submit");
+assert.match(register.el.accountMessage.textContent,/master admin/);
+assert.equal(register.el.accountGate.hidden,false);
+register.el.accountMasterAdmin.value="SECRET-FOR-TEST-ONLY";
+await register.el.accountCustomForm.fire("submit");
+assert.equal(register.started.length,1);
+assert.equal(register.sent.at(-1).body.username,"NIKOS");
+assert.equal(register.sent.at(-1).body.masterAdmin,"SECRET-FOR-TEST-ONLY");
+assert.equal(register.el.accountMasterAdmin.value,"");
+assert(!JSON.stringify(register.localStorage.getItem("carServiceActiveAccountV3")).includes("SECRET-FOR-TEST-ONLY"));
+
+const changed=mount({username:"ANDREAS",scope,session});
+await Promise.resolve();await Promise.resolve();await Promise.resolve();
+changed.el.accountCurrentPassword.value="1234";
+changed.el.accountNewPassword.value="strong-new-password";
+await changed.el.accountPasswordForm.fire("submit");
+assert.equal(changed.state.reloaded,1);
+assert.equal(JSON.parse(changed.localStorage.getItem("carServiceActiveAccountV3")).session,updatedSession);
+assert.equal(changed.el.accountNewPassword.value,"");
+console.log("PASS: inline username/password login, master-only registration, no saved passwords, session restore and password change");
