@@ -83,6 +83,94 @@ nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;st
 nav button.on{color:var(--accent);font-weight:600}
 </style>
 <link rel="stylesheet" href="/ui.css">
+<!-- Critical login styles: always render correctly even if the external CSS
+     fails to load in an iPhone home-screen PWA. -->
+<style id="accountCriticalStyles">
+  html{min-height:100%;-webkit-text-size-adjust:100%}
+  body.account-locked{margin:0;min-height:100vh;background:var(--bg,#f4f5f7);color:var(--ink,#1b1f24)}
+  body.account-locked main,body.account-locked nav{display:none!important}
+  body.account-locked .account-gate{
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;min-height:100dvh;box-sizing:border-box;
+    padding:max(20px,env(safe-area-inset-top,0px)) 16px
+      max(20px,env(safe-area-inset-bottom,0px));
+    background:var(--bg,#f4f5f7)
+  }
+  .account-gate[hidden],.account-card [hidden]{display:none!important}
+  .account-gate .account-card{
+    width:min(100%,395px);box-sizing:border-box;margin:0 auto;padding:27px 23px;
+    border:1px solid var(--line,#e3e6ea);border-radius:17px;
+    background:var(--card,#fff);box-shadow:0 10px 36px rgba(13,28,43,.08)
+  }
+  .account-gate .account-identity{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;margin:0 0 25px
+  }
+  .account-gate .account-lockup{display:flex;align-items:center;gap:11px;min-width:0}
+  .account-gate .account-logo{
+    display:block;flex:0 0 40px;max-width:40px;max-height:40px;
+    width:40px;height:40px;object-fit:contain;border-radius:10px
+  }
+  .account-gate .account-brand{font-size:.84rem;font-weight:800;letter-spacing:.45px}
+  .account-gate .account-options-trigger{
+    display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;
+    min-width:40px;min-height:40px;margin:0;padding:8px;border-radius:10px;
+    border:1px solid var(--line,#e3e6ea);
+    background:var(--card,#fff);color:var(--ink,#1b1f24)
+  }
+  .account-gate .account-options-trigger svg{
+    display:block;flex:none;width:21px!important;height:21px!important;
+    max-width:21px;max-height:21px;pointer-events:none
+  }
+  .account-gate #accountLoginPanel h1{
+    font-size:1.6rem;line-height:1.22;letter-spacing:-.5px;
+    margin:0 0 7px;font-weight:800
+  }
+  .account-gate .account-login-subtitle{
+    margin:0 0 22px;font-size:.84rem;color:var(--mute,#6b7280)
+  }
+  .account-gate #accountLoginForm label,
+  .account-gate .account-custom-form label{
+    display:block;font-size:.83rem;font-weight:720;margin:0 0 8px
+  }
+  .account-gate #accountLoginForm input,
+  .account-gate .account-custom-form input{
+    box-sizing:border-box;display:block;width:100%;min-width:0;
+    min-height:51px;padding:12px 13px;border-radius:11px;
+    background:var(--bg,#f4f5f7);border:1px solid var(--line,#e3e6ea);
+    color:var(--ink,#1b1f24);font:inherit;font-size:16px
+  }
+  .account-gate .account-login-button,
+  .account-gate .account-primary{
+    box-sizing:border-box;display:block;width:100%;min-height:50px;
+    margin:14px 0 0;padding:11px 14px;border-radius:11px;
+    background:var(--accent,#1f5f7a);color:var(--accent-ink,#fff);
+    border:1px solid var(--accent,#1f5f7a);
+    font:inherit;font-size:.91rem;font-weight:760;cursor:pointer
+  }
+  .account-gate .account-secondary{
+    display:block;width:100%;min-height:44px;margin:10px 0 0;
+    border-radius:10px;border:1px solid var(--line,#e3e6ea);
+    background:var(--bg,#f4f5f7);color:var(--ink,#1b1f24);
+    font:inherit;font-size:.87rem;cursor:pointer
+  }
+  .account-gate .account-message{font-size:.82rem;line-height:1.5;margin:13px 0 0}
+  .account-gate .account-message:empty{display:none}
+  .account-gate .account-message.error{color:var(--danger,#c0392b)}
+  .account-gate #accountRegisterPanel{font-size:.88rem}
+  .account-gate #accountRegisterPanel h2{font-size:1.4rem;margin:0 0 8px}
+  .account-gate .account-back{
+    padding:5px 0;margin:0 0 13px;
+    border:0;background:transparent;color:var(--mute,#6b7280);
+    font:inherit;font-size:.8rem
+  }
+  .account-gate .account-helper,
+  .account-gate .account-safety-note{font-size:.77rem;color:var(--mute,#6b7280)}
+  .account-gate .account-divider{text-align:center;color:var(--mute,#6b7280);margin:12px 0}
+  .account-gate .account-created{padding:14px;border:1px solid var(--line,#e3e6ea);border-radius:12px}
+  .account-gate .account-created code{display:block;overflow-wrap:anywhere;margin:10px 0}
+  @media(max-width:380px){.account-gate .account-card{padding:22px 19px}}
+</style>
 </head>
 <body class="account-locked">
 <section id="accountGate" class="account-gate" aria-label="Πρόσβαση λογαριασμού">
@@ -1101,7 +1189,309 @@ $("impAdd").onclick=()=>{
 
 // Account gate initializes the app after credential verification.
 </script>
-<script src="/account.js"></script>
+<!-- Login runtime lives with the login markup. No stale separate JS file
+     can leave the sign-in button without a submit handler. -->
+<script id="accountLoginRuntime">
+/* Per-user sign-in UI. Account codes are generated by the Worker and are
+   never sent in a URL. Login must finish before showing any service records. */
+(function(){
+  "use strict";
+  const ACTIVE="carServiceActiveAccountV3";
+  const $=id=>document.getElementById(id);
+  const gate=$("accountGate"),message=$("accountMessage"),login=$("accountLoginForm"),
+    codeInput=$("accountCode"),create=$("accountCreate"),created=$("accountCreated"),
+    loginPanel=$("accountLoginPanel"),registerPanel=$("accountRegisterPanel"),
+    registerChoices=$("accountRegisterChoices"),backToLogin=$("accountBackToLogin");
+  if(!gate)return;
+  let busy=false,pendingAccount=null,current=null;
+  let restoreController=null,attemptSerial=0;
+  const loginButton=$("accountLoginBtn"),loginButtonText=$("accountLoginBtnText");
+  const emptyNotice=()=>notice("");
+  // Match the Worker: accept custom visible text, including Greek characters.
+  const normalizeCode=raw=>String(raw??"").trim().normalize("NFKC").toUpperCase();
+  const codeValid=code=>code.length>0 && [...code].length<=64 &&
+    code.length<=128 && !/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(code);
+  const sessionFormat=/^ST-[a-f0-9]{64}-[A-F0-9]{48}$/;
+  function customCode(raw){
+    const value=normalizeCode(raw);
+    if(!codeValid(value))throw new Error("Γράψε έναν κωδικό έως 64 χαρακτήρες.");
+    return value;
+  }
+  const scopeFormat=/^[a-f0-9]{64}$/;
+  function notice(text,error=false){
+    message.textContent=text;message.classList.toggle("error",error);
+  }
+  function setBusy(flag){
+    busy=flag;
+    for(const b of [create,$("accountOpenRegister"),backToLogin,$("accountCustomCreate"),
+      loginButton,$("accountCopy"),$("accountContinue")]){
+      b.disabled=flag;
+    }
+    loginButton.setAttribute("aria-busy",String(flag));
+    login.setAttribute("aria-busy",String(flag));
+    loginButton.classList.toggle("is-loading",flag);
+    loginButtonText.textContent=flag?"Σύνδεση…":"Σύνδεση";
+  }
+  function cancelRestore(){
+    if(!restoreController)return;
+    attemptSerial++;
+    restoreController.abort();
+    restoreController=null;
+    emptyNotice();
+  }
+  async function api(path,body,auth,options={}){
+    // Every attempt terminates. A stalled mobile connection must never leave
+    // the login button looking unresponsive or permanently disabled.
+    const controller=new AbortController();
+    const relayAbort=()=>controller.abort();
+    options.signal?.addEventListener("abort",relayAbort,{once:true});
+    if(options.signal?.aborted)controller.abort();
+    const timer=setTimeout(()=>controller.abort(),options.timeoutMs||12000);
+    try{
+      const result=await fetch(path,{
+        method:"POST",cache:"no-store",signal:controller.signal,
+        headers:{"Content-Type":"application/json",...(auth?{"Authorization":"Bearer "+auth}:{})},
+        body:JSON.stringify(body||{})
+      });
+      const data=await result.json().catch(()=>({}));
+      if(!result.ok){
+        const error=new Error(data.error||"Η υπηρεσία δεν απάντησε ("+result.status+").");
+        error.status=result.status;
+        throw error;
+      }
+      return data;
+    }catch(error){
+      if(controller.signal.aborted){
+        if(options.signal?.aborted)return Promise.reject(Object.assign(new Error("Η προσπάθεια ακυρώθηκε."),{cancelled:true}));
+        throw new Error("Η σύνδεση καθυστέρησε. Έλεγξε το ίντερνετ σου και δοκίμασε ξανά.");
+      }
+      if(error instanceof TypeError){
+        throw new Error("Δεν μπορώ να συνδεθώ στον διακομιστή. Έλεγξε τη σύνδεσή σου.");
+      }
+      throw error;
+    }finally{
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort",relayAbort);
+    }
+  }
+  function valid(data){
+    return data&&typeof data.code==="string"&&codeValid(data.code)&&
+      scopeFormat.test(data.scope)&&sessionFormat.test(data.session||"");
+  }
+  async function scopeOf(code){
+    const bytes=new TextEncoder().encode(code);
+    const digest=await crypto.subtle.digest("SHA-256",bytes);
+    return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  function start(data){
+    if(!valid(data))throw new Error("Η σύνδεση χρειάζεται επαλήθευση από τον server.");
+    current=data;
+    localStorage.setItem(ACTIVE,JSON.stringify(data));
+    gate.hidden=true;
+    document.body.classList.remove("account-locked");
+    window.CarAppStartAccount(data.session||data.code,data.scope);
+  }
+  async function verify(code,{auto=false}={}){
+    const formatted=normalizeCode(code);
+    if(!codeValid(formatted))throw new Error("Συμπλήρωσε τον προσωπικό σου κωδικό.");
+
+    const serial=++attemptSerial;
+    const controller=auto?new AbortController():null;
+    if(auto)restoreController=controller;
+    const isCurrent=()=>serial===attemptSerial && !(controller?.signal.aborted);
+    let saved=null;
+    try{saved=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{}
+
+    try{
+      if(valid(saved)&&saved.code===formatted){
+        try{
+          const checked=await api("/api/account/session",{},saved.session,
+            {signal:controller?.signal,timeoutMs:auto?7000:12000});
+          if(!isCurrent())return;
+          if(checked.scope!==saved.scope)throw Object.assign(new Error("Η σύνδεση δεν είναι έγκυρη."),{status:401});
+          start(saved);
+          return;
+        }catch(error){
+          if(!isCurrent())return;
+          // A server-side 401 means the session expired. Only then request
+          // a new session with the code; never retry login on a network error.
+          if(error.status!==401)throw error;
+        }
+      }
+
+      const result=await api("/api/account/login",{code:formatted},null,
+        {signal:controller?.signal,timeoutMs:auto?9000:12000});
+      if(!isCurrent())return;
+      start({code:formatted,scope:result.scope,session:result.session});
+    }catch(error){
+      if(!isCurrent())return;
+      // Use locally cached data offline only when this very same code was
+      // already verified on this device; never for an unverified account.
+      if(!navigator.onLine&&valid(saved)&&saved.code===formatted&&
+          (await scopeOf(formatted))===saved.scope&&isCurrent()){
+        start(saved);
+        return;
+      }
+      if(auto){
+        // A slow network is not proof that the saved account is invalid.
+        if(error.status===401)localStorage.removeItem(ACTIVE);
+        notice(error.message||"Συνδέσου με τον προσωπικό σου κωδικό.",true);
+        return;
+      }
+      throw error;
+    }finally{
+      if(controller&&restoreController===controller)restoreController=null;
+    }
+  }
+
+  // The user can press the login button or Enter immediately. If automatic
+  // restoration is still in flight, the manual attempt takes precedence.
+  codeInput.addEventListener("input",()=>{
+    cancelRestore();
+    codeInput.removeAttribute("aria-invalid");
+  });
+  login.addEventListener("submit",async event=>{
+    event.preventDefault();
+    if(busy)return;
+    cancelRestore();
+    setBusy(true);
+    notice("Σύνδεση στον λογαριασμό σου…");
+    codeInput.removeAttribute("aria-invalid");
+    try{
+      const code=codeInput.value;
+      if(!codeValid(normalizeCode(code)))throw new Error("Συμπλήρωσε τον κωδικό σου.");
+      await verify(code);
+      if(current)emptyNotice();
+    }catch(error){
+      codeInput.setAttribute("aria-invalid","true");
+      notice(error.message||"Η σύνδεση απέτυχε. Δοκίμασε ξανά.",true);
+    }finally{
+      setBusy(false);
+    }
+  });
+  function showPanel(panel){
+    if(busy)return;
+    const registering=panel==="register";
+    loginPanel.hidden=registering;
+    registerPanel.hidden=!registering;
+    $("accountOpenRegister").hidden=registering;
+    notice("");
+  }
+  $("accountOpenRegister").addEventListener("click",()=>{
+    cancelRestore();
+    showPanel("register");
+    $("accountOpenRegister").setAttribute("aria-expanded","true");
+    $("accountCustomCode").focus();
+  });
+  backToLogin.addEventListener("click",()=>{
+    showPanel("login");
+    $("accountOpenRegister").setAttribute("aria-expanded","false");
+    codeInput.focus();
+  });
+
+  function showCreated(data){
+    if(!valid(data))throw new Error("Δεν επιστράφηκε έγκυρος κωδικός.");
+    pendingAccount=data;
+    $("accountNewCode").textContent=data.code;
+    registerChoices.hidden=true;
+    backToLogin.hidden=true;
+    created.hidden=false;
+    notice("Φύλαξε τον κωδικό σου πριν συνεχίσεις.");
+  }
+  $("accountCustomForm").addEventListener("submit",async event=>{
+    event.preventDefault();
+    if(busy)return;
+    let code;
+    try{code=customCode($("accountCustomCode").value);}
+    catch(error){notice(error.message,true);return;}
+    setBusy(true);notice("Έλεγχος διαθέσιμου κωδικού…");
+    try{showCreated(await api("/api/account/create",{code}));}
+    catch(error){notice(error.message,true);}
+    finally{setBusy(false);}
+  });
+  create.addEventListener("click",async()=>{
+    if(busy)return;
+    setBusy(true);notice("Δημιουργία προσωπικού χώρου…");
+    try{
+      showCreated(await api("/api/account/create",{}));
+    }catch(error){notice(error.message,true)}
+    finally{setBusy(false)}
+  });
+  $("accountCopy").addEventListener("click",async()=>{
+    if(!pendingAccount)return;
+    try{await navigator.clipboard.writeText(pendingAccount.code);notice("Ο κωδικός αντιγράφηκε. Φύλαξέ τον σε ασφαλές μέρος.");}
+    catch{notice("Επίλεξε τον κωδικό για χειροκίνητη αντιγραφή.",true);}
+  });
+  $("accountContinue").addEventListener("click",()=>{
+    if(!pendingAccount)return;
+    try{start(pendingAccount);}catch(error){notice(error.message,true);}
+  });
+  function logout(){
+    if(!current)return;
+    const pending=localStorage.getItem("carServiceSyncPendingV2:"+current.scope)==="1";
+    if(pending){
+      notice("Υπάρχουν αλλαγές που δεν συγχρονίστηκαν. Συνδέσου στο internet πριν αποσυνδεθείς.",true);
+      alert("Πρώτα συγχρόνισε τις εκκρεμείς αλλαγές ή κράτησε αντίγραφο ασφαλείας.");
+      return;
+    }
+    if(!confirm("Αποσύνδεση από αυτόν τον λογαριασμό; Το ιστορικό στον server δεν θα διαγραφεί."))return;
+    // Shared devices must not keep a local copy of the previous person's data.
+    const keys=["carServiceLog","carServiceSettings","carServiceReminders",
+      "carServiceSyncBaseV2","carServiceSyncPendingV2","carServicePass",
+      "carServiceDraftV1","carServiceAiConversationV1"];
+    for(const k of keys)localStorage.removeItem(k+":"+current.scope);
+    localStorage.removeItem(ACTIVE);
+    location.reload();
+  }
+  window.CarAccountLogout=logout;
+  window.CarAccountLock=()=>{
+    localStorage.removeItem(ACTIVE);
+    location.reload();
+  };
+  window.CarAccountShowCode=async()=>{
+    if(!current)return;
+    const code=current.code;
+    try{
+      await navigator.clipboard.writeText(code);
+      $("bkmsg").textContent="Ο προσωπικός κωδικός αντιγράφηκε.";
+    }catch{
+      prompt("Αντίγραψε τον προσωπικό σου κωδικό:",code);
+    }
+  };
+  $("legacyTransfer").addEventListener("click",async()=>{
+    if(!current||busy)return;
+    const legacyCode=$("legacyAccountCode").value.trim();
+    if(!legacyCode){$("legacyStatus").textContent="Συμπλήρωσε τον παλιό κωδικό.";return;}
+    if(!confirm("Να μεταφερθεί το παλιό ιστορικό στον ΤΩΡΙΝΟ λογαριασμό; Βεβαιώσου ότι έχεις φυλάξει τον νέο προσωπικό κωδικό."))return;
+    busy=true;$("legacyTransfer").disabled=true;$("legacyStatus").textContent="Μεταφέρεται το παλιό ιστορικό…";
+    try{
+      await api("/api/account/migrate",{legacyCode},current.session||current.code);
+      window.CarAppCopyLegacyLocal();
+      $("legacyAccountCode").value="";
+      $("legacyStatus").textContent="Η μεταφορά ολοκληρώθηκε. Επαναφόρτωση…";
+      location.reload();
+    }catch(error){
+      $("legacyStatus").textContent=error.message;
+    }finally{busy=false;$("legacyTransfer").disabled=false;}
+  });
+  window.addEventListener("storage",event=>{
+    if(event.key!==ACTIVE||!current)return;
+    try{
+      const now=JSON.parse(event.newValue||"null");
+      if(now?.scope!==current.scope)location.reload();
+    }catch{location.reload()}
+  });
+  let last=null;
+  try{last=JSON.parse(localStorage.getItem(ACTIVE)||"null");}catch{localStorage.removeItem(ACTIVE);}
+  if(valid(last)){
+    codeInput.value=last.code;
+    notice("Επανασύνδεση…");
+    verify(last.code,{auto:true}).catch(error=>{
+      if(!error.cancelled)notice("Η αυτόματη σύνδεση δεν ολοκληρώθηκε. Πάτησε Σύνδεση.",true);
+    });
+  }
+})();
+</script>
 <script src="/features.js"></script>
 <script src="/documents.js"></script>
 <script src="/ai-mechanic.js"></script>
