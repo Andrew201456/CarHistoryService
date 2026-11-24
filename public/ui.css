@@ -884,3 +884,13 @@ body.account-locked nav{display:none!important}
   .document-row{flex-wrap:wrap}
   .document-actions{flex-basis:100%;justify-content:flex-start;margin-left:44px}
 }
+
+.documents-shortcut{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:48px;padding:11px 14px;margin:0 0 15px;
+  background:var(--card);border:1px solid var(--line);border-radius:13px;
+  color:var(--ink);font-size:.88rem;font-weight:760;text-align:left;
+  box-shadow:var(--shadow)
+}
+.documents-shortcut span{margin-left:auto;font-size:1.4rem;color:var(--mute);line-height:1}
+.documents-shortcut:active{transform:scale(.99)}
