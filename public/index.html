@@ -197,13 +197,15 @@ nav button.on{color:var(--accent);font-weight:600}
       <input id="documentTitle" maxlength="100" placeholder="π.χ. Ασφάλεια 2026">
       <label for="documentExpiry">Ημερομηνία λήξης (προαιρετικό)</label>
       <input id="documentExpiry" type="date">
+      <label for="documentCost">Κόστος (€) (προαιρετικό)</label>
+      <input id="documentCost" type="number" min="0" max="999999" step="0.01" inputmode="decimal" placeholder="π.χ. 280">
       <label for="documentFile">PDF ή φωτογραφία</label>
       <input id="documentFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/*" required>
       <button class="main document-save" id="documentSave" type="submit">+ Αποθήκευση εγγράφου</button>
       <p class="document-status" id="documentStatus" role="status" aria-live="polite"></p>
     </form>
     <div id="documentsList" class="document-list"></div>
-    <p class="document-privacy">Μέγιστο 25 MB ανά αρχείο. Τα αρχεία φυλάσσονται τοπικά χωρίς πρόσθετη κρυπτογράφηση από την εφαρμογή, δεν συγχρονίζονται και μπορεί να χαθούν αν καθαρίσεις τα δεδομένα του browser. Οι φωτογραφίες δεν υποκαθιστούν απαραίτητα επίσημα έγγραφα. Κράτα τα πρωτότυπα.</p>
+    <p class="document-privacy">Έως 25 MB/έγγραφο, 100 MB/λογαριασμό. Τα έγγραφα αποθηκεύονται ιδιωτικά στο Cloudflare και συγχρονίζονται μεταξύ συσκευών. Κρατάμε και τοπικά αντίγραφα όπου είναι δυνατό. Δεν υπάρχει πρόσθετη end-to-end κρυπτογράφηση· προστάτευσε τον κωδικό του λογαριασμού σου. Οι φωτογραφίες δεν αντικαθιστούν κατ' ανάγκη επίσημα έγγραφα.</p>
   </details>
   <details class="extra-panel" id="reminderPanel">
     <summary><span>Υπενθυμίσεις συντήρησης</span><span class="summary-right"><b id="reminderCount"></b><span aria-hidden="true">⌄</span></span></summary>
@@ -470,6 +472,21 @@ nav button.on{color:var(--accent);font-weight:600}
   </form>
 </dialog>
 
+<dialog id="documentPreview" class="document-preview" aria-labelledby="documentPreviewTitle">
+  <div class="document-preview-head">
+    <strong id="documentPreviewTitle">Προβολή εγγράφου</strong>
+    <button id="documentPreviewClose" type="button" aria-label="Κλείσιμο">×</button>
+  </div>
+  <p id="documentPreviewStatus" role="status"></p>
+  <div class="document-preview-body">
+    <img id="documentPreviewImage" alt="Προβολή εγγράφου" hidden>
+    <iframe id="documentPreviewFrame" title="PDF εγγράφου" hidden></iframe>
+  </div>
+  <div class="document-preview-actions">
+    <a id="documentPreviewNewTab" target="_blank" rel="noopener noreferrer" hidden>Άνοιγμα ξεχωριστά</a>
+    <a id="documentPreviewDownload" download hidden>Αποθήκευση</a>
+  </div>
+</dialog>
 <dialog id="installHelp" class="install-help" aria-labelledby="installTitle">
   <h2 id="installTitle">Εγκατάσταση εφαρμογής</h2>
   <p id="installHelpText"></p>
