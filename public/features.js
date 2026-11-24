@@ -71,10 +71,10 @@
   }
 
   const obligationKinds=[
-    {field:"dueInsurance",name:"Ασφάλεια",icon:"🛡️"},
-    {field:"dueKteo",name:"ΚΤΕΟ",icon:"🔧"},
-    {field:"dueTax",name:"Τέλη",icon:"📄"},
-    {field:"dueEmissions",name:"Κάρτα καυσαερίων",icon:"🌿"}
+    {field:"dueInsurance",cost:"costInsurance",name:"Ασφάλεια",icon:"🛡️"},
+    {field:"dueKteo",cost:"costKteo",name:"ΚΤΕΟ",icon:"🔧"},
+    {field:"dueTax",cost:"costTax",name:"Τέλη",icon:"📄"},
+    {field:"dueEmissions",cost:"costEmissions",name:"Κάρτα καυσαερίων",icon:"🌿"}
   ];
   const DAY=86400000;
   function dateInfo(value,now=new Date()){
@@ -110,6 +110,10 @@
       if(field&&field.value!==(info?settings[kind.field]:"")){
         field.value=info?settings[kind.field]:"";
       }
+      const costInput=$(kind.cost);
+      const savedCost=settings[kind.cost];
+      if(costInput&&document.activeElement!==costInput&&costInput.value!==String(savedCost??""))
+        costInput.value=String(savedCost??"");
       if(!info)continue;
       configured++;
       const state=obligationState(info.days);
@@ -117,7 +121,9 @@
       cards.push('<div class="due-chip '+state.className+'"><span class="due-chip-top">'+
         '<span class="due-icon" aria-hidden="true">'+kind.icon+'</span><span>'+
         esc(kind.name)+'</span></span><strong>'+esc(info.date)+'</strong>'+
-        '<small>'+esc(state.text||"Προγραμματισμένη λήξη")+'</small></div>');
+        '<small>'+esc(state.text||"Προγραμματισμένη λήξη")+
+        (settings[kind.cost]!==undefined&&settings[kind.cost]!==""?" · "+euro(num(settings[kind.cost])):"")+
+        '</small></div>');
     }
     const tires=isKindVisible("tires")?latestTires():null;
     if(tires){
@@ -156,11 +162,18 @@
   }
   $("obligationsPanel").addEventListener("change",event=>{
     const field=event.target.id;
-    if(!obligationKinds.some(kind=>kind.field===field))return;
+    const dateKind=obligationKinds.find(kind=>kind.field===field);
+    const costKind=obligationKinds.find(kind=>kind.cost===field);
+    if(!dateKind&&!costKind)return;
     const value=event.target.value;
-    if(value&&!dateInfo(value)){
+    if(dateKind&&value&&!dateInfo(value)){
       alert("Διάλεξε έγκυρη ημερομηνία.");
       event.target.value=settings[field]||"";
+      return;
+    }
+    if(costKind&&value!==""&&(!Number.isFinite(Number(value))||Number(value)<0||Number(value)>999999)){
+      alert("Βάλε έγκυρο μη αρνητικό κόστος.");
+      event.target.value=settings[field]??"";
       return;
     }
     settings[field]=value;
@@ -277,7 +290,8 @@
     $("labor").value=initialDraft.labor||"";
     $("where").value=initialDraft.where||"";
     $("notes").value=initialDraft.notes||"";
-    setServiceKind(initialDraft.kind==="improvements"?"improvements":
+    setServiceKind(initialDraft.kind==="expenses"?"expenses":
+      initialDraft.kind==="improvements"?"improvements":
       initialDraft.kind==="tires"?"tires":
       initialDraft.kind==="repair"||initialDraft.regular===false?"repair":"regular");
     $("tireName").value=initialDraft.tireName||"";
