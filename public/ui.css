@@ -894,3 +894,48 @@ body.account-locked nav{display:none!important}
 }
 .documents-shortcut span{margin-left:auto;font-size:1.4rem;color:var(--mute);line-height:1}
 .documents-shortcut:active{transform:scale(.99)}
+
+/* Connected vehicle document records, protected cloud vault and preview. */
+.due-document-button{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:100%;margin-top:9px;padding:8px 10px;min-height:36px;
+  border:1px solid var(--line);border-radius:10px;background:var(--card);
+  color:var(--ink);font-size:.76rem;font-weight:760;
+}
+.due-document-button:active{transform:scale(.98)}
+.document-pending{display:block;color:#b97708!important;font-weight:650;margin-top:4px}
+.document-row .document-actions button{cursor:pointer}
+.document-preview{
+  position:fixed;inset:auto;box-sizing:border-box;max-height:calc(100dvh - 32px);
+  width:min(94vw,780px);max-width:780px;border:1px solid var(--line);
+  border-radius:18px;background:var(--card);color:var(--ink);
+  box-shadow:0 24px 90px rgba(0,0,0,.45);padding:16px;
+  overflow:auto
+}
+.document-preview::backdrop{background:rgba(6,12,21,.84);backdrop-filter:blur(4px)}
+.document-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.document-preview-head strong{font-size:1rem;overflow-wrap:anywhere}
+.document-preview-head button{
+  border:1px solid var(--line);border-radius:10px;
+  min-width:37px;min-height:37px;background:var(--bg);color:var(--ink);
+  font-size:1.5rem;line-height:1
+}
+.document-preview>p{font-size:.83rem;color:var(--mute);margin:8px 0}
+.document-preview-body{display:grid;place-items:center;width:100%;min-height:48px}
+.document-preview-body img{
+  display:block;max-width:100%;height:auto;max-height:68dvh;
+  object-fit:contain;border-radius:10px
+}
+.document-preview-body iframe{
+  display:block;width:100%;height:min(67dvh,680px);
+  border:0;border-radius:9px;background:#fff
+}
+.document-preview-body [hidden]{display:none!important}
+.document-preview-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.document-preview-actions a{
+  display:inline-flex;align-items:center;justify-content:center;flex:1;
+  min-height:42px;text-decoration:none;border-radius:10px;
+  padding:9px 13px;font-size:.82rem;font-weight:760;
+  background:var(--accent);color:var(--accent-ink)
+}
+.document-preview-actions a[hidden]{display:none!important}
