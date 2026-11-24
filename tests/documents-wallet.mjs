@@ -5,30 +5,47 @@ import {dirname,resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
-const read=path=>readFileSync(resolve(root,path),"utf8");
-const doc=read("public/documents.js");
-const html=read("public/index.html");
-const features=read("public/features.js");
-const sw=read("public/sw.js");
-assert.doesNotThrow(()=>new Function(doc),"Document wallet must be valid JavaScript");
-for(const id of ["documentsPanel","documentsShortcut","documentForm","documentFile","documentsList",
-  "documentKind","documentExpiry","documentTitle","costInsurance","costKteo","costTax","costEmissions"])
-  assert(html.includes('id="'+id+'"'),"Missing field "+id);
-for(const kind of ["insurance","kteo","license","registration","tax","emissions","roadside","receipt","other"])
-  assert(html.includes('value="'+kind+'"'),"Missing document category "+kind);
-assert(html.includes('value="expenses"'),"Vehicle expenses must be selectable in history");
-assert(html.includes('data-filter="expenses"'),"Expenses filter must exist");
-assert(html.includes('data-visible-kind="expenses"'),"Account visibility setting for expenses missing");
-assert(features.includes('cost:"costInsurance"')&&features.includes('cost:"costKteo"'),
-  "Obligation summary must support cost fields");
-assert(features.includes('costKind=obligationKinds.find'),"Obligation cost changes must be saved");
-assert(sw.includes('"/documents.js"'),"Document wallet must be cached offline");
-assert(sw.includes('carhistory-shell-v19'),"PWA cache must invalidate");
-assert(doc.includes('createIndex("byScope","scope"'),"Documents must be separated by account");
-assert(doc.includes('blob:file'),"File contents must be written to IndexedDB");
-assert(doc.includes("URL.createObjectURL(doc.blob)"),"Local document viewing must be available");
-assert(doc.includes('URL.revokeObjectURL(url)'),"Object URL cleanup missing");
-assert(doc.includes('id="documentFile"')===false,"Wallet should use DOM and never inline document content");
-assert(!doc.includes("fetch("),"Sensitive document bytes must not be sent to the server");
-assert(!doc.includes("XMLHttpRequest"),"No document uploads to a remote endpoint");
-console.log("PASS: vehicle costs, document types, local-only wallet, account isolation and offline shell");
+const load=path=>readFileSync(resolve(root,path),"utf8");
+const html=load("public/index.html");
+const ui=load("public/documents.js");
+const worker=load("src/index.js");
+const features=load("public/features.js");
+const sw=load("public/sw.js");
+assert.doesNotThrow(()=>new Function(ui));
+assert.doesNotThrow(()=>new Function(features));
+assert.doesNotThrow(()=>new Function(sw));
+for(const id of ["documentsShortcut","documentsPanel","documentForm","documentsList",
+  "documentPreview","documentPreviewFrame","documentPreviewImage",
+  "documentPreviewDownload","documentPreviewNewTab","documentCost","documentExpiry",
+  "documentFile","documentsCount"]){
+  assert(html.includes('id="'+id+'"'),"Missing UI element "+id);
+}
+for(const [kind,field] of [["insurance","costInsurance"],["kteo","costKteo"],
+  ["tax","costTax"],["emissions","costEmissions"]]){
+  assert(html.includes('id="'+field+'"'));
+  assert(html.includes('data-obligation-document="'+kind+'"'));
+  assert(features.includes('key:"'+kind+'"'));
+}
+assert(features.includes('data-document-kind'),"Dashboard cards must open linked documents");
+assert(features.includes('window.CarHistoryObligations'),"Document dates and costs must sync to obligations");
+assert(ui.includes('"/api/documents"'),"Document metadata must be loaded from Cloudflare");
+assert(ui.includes('"/api/documents/"+result.id+"/chunk/"+n'),"Upload must use authenticated chunks");
+assert(ui.includes('"/api/documents/"+result.id+"/complete'),"Server must confirm the completed upload");
+assert(ui.includes('Authorization":"Bearer "+token()'),"Cloud access must use account session");
+assert(ui.includes('migrateOldDocs'),"Previous local-only files must be migrated");
+assert(ui.includes('allLocal(owner)'),"Offline local cache required");
+assert(ui.includes('cloudReady'),"Offline and remote states must be distinct");
+assert(ui.includes('cache:"no-store"'),"Private content must never be cached by HTTP");
+assert(ui.includes('Μόνο στη συσκευή · εκκρεμεί'),"Pending sync must be clearly indicated");
+assert(worker.includes('handlePrivateDocuments(request,this.state)'),
+  "Durable Object must implement account-private document storage");
+assert(worker.includes('const account=await getAccount(req,env);'),
+  "Private API must check the authenticated account");
+assert(worker.includes('DOCUMENT_CHUNK=384*1024'));
+assert(worker.includes('DOCUMENT_ACCOUNT_LIMIT=100*1024*1024'));
+assert(sw.includes('carhistory-shell-v20'));
+assert(sw.includes('"/documents.js"'));
+assert(sw.includes('url.pathname.startsWith("/api/")'),"Service worker must not cache private endpoints");
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
+assert.equal(ids.length,new Set(ids).size);
+console.log("PASS: linked obligations, authenticated cloud files, local migration, PWA and secure metadata");
