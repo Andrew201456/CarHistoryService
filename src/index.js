@@ -611,7 +611,12 @@ export class CarServiceStore {
     }
     if(url.pathname==="/sessions-revoke"&&request.method==="POST"){
       const epoch=(await this.state.storage.get("sessionEpoch"))||0;
-      await this.state.storage.put("sessionEpoch",epoch+1);
+      await this.state.storage.transaction(async tx=>{
+        await tx.put("sessionEpoch",epoch+1);
+        // Disable legacy long-form raw bearer codes after adopting username
+        // authentication, even for accounts originally created before sessions.
+        await tx.put("sessionRequired",true);
+      });
       return json({ok:true});
     }
     if(url.pathname==="/login-check"&&request.method==="POST"){
