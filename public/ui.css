@@ -836,3 +836,51 @@ body.account-locked nav{display:none!important}
   .next .service-remaining.service-overdue {color:#fb7185}
   .next .service-progress.service-overdue i {background:#be123c}
 }
+
+/* Documents wallet and financial obligation fields */
+.obligations-editor input[type="number"]{
+  display:block;width:100%;min-width:0;min-height:43px;padding:9px 11px;
+  background:var(--card);border:1px solid var(--line);border-radius:11px;
+  color:var(--ink);font:inherit;font-size:15px;font-variant-numeric:tabular-nums
+}
+.obligations-editor div>label:not(:first-child){
+  margin-top:9px;font-size:.72rem;opacity:.85
+}
+.document-panel .document-form{padding:0 0 10px}
+.document-panel .document-form label{font-size:.81rem;display:block;margin:12px 0 5px;color:var(--mute)}
+.document-panel .document-form select,
+.document-panel .document-form input{
+  display:block;width:100%;max-width:100%;min-height:45px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:11px;
+  background:var(--bg);color:var(--ink);font:inherit;font-size:15px;
+}
+.document-panel .document-form input[type="file"]{height:auto;padding:10px 8px;font-size:.82rem}
+.document-panel .document-save{margin:14px 0 0;min-height:46px}
+.document-panel .document-status{margin:9px 0 3px;font-size:.79rem;color:var(--ok);line-height:1.4}
+.document-panel .document-status.error{color:var(--danger)}
+.document-list{display:flex;flex-direction:column;gap:9px;margin:5px 0 13px}
+.documents-empty{font-size:.8rem;color:var(--mute);margin:8px 0 0;padding:9px 0}
+.document-row{
+  display:flex;align-items:flex-start;gap:9px;min-width:0;
+  background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px
+}
+.document-kind{
+  display:grid;place-items:center;width:35px;height:35px;flex:none;border-radius:9px;
+  background:var(--soft);color:var(--accent);font-size:.76rem;font-weight:800
+}
+.document-info{min-width:0;flex:1}
+.document-info strong{display:block;font-size:.85rem;line-height:1.3;overflow-wrap:anywhere}
+.document-info small{display:block;margin-top:4px;font-size:.71rem;line-height:1.45;color:var(--mute);overflow-wrap:anywhere}
+.document-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.document-actions a,.document-actions button{
+  display:inline-flex;align-items:center;justify-content:center;text-decoration:none;
+  border:1px solid var(--line);border-radius:8px;min-height:35px;
+  padding:7px 9px;background:var(--card);color:var(--ink);font-size:.72rem;font-weight:730
+}
+.document-actions .doc-open{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.document-actions .doc-delete{color:var(--danger);font-size:1.12rem;padding:4px 9px}
+.document-privacy{border-top:1px solid var(--line);padding-top:10px;margin:4px 0 13px;color:var(--mute);font-size:.72rem;line-height:1.55}
+@media(max-width:530px){
+  .document-row{flex-wrap:wrap}
+  .document-actions{flex-basis:100%;justify-content:flex-start;margin-left:44px}
+}
