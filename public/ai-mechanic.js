@@ -8,9 +8,9 @@
   const fieldMap={
     make:"aiCarMake",model:"aiCarModel",year:"aiCarYear",fuel:"aiCarFuel",
     engine:"aiCarEngine",cc:"aiCarCc",power:"aiCarPower",gearbox:"aiCarGearbox",
-    trim:"aiCarTrim",notes:"aiCarNotes"
+    trim:"aiCarTrim",vin:"aiCarVin",notes:"aiCarNotes"
   };
-  const fieldMax={make:70,model:70,year:4,fuel:25,engine:100,cc:5,power:4,gearbox:30,trim:100,notes:350};
+  const fieldMax={make:70,model:70,year:4,fuel:25,engine:100,cc:5,power:4,gearbox:30,trim:100,vin:17,notes:350};
   const chat=$("aiMessages"),welcome=$("aiWelcome"),form=$("aiForm"),
     question=$("aiQuestion"),status=$("aiStatus"),send=$("aiSend"),
     profileDialog=$("aiVehicleDialog"),profileForm=$("aiVehicleForm");
@@ -73,7 +73,8 @@
     if(messages.length)chat.scrollTop=chat.scrollHeight;
   }
   function safeField(value,key){
-    return String(value==null?"":value).trim().slice(0,fieldMax[key]);
+    const text=String(value==null?"":value).trim();
+    return (key==="vin"?text.toUpperCase():text).slice(0,fieldMax[key]);
   }
   function getProfile(){
     // vehicleProfile is part of the existing synced settings, no database change.
@@ -104,15 +105,19 @@
   }
   function openProfile(){
     const p=getProfile();
-    for(const [key,id] of Object.entries(fieldMap))$(id).value=p[key];
-    for(const key of ["year","cc","power"])$(fieldMap[key]).setCustomValidity("");
+    for(const [key,id] of Object.entries(fieldMap))if($(id))$(id).value=p[key];
+    for(const key of ["year","cc","power","vin"])$(fieldMap[key])?.setCustomValidity("");
     profileDialog.showModal();
   }
   function closeProfile(){profileDialog.close();}
   function saveProfile(event){
     event.preventDefault();
     const values=Object.fromEntries(Object.entries(fieldMap)
-      .map(([key,id])=>[key,safeField($(id).value,key)]));
+      .map(([key,id])=>[key,safeField($(id)?.value ?? settings.vehicleProfile?.[key],key)]));
+    if(values.vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(values.vin)){
+      $("aiCarVin")?.setCustomValidity("Το VIN πρέπει να έχει 17 χαρακτήρες, χωρίς I, O ή Q.");
+      $("aiCarVin")?.reportValidity();return;
+    }
     const year=values.year;
     if(year && (!/^\d{4}$/.test(year)||Number(year)<1886||Number(year)>new Date().getFullYear()+1)){
       $("aiCarYear").setCustomValidity("Βάλε έγκυρη χρονολογία αυτοκινήτου.");
@@ -168,7 +173,7 @@
     if(!pass||!accountIsCurrent()){setStatus("Συνδέσου στον λογαριασμό σου.",true);return;}
     const previous=messages.slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
     const payload={
-      question:content,vehicle:getProfile(),currentKm:settings.current||"",
+      question:content,vehicle:Object.fromEntries(Object.entries(getProfile()).filter(([key])=>key!=="vin")),currentKm:settings.current||"",
       serviceIntervalKm:settings.interval||"",history:relatedHistory(content),
       reminders:reminders.slice(0,30).map(r=>({name:r.name,dueKm:r.dueKm,repeatKm:r.repeatKm})),
       conversation:previous
@@ -209,8 +214,8 @@
   $("aiProfileClose").addEventListener("click",closeProfile);
   $("aiProfileCancel").addEventListener("click",closeProfile);
   profileForm.addEventListener("submit",saveProfile);
-  for(const key of ["year","cc","power"]){
-    $(fieldMap[key]).addEventListener("input",event=>event.target.setCustomValidity(""));
+  for(const key of ["year","cc","power","vin"]){
+    $(fieldMap[key])?.addEventListener("input",event=>event.target.setCustomValidity(""));
   }
   profileDialog.addEventListener("click",event=>{
     if(event.target===profileDialog)closeProfile();
