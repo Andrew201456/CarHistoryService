@@ -745,60 +745,12 @@ nav button.on{color:var(--accent);font-weight:600}
     <p class="account-pref-note">Η απόκρυψη επηρεάζει μόνο την εμφάνιση στην αρχική. Δεν διαγράφει κανένα ιστορικό και μπορείς να επαναφέρεις τις κατηγορίες όποτε θέλεις.</p>
   </div>
 
-  <div class="account-section">
-    <div class="account-section-head"><div><h2>Ο λογαριασμός σου</h2><p>Τα στοιχεία σου μένουν ιδιωτικά.</p></div></div>
+  <div class="account-section account-count-card">
     <div class="account-info-row">
       <span>Συνολικές καταχωρήσεις</span><strong id="accountEntriesCount">0</strong>
     </div>
-    <div class="account-info-row">
-      <span>Συγχρονισμός</span><span class="account-status-label"><span aria-hidden="true">●</span> Αυτόματος με internet</span>
-    </div>
-    <button class="account-action" type="button" id="accountShowCode">Αντιγραφή username</button>
-    <details class="account-password-panel">
-      <summary>Αλλαγή password</summary>
-      <form id="accountPasswordForm" novalidate>
-        <label for="accountCurrentPassword">Τωρινό password</label>
-        <input id="accountCurrentPassword" type="password" autocomplete="current-password" required>
-        <label for="accountNewPassword">Νέο password</label>
-        <input id="accountNewPassword" type="password" autocomplete="new-password" minlength="4" required>
-        <button class="account-action" id="accountChangePassword" type="submit">Αλλαγή κωδικού</button>
-      </form>
-      <p id="accountPasswordStatus" class="account-feedback" role="status"></p>
-    </details>
-    <p class="account-feedback" id="bkmsg" role="status" aria-live="polite"></p>
-    <button class="account-logout" type="button" id="chpw">Αποσύνδεση</button>
-    <p class="account-pref-note">Κράτησε το password σου ιδιωτικό. Για ασφάλεια εγγράφων προτείνεται κωδικός τουλάχιστον 12 χαρακτήρων.</p>
   </div>
-
-  <details class="account-advanced">
-    <summary>Προχωρημένα · Ανάκτηση δεδομένων</summary>
-    <div class="account-advanced-content">
-      <p class="note">Το ιστορικό συγχρονίζεται αυτόματα. Για επιπλέον ασφάλεια μπορείς να κρατήσεις ένα προσωπικό αντίγραφο ή να επαναφέρεις δεδομένα από παλιό αντίγραφο.</p>
-      <textarea id="bk" placeholder="Αντίγραφο σε κείμενο, για αποθήκευση ή επαναφορά" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
-      <button class="sec" id="mk">Δημιουργία αντιγράφου</button>
-      <button class="sec" id="cp">Αντιγραφή κειμένου</button>
-      <button class="sec" id="rs">Επαναφορά από κείμενο</button>
-      <div class="legacy-transfer recovery-check">
-        <strong>Έλεγχος ανάκτησης ιστορικού</strong>
-        <p class="note">Ασφαλής έλεγχος χωρίς αλλαγή δεδομένων. Δείχνει αν οι παλιές εγγραφές υπάρχουν στο Cloudflare.</p>
-        <form id="accountRecoveryForm" novalidate>
-          <label for="accountRecoveryMaster">Master admin κωδικός</label>
-          <input id="accountRecoveryMaster" type="password" autocomplete="off" placeholder="Ο master κωδικός σου" required>
-          <button class="sec" type="submit" id="accountRecoveryCheck">Έλεγχος παλιάς βάσης</button>
-        </form>
-        <p class="note" id="accountRecoveryStatus" role="status" aria-live="polite" style="white-space:pre-wrap"></p>
-      </div>
-      <div id="legacyTransferBox" class="legacy-transfer">
-        <strong>Μεταφορά παλιού κοινού ιστορικού</strong>
-        <p class="note">Μόνο για την πολύ παλιά κοινή βάση της εφαρμογής (PASSCODE). Δεν αφορά τους προσωπικούς λογαριασμούς Andreas, Nick ή Vasdim και δεν δέχεται τα PIN τους.</p>
-        <label for="legacyAccountCode">Παλιός κωδικός</label>
-        <input id="legacyAccountCode" type="password" autocomplete="off" placeholder="Παλιός κωδικός πρόσβασης">
-        <button class="sec" type="button" id="legacyTransfer">Μεταφορά ιστορικού</button>
-        <p class="note" id="legacyStatus" role="status"></p>
-      </div>
-    </div>
-  </details>
-  <p class="account-version">Car History · Προσωπικό ιστορικό αυτοκινήτου</p>
+  <button class="account-logout account-logout-bottom" type="button" id="chpw">Αποσύνδεση</button>
 </section>
 
 </main>
@@ -854,12 +806,13 @@ nav button.on{color:var(--accent);font-weight:600}
   <button type="button" id="installDismiss">Κατάλαβα</button>
 </dialog>
 
-<nav>
-  <button data-v="list" class="on"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Αρχική</span></button>
-  <button data-v="form"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span id="navAdd">Προσθήκη</span></button>
-  <button data-v="import"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><span>Εισαγωγή</span></button>
+<nav class="glass-nav" aria-label="Κύρια πλοήγηση">
+  <span class="glass-selection" aria-hidden="true"></span>
+  <button data-v="list" class="on" aria-current="page" type="button"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></span><span>Αρχική</span></button>
+  <button data-v="form" type="button"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span id="navAdd">Προσθήκη</span></button>
+  <button data-v="import" type="button"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><span>Εισαγωγή</span></button>
   <button data-v="ai" type="button" aria-label="AI Μηχανικός" title="AI Μηχανικός"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M18.4 5.6l-2.1 2.1m-8.6 8.6-2.1 2.1"/><rect x="7" y="7" width="10" height="10" rx="3"/><path d="M10 11h.01M14 11h.01M10 14c1.2 1 2.8 1 4 0"/></svg></span><span>AI</span></button>
-  <button data-v="account"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20v-1.5c0-3 2.6-5 7.5-5s7.5 2 7.5 5V20"/></svg></span><span>Account</span></button>
+  <button data-v="account" type="button"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20v-1.5c0-3 2.6-5 7.5-5s7.5 2 7.5 5V20"/></svg></span><span>Account</span></button>
 </nav>
 
 <script>
@@ -1111,7 +1064,7 @@ async function sync(){
       // owner has inspected the account/source. This prevents silent loss.
       if(remote.items.length===0&&local.items.length>0&&
          Array.isArray(base?.items)&&base.items.length>0){
-        setSt("Προσοχή: το Cloudflare επέστρεψε άδειο ιστορικό. Διατήρησα το τοπικό αντίγραφο — πήγαινε στο Account → Έλεγχος ανάκτησης.",true);
+        setSt("Προσοχή: το Cloudflare επέστρεψε άδειο ιστορικό. Διατήρησα το τοπικό αντίγραφο. Μην διαγράψεις τα δεδομένα του browser· επικοινώνησε με τον διαχειριστή.",true);
         return;
       }
       // First launch on a new device: trust the existing server dataset.
@@ -1184,12 +1137,29 @@ function hl(text,q){
   while((idx=n.indexOf(nq,i))!==-1){out+=esc(s.slice(i,idx))+"<mark>"+esc(s.slice(idx,idx+nq.length))+"</mark>";i=idx+nq.length}
   return out+esc(s.slice(i));
 }
+const glassNav=document.querySelector("nav");
 function show(v){
+  const buttons=[...glassNav.querySelectorAll("button[data-v]")];
+  const index=buttons.findIndex(b=>b.dataset.v===v);
+  if(index<0||!$("v-"+v))return;
+  const changed=!buttons[index].classList.contains("on");
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  buttons.forEach((b,i)=>{
+    b.classList.toggle("on",i===index);
+    if(i===index)b.setAttribute("aria-current","page");
+    else b.removeAttribute("aria-current");
+  });
+  glassNav.style.setProperty("--glass-index",String(index));
+  if(changed&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    const icon=buttons[index].querySelector(".ic");
+    if(icon?.animate){
+      icon.getAnimations?.().forEach(a=>a.cancel());
+      icon.animate([{transform:"translateY(1px) scale(.88)"},{transform:"translateY(-3px) scale(1.12)",offset:.55},{transform:"translateY(0) scale(1)"}],{duration:420,easing:"cubic-bezier(.2,.75,.25,1)"});
+    }
+  }
   window.scrollTo(0,0);
 }
-document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;show(b.dataset.v)};
+glassNav.onclick=e=>{const b=e.target.closest("button[data-v]");if(b)show(b.dataset.v)};
 
 /* Εκτίμηση ημερομηνίας βάσει των πιο πρόσφατων τακτικών service.
    Δεν χρησιμοποιούμε την ημερομηνία μόνο για να προβλέψουμε το όριο χλμ:
@@ -1539,22 +1509,7 @@ $("list").onclick=e=>{
   }
 };
 
-/* Αντίγραφο */
-$("mk").onclick=()=>{$("bk").value=JSON.stringify({items,settings,reminders});$("bkmsg").textContent="Έτοιμο. Πάτα «Αντιγραφή κειμένου» και κράτα το κάπου ασφαλές."};
-$("cp").onclick=async()=>{
-  const t=$("bk").value;if(!t){$("bkmsg").textContent="Πρώτα πάτα «Δημιουργία αντιγράφου».";return}
-  try{await navigator.clipboard.writeText(t);$("bkmsg").textContent="Αντιγράφηκε."}
-  catch(e){$("bk").focus();$("bk").select();$("bk").setSelectionRange(0,t.length);$("bkmsg").textContent="Το κείμενο επιλέχθηκε. Πάτα «Αντιγραφή» στο μενού του iPhone."}
-};
-$("rs").onclick=()=>{
-  try{
-    let d=JSON.parse($("bk").value),its=Array.isArray(d)?d:d.items,st=Array.isArray(d)?null:d.settings;
-    if(!Array.isArray(its))throw 0;
-    if(confirm("Θα αντικατασταθούν οι τωρινές καταχωρήσεις ("+items.length+") με "+its.length+" από το αντίγραφο. Συνέχεια;")){items=its;if(st&&typeof st==="object")settings={...settings,...st};if(!Array.isArray(d)&&Array.isArray(d.reminders))reminders=d.reminders;store();render();$("bkmsg").textContent="Έγινε επαναφορά.";show("list")}
-  }catch(e){$("bkmsg").textContent="Το κείμενο δεν είναι έγκυρο αντίγραφο."}
-};
 $("chpw").onclick=()=>window.CarAccountLogout?.();
-$("accountShowCode").onclick=()=>window.CarAccountShowCode?.();
 /* Εισαγωγή με AI: service-book photos share the existing editable review flow. */
 const impPhotos=$("impPhotos"),impPhotoList=$("impPhotoList");
 let queuedPhotos=[],importBusy=false;
@@ -2064,7 +2019,7 @@ $("impAdd").onclick=()=>{
     if(!current)return;
     if(pendingSync()){
       notice("Έχεις αλλαγές που δεν συγχρονίστηκαν ακόμη.",true);
-      alert("Συγχρόνισε τις αλλαγές ή κράτησε αντίγραφο πριν αποσυνδεθείς.");
+      alert("Περίμενε να συγχρονιστούν οι αλλαγές πριν αποσυνδεθείς. Αν δεν ολοκληρώνεται ο συγχρονισμός, επικοινώνησε με τον διαχειριστή.");
       return;
     }
     if(!confirm("Αποσύνδεση; Τα δεδομένα του Cloudflare δεν θα διαγραφούν."))return;
@@ -2096,119 +2051,6 @@ $("impAdd").onclick=()=>{
       }else window.setSt?.("Προσωρινή αδυναμία επιβεβαίωσης. Δεν έγινε αποσύνδεση.",true);
     }finally{checkingLock=false;}
   };
-  window.CarAccountShowCode=async()=>{
-    if(!current)return;
-    const username=current.username;
-    try{
-      await navigator.clipboard.writeText(username);
-      $("bkmsg").textContent="Το username αντιγράφηκε.";
-    }catch{prompt("Username:",username);}
-  };
-  $("accountPasswordForm")?.addEventListener("submit",async event=>{
-    event.preventDefault();
-    if(!current||busy)return;
-    const status=$("accountPasswordStatus"),currentPassword=$("accountCurrentPassword").value,
-      newPassword=$("accountNewPassword").value;
-    if(!validPassword(currentPassword)||!validPassword(newPassword)){
-      status.textContent="Συμπλήρωσε και τους δύο κωδικούς (τουλάχιστον 4 χαρακτήρες).";
-      return;
-    }
-    if(pendingSync()){
-      status.textContent="Πρώτα συγχρόνισε τις εκκρεμείς αλλαγές.";
-      return;
-    }
-    busy=true;$("accountChangePassword").disabled=true;
-    status.textContent="Αλλαγή password…";
-    try{
-      const result=await api("/api/account/password",{
-        username:current.username,currentPassword,newPassword
-      },current.session);
-      if(result.scope!==current.scope)throw Error("Ασυμφωνία λογαριασμού.");
-      persistSession({
-        username:current.username,scope:current.scope,session:result.session
-      },rememberEl.checked);
-      $("accountCurrentPassword").value="";
-      $("accountNewPassword").value="";
-      location.reload();
-    }catch(error){status.textContent=error.message||"Η αλλαγή απέτυχε.";}
-    finally{busy=false;$("accountChangePassword").disabled=false;}
-  });
-  // This incident diagnostic is deliberately READ ONLY. In particular,
-  // never run /migrate and never replace local or remote history automatically.
-  $("accountRecoveryForm")?.addEventListener("submit",async event=>{
-    event.preventDefault();
-    if(!current||busy)return;
-    const masterField=$("accountRecoveryMaster");
-    const status=$("accountRecoveryStatus");
-    const button=$("accountRecoveryCheck");
-    const masterAdmin=masterField.value;
-    if(!masterAdmin){status.textContent="Συμπλήρωσε τον master admin κωδικό.";return;}
-    button.disabled=true;
-    status.textContent="Έλεγχος των αρχείων στο Cloudflare…";
-    try{
-      const report=await api("/api/account/recovery-check",{
-        username:current.username,masterAdmin
-      },current.session,{timeoutMs:20000});
-      const pretty=(name,v)=>name+": "+
-        (v.exists?(v.entries+" καταχωρήσεις, "+v.reminders+
-          " υπενθυμίσεις, "+v.documents+" έγγραφα (revision "+v.revision+")"):
-          "δεν βρέθηκε ιστορικό");
-      let localCount=0,localBase=0,veryOldLocalCount=0;
-      try{
-        const local=JSON.parse(localStorage.getItem("carServiceLog:"+current.scope)||"[]");
-        if(Array.isArray(local))localCount=local.length;
-        const base=JSON.parse(localStorage.getItem("carServiceSyncBaseV2:"+current.scope)||"null");
-        if(Array.isArray(base?.items))localBase=base.items.length;
-        const older=JSON.parse(localStorage.getItem("carServiceLog")||"[]");
-        if(Array.isArray(older))veryOldLocalCount=older.length;
-      }catch{}
-      const parts=[
-        "Λογαριασμός: "+report.username,
-        pretty("Τρέχον Cloudflare",report.active),
-        pretty("Παλιά βάση προσωπικού PIN",report.original),
-        pretty("Πολύ παλιά κοινή βάση",report.sharedLegacy),
-        "Τοπικό αντίγραφο συσκευής: "+localCount+
-          " καταχωρήσεις (προηγούμενο συγχρονισμένο: "+localBase+")",
-        "Πολύ παλιό τοπικό αντίγραφο: "+veryOldLocalCount+" καταχωρήσεις",
-        report.sameOriginalAccount?
-          "Η νέα σύνδεση δείχνει στην αρχική βάση PIN.":
-          "ΠΡΟΣΟΧΗ: Η νέα σύνδεση δείχνει σε διαφορετική βάση από το παλιό PIN."
-      ];
-      if(report.original.entries>0&&report.active.entries===0&&!report.sameOriginalAccount)
-        parts.push("Οι παλιές εγγραφές βρέθηκαν! Μη μεταφέρεις τίποτα ακόμη.");
-      else if(report.active.entries>0)
-        parts.push("Το Cloudflare έχει καταχωρήσεις. Αν η οθόνη είναι άδεια, έλεγξε τον συγχρονισμό.");
-      else if(localCount>0||localBase>0||veryOldLocalCount>0)
-        parts.push("Υπάρχει τοπικό ίχνος ιστορικού. Μην καθαρίσεις δεδομένα εφαρμογής/browser.");
-      else
-        parts.push("Δεν επιβεβαιώθηκαν εγγραφές σε αυτήν τη βάση. Έλεγξε και παλιότερη συσκευή/αντίγραφο.");
-      parts.push("Μόνο έλεγχος: δεν έγινε καμία μεταφορά, διαγραφή ή αποθήκευση.");
-      status.textContent=parts.join("\n");
-    }catch(error){
-      status.textContent="Ο έλεγχος δεν ολοκληρώθηκε: "+error.message;
-    }finally{
-      masterField.value="";
-      button.disabled=false;
-    }
-  });
-
-  // Existing optional migration of the very old, shared PASSCODE dataset
-  // stays available for users who still require it.
-  $("legacyTransfer")?.addEventListener("click",async()=>{
-    if(!current||busy)return;
-    const legacyCode=$("legacyAccountCode").value.trim();
-    if(!legacyCode){$("legacyStatus").textContent="Συμπλήρωσε τον παλιό κωδικό.";return;}
-    if(!confirm("Μεταφορά πολύ παλιού ιστορικού σε άδειο λογαριασμό;"))return;
-    busy=true;$("legacyTransfer").disabled=true;
-    try{
-      await api("/api/account/migrate",{legacyCode},current.session);
-      window.CarAppCopyLegacyLocal();
-      $("legacyAccountCode").value="";
-      $("legacyStatus").textContent="Η μεταφορά ολοκληρώθηκε. Επαναφόρτωση…";
-      location.reload();
-    }catch(error){$("legacyStatus").textContent=error.message;}
-    finally{busy=false;$("legacyTransfer").disabled=false;}
-  });
   window.addEventListener("storage",event=>{
     if(event.key!==ACTIVE||!current)return;
     try{
