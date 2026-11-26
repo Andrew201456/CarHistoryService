@@ -17,8 +17,9 @@
 (function(){
   try{
     const active="carServiceActiveAccountV3";
-    for(const storage of [sessionStorage,localStorage]){
-      const raw=storage.getItem(active);
+    for(const remembered of [false,true]){
+      let raw;
+      try{raw=(remembered?localStorage:sessionStorage).getItem(active);}catch{continue;}
       if(!raw)continue;
       const data=JSON.parse(raw);
       if(/^[A-Z][A-Z0-9._-]{1,31}$/.test(data?.username||"")&&
@@ -406,6 +407,11 @@ nav button.on{color:var(--accent);font-weight:600}
     </div>
     <div id="accountLoginPanel" class="account-panel">
       <h1>Καλώς ήρθες</h1>
+      <div id="accountSessionRetry" hidden>
+        <p class="account-safety-note">Η αποθηκευμένη σύνδεσή σου δεν έχει χαθεί.</p>
+        <button type="button" id="accountRetrySession" class="account-primary">Επανάληψη σύνδεσης</button>
+        <button type="button" id="accountUsePassword" class="account-back">Σύνδεση με password / άλλος λογαριασμός</button>
+      </div>
       <form id="accountLoginForm" novalidate>
         <label for="accountUsername">Username</label>
         <input id="accountUsername" name="username" type="text" autocomplete="username"
@@ -872,14 +878,15 @@ function configureAccount(code,scope){
   PENDINGKEY="carServiceSyncPendingV2:"+scope;
   // Do not keep a second persistent copy of the bearer session: remember-me
   // now controls whether the verified session uses localStorage or sessionStorage.
-  localStorage.removeItem(PKEY);
+  try{localStorage.removeItem(PKEY);}catch{}
 }
 function accountIsCurrent(){
   // Remember-me OFF uses sessionStorage, not localStorage. Without this check
   // the app silently skips all Cloudflare syncing and displays an empty local
   // history even though the user's cloud records are intact.
-  for(const storage of [sessionStorage,localStorage]){
+  for(const remembered of [false,true]){
     try{
+      const storage=remembered?localStorage:sessionStorage;
       const saved=JSON.parse(storage.getItem(ACCOUNT_SESSION_KEY)||"null");
       if(saved?.scope===ACTIVE_SCOPE&&saved?.session===ACTIVE_TOKEN)return true;
     }catch{}
@@ -1784,7 +1791,18 @@ $("impAdd").onclick=()=>{
     openBtn=$("accountOpenRegister");
   const SCOPE=/^[a-f0-9]{64}$/,SESSION=/^ST-[a-f0-9]{64}-[A-F0-9]{48}$/,
     NAME=/^[A-Z][A-Z0-9._-]{1,31}$/;
-  let current=null,busy=false,requestSerial=0,autoAbort=null;
+  let current=null,busy=false,requestSerial=0,autoAbort=null,restoreCandidate=null,checkingLock=false;
+  const retryPanel=$("accountSessionRetry");
+  function clearSavedSession(){
+    for(const remember of [false,true]){
+      try{const storage=remember?localStorage:sessionStorage;storage.removeItem(ACTIVE);storage.removeItem(REMEMBER);}catch{}
+    }
+  }
+  function showRetry(visible){
+    if(retryPanel)retryPanel.hidden=!visible;
+    login.hidden=visible;
+    openBtn.hidden=visible;
+  }
   const normalizedUser=value=>String(value||"").trim().normalize("NFKC").toUpperCase();
   const validPassword=value=>typeof value==="string"&&[...value].length>=4&&
     [...value].length<=128&&!/[\u0000-\u001f\u007f]/.test(value);
@@ -1840,32 +1858,43 @@ $("impAdd").onclick=()=>{
   function savedSession(){
     // Older installations stored the session in localStorage unconditionally.
     // Keep them usable without losing any historical entries.
-    for(const storage of [sessionStorage,localStorage]){
+    for(const remember of [false,true]){
       try{
+        const storage=remember?localStorage:sessionStorage;
         const value=JSON.parse(storage.getItem(ACTIVE)||"null");
-        if(valid(value))return {value,remember:storage===localStorage};
-        if(storage===localStorage&&value?.code)return {value,remember:true,legacy:true};
+        if(valid(value))return {value,remember};
+        if(remember&&value?.code)return {value,remember:true,legacy:true};
       }catch{}
     }
     return null;
   }
   function persistSession(info,remember){
     // Store only the expiring server-issued session, never a password.
+    const serialized=JSON.stringify(info);
     if(remember){
-      localStorage.setItem(ACTIVE,JSON.stringify(info));
-      localStorage.setItem(REMEMBER,"1");
-      try{sessionStorage.removeItem(ACTIVE);}catch{}
-    }else{
-      sessionStorage.setItem(ACTIVE,JSON.stringify(info));
-      localStorage.removeItem(ACTIVE);
-      localStorage.removeItem(REMEMBER);
+      try{
+        localStorage.setItem(ACTIVE,serialized);
+        if(localStorage.getItem(ACTIVE)!==serialized)throw Error("Storage unavailable");
+        try{localStorage.setItem(REMEMBER,"1");}catch{}
+        try{sessionStorage.removeItem(ACTIVE);}catch{}
+        return true;
+      }catch{
+        sessionStorage.setItem(ACTIVE,serialized);
+        return false;
+      }
     }
+    sessionStorage.setItem(ACTIVE,serialized);
+    try{localStorage.removeItem(ACTIVE);localStorage.removeItem(REMEMBER);}catch{}
+    return false;
   }
   function start(info,{remember=rememberEl.checked}={}){
     if(!valid(info))throw Error("Ο διακομιστής επέστρεψε μη έγκυρη σύνδεση.");
-    current={username:info.username,scope:info.scope,session:info.session};
-    persistSession(current,remember);
-    rememberEl.checked=remember;
+    const next={username:info.username,scope:info.scope,session:info.session};
+    const persisted=persistSession(next,remember);
+    current=next;
+    rememberEl.checked=persisted;
+    restoreCandidate=null;
+    showRetry(false);
     // Do not persist password or master admin, including for legacy accounts.
     passwordEl.value="";
     $("accountLoginMaster").value="";
@@ -1874,10 +1903,12 @@ $("impAdd").onclick=()=>{
     document.documentElement.classList.remove("account-restoring");
     document.body.classList.remove("account-locked");
     window.CarAppStartAccount(current.session,current.scope);
+    if(remember&&!persisted)alert("Ο browser δεν επιτρέπει μόνιμη αποθήκευση της σύνδεσης. Θα παραμείνεις συνδεδεμένος σε αυτή την καρτέλα.");
   }
   function cancelRestore(){
     requestSerial++;
     autoAbort?.abort();autoAbort=null;
+    document.documentElement.classList.remove("account-restoring");
   }
   async function credentialsLogin(username,password,{auto=false,expectedScope=null}={}){
     const canonical=normalizedUser(username);
@@ -1927,12 +1958,12 @@ $("impAdd").onclick=()=>{
     }finally{setBusy(false);}
   });
   usernameEl.addEventListener("input",()=>{
-    cancelRestore();usernameEl.removeAttribute("aria-invalid");
+    usernameEl.removeAttribute("aria-invalid");
     $("accountLoginMasterWrap").hidden=true;
     $("accountLoginMaster").value="";
   });
   passwordEl.addEventListener("input",()=>{
-    cancelRestore();passwordEl.removeAttribute("aria-invalid");
+    passwordEl.removeAttribute("aria-invalid");
   });
   function showRegister(yes){
     if(busy)return;
@@ -1986,11 +2017,23 @@ $("impAdd").onclick=()=>{
     location.reload();
   }
   window.CarAccountLogout=logout;
-  window.CarAccountLock=()=>{
-    localStorage.removeItem(ACTIVE);
-    localStorage.removeItem(REMEMBER);
-    try{sessionStorage.removeItem(ACTIVE);}catch{}
-    location.reload();
+  window.CarAccountLock=async()=>{
+    if(!current||checkingLock)return;
+    checkingLock=true;
+    const candidate=current;
+    try{
+      const result=await api("/api/account/session",{},candidate.session,{timeoutMs:15000});
+      if(result.scope!==candidate.scope)throw Error("Ασυμφωνία λογαριασμού.");
+      window.setSt?.("Προσωρινό πρόβλημα σύνδεσης · η συνεδρία παραμένει ενεργή.",true);
+    }catch(error){
+      if(current!==candidate)return;
+      if(error.status===401){
+        const saved=savedSession();
+        if(saved&&saved.value.session!==candidate.session){location.reload();return;}
+        clearSavedSession();
+        location.reload();
+      }else window.setSt?.("Προσωρινή αδυναμία επιβεβαίωσης. Δεν έγινε αποσύνδεση.",true);
+    }finally{checkingLock=false;}
   };
   window.CarAccountShowCode=async()=>{
     if(!current)return;
@@ -2112,41 +2155,62 @@ $("impAdd").onclick=()=>{
       if(now?.scope!==current.scope)location.reload();
     }catch{location.reload();}
   });
-  // Restore a valid session without the old password. Previous PIN-based
-  // local sessions can migrate automatically only if they belong to one of
-  // the explicitly mapped historical scopes.
-  const saved=savedSession();
-  const last=saved?.value||null;
-  if(valid(last)){
+  // Restore the server-issued session after refresh; network failures are not logout.
+  async function restoreSession(saved){
+    if(!saved||!valid(saved.value)||current||autoAbort||busy)return;
+    const last=saved.value;
+    restoreCandidate=saved;
     rememberEl.checked=saved.remember;
     usernameEl.value=last.username;
     const serial=++requestSerial,abort=new AbortController();
     autoAbort=abort;
-    // The pre-paint splash is visible; the login form stays hidden until
-    // the existing session has been validated by Cloudflare.
+    showRetry(true);
+    document.documentElement.classList.add("account-restoring");
     notice("");
-    api("/api/account/session",{},last.session,{signal:abort.signal,timeoutMs:8000})
-      .then(result=>{
-        if(serial===requestSerial&&result.scope===last.scope)
+    let error;
+    try{
+      for(let attempt=0;attempt<2;attempt++){
+        try{
+          const result=await api("/api/account/session",{},last.session,{signal:abort.signal,timeoutMs:15000});
+          if(serial!==requestSerial||abort.signal.aborted)return;
+          if(result.scope!==last.scope)throw Error("Ασυμφωνία λογαριασμού.");
           start(last,{remember:saved.remember});
-      }).catch(error=>{
-        if(serial!==requestSerial||error.cancelled)return;
-        notice(error.status===401?
-          "Η σύνδεση έληξε. Βάλε το password σου.":
-          error.message,true);
-      }).finally(()=>{
-        if(autoAbort===abort)autoAbort=null;
-        document.documentElement.classList.remove("account-restoring");
-      });
-  }else if(last?.code){
-    document.documentElement.classList.remove("account-restoring");
-    // Prior app versions kept the PIN locally. Never expose or auto-send it
-    // from a publicly served JavaScript mapping. The user signs in with
-    // their new username/password and the server links to their old history.
-    notice("Συνδέσου με το νέο username και password. Το παλιό ιστορικό παραμένει στον λογαριασμό σου.");
-  }else{
-    document.documentElement.classList.remove("account-restoring");
+          notice("");
+          return;
+        }catch(e){
+          if(serial!==requestSerial||e.cancelled||abort.signal.aborted)return;
+          error=e;
+          if(e.status===401||navigator.onLine===false)break;
+        }
+      }
+      if(error?.status===401){
+        const latest=savedSession();
+        if(latest&&valid(latest.value)&&latest.value.session!==last.session){
+          restoreCandidate=latest;
+          notice("Βρέθηκε νεότερη σύνδεση. Πάτησε επανάληψη.",true);
+          return;
+        }
+        clearSavedSession();
+        restoreCandidate=null;
+        showRetry(false);
+        notice("Η συνεδρία έληξε. Συνδέσου ξανά με το password σου.",true);
+      }else notice("Η σύνδεσή σου παραμένει αποθηκευμένη. Ο έλεγχος στο Cloudflare δεν ήταν διαθέσιμος. Δοκίμασε ξανά όταν υπάρχει σύνδεση.",true);
+    }finally{
+      if(autoAbort===abort){autoAbort=null;document.documentElement.classList.remove("account-restoring");}
+    }
   }
+  $("accountRetrySession")?.addEventListener("click",()=>restoreSession(restoreCandidate||savedSession()));
+  $("accountUsePassword")?.addEventListener("click",()=>{
+    cancelRestore();restoreCandidate=null;showRetry(false);notice("");passwordEl.focus();
+  });
+  window.addEventListener("online",()=>{if(!current&&restoreCandidate)restoreSession(restoreCandidate)});
+  window.addEventListener("pageshow",event=>{if(event.persisted&&!current&&restoreCandidate)restoreSession(restoreCandidate)});
+  const saved=savedSession();
+  if(valid(saved?.value))restoreSession(saved);
+  else if(saved?.legacy){
+    document.documentElement.classList.remove("account-restoring");
+    notice("Συνδέσου με το νέο username και password. Το παλιό ιστορικό παραμένει στον λογαριασμό σου.");
+  }else document.documentElement.classList.remove("account-restoring");
 })();
 </script>
 <script src="/features.js"></script>
