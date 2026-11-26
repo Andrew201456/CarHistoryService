@@ -97,6 +97,55 @@ const identityFetch=(stub,action,body)=>stub.fetch("https://car-data.internal/id
 });
 const accountScopeStub=(env,scope)=>env.CAR_DATA.get(
   env.CAR_DATA.idFromName("car-service-user-"+scope));
+// Private, non-authoritative account directory in existing DATA KV.
+// Authentication stays in the per-username identity Durable Object.
+// Never duplicate password verifiers, salts, session tokens or scope IDs.
+const accountIndexKey=username=>"accounts:"+username;
+function indexDate(value){
+  return typeof value==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)&&Number.isFinite(Date.parse(value))?value:null;
+}
+async function indexAccount(env,username,{expectedScope=null,loginAt=null,onlyIfMissing=false}={}){
+  if(!validUser(username)||typeof env.DATA?.put!=="function")return;
+  try{
+    const key=accountIndexKey(username);
+    const previous=await env.DATA.get(key,"json");
+    if(onlyIfMissing&&previous?.username===username)return;
+    const response=await identityFetch(identityStub(env,username),"describe",{});
+    if(!response.ok)return;
+    const identity=await response.json();
+    if(identity.username!==username||(expectedScope&&identity.scope!==expectedScope))return;
+    const now=new Date().toISOString();
+    const old=previous?.username===username?previous:{};
+    const entry={
+      username,
+      createdAt:indexDate(identity.createdAt)||null,
+      firstIndexedAt:indexDate(old.firstIndexedAt)||now,
+      lastLoginAt:[indexDate(old.lastLoginAt),indexDate(loginAt)].filter(Boolean).sort().at(-1)||null,
+      passwordUpdatedAt:indexDate(identity.passwordUpdatedAt)||null,
+      passwordStorage:"PBKDF2-SHA256 (identity Durable Object)"
+    };
+    if(JSON.stringify(old)!==JSON.stringify(entry))await env.DATA.put(key,JSON.stringify(entry));
+  }catch{
+    // Registry outages must not break logins or existing user data.
+    console.warn("Account directory update temporarily unavailable");
+  }
+}
+async function indexKnownAccounts(env,exclude=""){
+  await Promise.allSettled([...LEGACY_USER_SCOPES.keys()]
+    .filter(username=>username!==exclude)
+    .map(username=>indexAccount(env,username,{onlyIfMissing:true})));
+}
+function updateAccountDirectory(ctx,env,username,options={}){
+  // Keep the login response fast; Cloudflare waitUntil completes the index
+  // writes after the response. Tests without an execution context can await.
+  const work=Promise.allSettled([
+    indexAccount(env,username,options),
+    indexKnownAccounts(env,username)
+  ]);
+  if(ctx?.waitUntil){ctx.waitUntil(work);return Promise.resolve();}
+  return work;
+}
+
 const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /* Private cloud documents in the EXISTING per-account SQLite Durable Object.
@@ -299,7 +348,7 @@ async function getLegacyData(env){
 
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
 
     // Every account uses a separate SQLite Durable Object. A code for another
@@ -338,7 +387,9 @@ export default {
       const claimed=await identityFetch(registry,"create",{username,scope,salt,verifier});
       if(claimed.status===409)return jsonNoStore({error:"Το username χρησιμοποιείται ήδη."},409);
       if(!claimed.ok)return jsonNoStore({error:"Δεν ολοκληρώθηκε η εγγραφή."},503);
-      return jsonNoStore({username,scope,session:await newSession(stub,scope)},201);
+      const session=await newSession(stub,scope);
+      await updateAccountDirectory(ctx,env,username,{expectedScope:scope,loginAt:new Date().toISOString()});
+      return jsonNoStore({username,scope,session},201);
     }
 
     if (url.pathname === "/api/account/login" && req.method === "POST") {
@@ -422,7 +473,9 @@ export default {
       const account=accountScopeStub(env,scope);
       const data=await account.fetch("https://car-data.internal/data");
       if(!data.ok)return jsonNoStore({error:"Το ιστορικό του λογαριασμού δεν είναι διαθέσιμο."},503);
-      return jsonNoStore({username,scope,session:await newSession(account,scope)});
+      const session=await newSession(account,scope);
+      await updateAccountDirectory(ctx,env,username,{expectedScope:scope,loginAt:new Date().toISOString()});
+      return jsonNoStore({username,scope,session});
     }
 
     if (url.pathname === "/api/account/password" && req.method === "POST") {
@@ -444,15 +497,22 @@ export default {
       });
       if(!changed.ok)return jsonNoStore({error:"Λάθος τωρινός κωδικός."},401);
       await account.stub.fetch("https://car-data.internal/sessions-revoke",{method:"POST"});
-      return jsonNoStore({username,scope:account.scope,
-        session:await newSession(account.stub,account.scope)});
+      const session=await newSession(account.stub,account.scope);
+      await updateAccountDirectory(ctx,env,username,{expectedScope:account.scope});
+      return jsonNoStore({username,scope:account.scope,session});
     }
 
     if (url.pathname === "/api/account/session" && req.method === "POST") {
       try{
         const account=await getAccount(req,env);
-        return account?jsonNoStore({scope:account.scope}):
-          jsonNoStore({error:"Η σύνδεση έχει λήξει. Συνδέσου ξανά."},401);
+        if(!account)return jsonNoStore({error:"Η σύνδεση έχει λήξει. Συνδέσου ξανά."},401);
+        // The browser can propose a username, but the identity must resolve
+        // to this exact authenticated account before it is indexed.
+        let payload={};
+        try{payload=await req.json();}catch{}
+        const username=cleanUsername(payload?.username);
+        await updateAccountDirectory(ctx,env,username,{expectedScope:account.scope});
+        return jsonNoStore({scope:account.scope});
       }catch{
         return jsonNoStore({error:"Ο έλεγχος σύνδεσης δεν είναι προσωρινά διαθέσιμος."},503);
       }
@@ -689,7 +749,8 @@ export class CarServiceStore {
       const identity=await this.state.storage.get("identity");
       if(action==="exists")return json({exists:!!identity},identity?200:404);
       if(action==="describe")
-        return identity?json({username:identity.username,scope:identity.scope}):
+        return identity?json({username:identity.username,scope:identity.scope,
+          createdAt:identity.createdAt||null,passwordUpdatedAt:identity.passwordUpdatedAt||null}):
           json({error:"not found"},404);
       let input={};
       try{input=await request.json();}catch{}
@@ -702,7 +763,8 @@ export class CarServiceStore {
           if(await tx.get("identity"))return false;
           await tx.put("identity",{
             username:input.username,scope:input.scope,
-            salt:input.salt,verifier:input.verifier
+            salt:input.salt,verifier:input.verifier,
+            createdAt:new Date().toISOString(),passwordUpdatedAt:new Date().toISOString()
           });return true;
         });
         return json({ok:created},created?201:409);
@@ -725,7 +787,7 @@ export class CarServiceStore {
         const updated=await this.state.storage.transaction(async tx=>{
           const latest=await tx.get("identity");
           if(!latest||latest.verifier!==identity.verifier)return false;
-          await tx.put("identity",{...latest,salt,verifier});return true;
+          await tx.put("identity",{...latest,salt,verifier,passwordUpdatedAt:new Date().toISOString()});return true;
         });
         return json({ok:updated},updated?200:409);
       }
