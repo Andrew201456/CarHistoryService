@@ -228,7 +228,7 @@
     if(!current)return;
     if(pendingSync()){
       notice("Έχεις αλλαγές που δεν συγχρονίστηκαν ακόμη.",true);
-      alert("Συγχρόνισε τις αλλαγές ή κράτησε αντίγραφο πριν αποσυνδεθείς.");
+      alert("Περίμενε να συγχρονιστούν οι αλλαγές πριν αποσυνδεθείς. Αν δεν ολοκληρώνεται ο συγχρονισμός, επικοινώνησε με τον διαχειριστή.");
       return;
     }
     if(!confirm("Αποσύνδεση; Τα δεδομένα του Cloudflare δεν θα διαγραφούν."))return;
@@ -260,119 +260,6 @@
       }else window.setSt?.("Προσωρινή αδυναμία επιβεβαίωσης. Δεν έγινε αποσύνδεση.",true);
     }finally{checkingLock=false;}
   };
-  window.CarAccountShowCode=async()=>{
-    if(!current)return;
-    const username=current.username;
-    try{
-      await navigator.clipboard.writeText(username);
-      $("bkmsg").textContent="Το username αντιγράφηκε.";
-    }catch{prompt("Username:",username);}
-  };
-  $("accountPasswordForm")?.addEventListener("submit",async event=>{
-    event.preventDefault();
-    if(!current||busy)return;
-    const status=$("accountPasswordStatus"),currentPassword=$("accountCurrentPassword").value,
-      newPassword=$("accountNewPassword").value;
-    if(!validPassword(currentPassword)||!validPassword(newPassword)){
-      status.textContent="Συμπλήρωσε και τους δύο κωδικούς (τουλάχιστον 4 χαρακτήρες).";
-      return;
-    }
-    if(pendingSync()){
-      status.textContent="Πρώτα συγχρόνισε τις εκκρεμείς αλλαγές.";
-      return;
-    }
-    busy=true;$("accountChangePassword").disabled=true;
-    status.textContent="Αλλαγή password…";
-    try{
-      const result=await api("/api/account/password",{
-        username:current.username,currentPassword,newPassword
-      },current.session);
-      if(result.scope!==current.scope)throw Error("Ασυμφωνία λογαριασμού.");
-      persistSession({
-        username:current.username,scope:current.scope,session:result.session
-      },rememberEl.checked);
-      $("accountCurrentPassword").value="";
-      $("accountNewPassword").value="";
-      location.reload();
-    }catch(error){status.textContent=error.message||"Η αλλαγή απέτυχε.";}
-    finally{busy=false;$("accountChangePassword").disabled=false;}
-  });
-  // This incident diagnostic is deliberately READ ONLY. In particular,
-  // never run /migrate and never replace local or remote history automatically.
-  $("accountRecoveryForm")?.addEventListener("submit",async event=>{
-    event.preventDefault();
-    if(!current||busy)return;
-    const masterField=$("accountRecoveryMaster");
-    const status=$("accountRecoveryStatus");
-    const button=$("accountRecoveryCheck");
-    const masterAdmin=masterField.value;
-    if(!masterAdmin){status.textContent="Συμπλήρωσε τον master admin κωδικό.";return;}
-    button.disabled=true;
-    status.textContent="Έλεγχος των αρχείων στο Cloudflare…";
-    try{
-      const report=await api("/api/account/recovery-check",{
-        username:current.username,masterAdmin
-      },current.session,{timeoutMs:20000});
-      const pretty=(name,v)=>name+": "+
-        (v.exists?(v.entries+" καταχωρήσεις, "+v.reminders+
-          " υπενθυμίσεις, "+v.documents+" έγγραφα (revision "+v.revision+")"):
-          "δεν βρέθηκε ιστορικό");
-      let localCount=0,localBase=0,veryOldLocalCount=0;
-      try{
-        const local=JSON.parse(localStorage.getItem("carServiceLog:"+current.scope)||"[]");
-        if(Array.isArray(local))localCount=local.length;
-        const base=JSON.parse(localStorage.getItem("carServiceSyncBaseV2:"+current.scope)||"null");
-        if(Array.isArray(base?.items))localBase=base.items.length;
-        const older=JSON.parse(localStorage.getItem("carServiceLog")||"[]");
-        if(Array.isArray(older))veryOldLocalCount=older.length;
-      }catch{}
-      const parts=[
-        "Λογαριασμός: "+report.username,
-        pretty("Τρέχον Cloudflare",report.active),
-        pretty("Παλιά βάση προσωπικού PIN",report.original),
-        pretty("Πολύ παλιά κοινή βάση",report.sharedLegacy),
-        "Τοπικό αντίγραφο συσκευής: "+localCount+
-          " καταχωρήσεις (προηγούμενο συγχρονισμένο: "+localBase+")",
-        "Πολύ παλιό τοπικό αντίγραφο: "+veryOldLocalCount+" καταχωρήσεις",
-        report.sameOriginalAccount?
-          "Η νέα σύνδεση δείχνει στην αρχική βάση PIN.":
-          "ΠΡΟΣΟΧΗ: Η νέα σύνδεση δείχνει σε διαφορετική βάση από το παλιό PIN."
-      ];
-      if(report.original.entries>0&&report.active.entries===0&&!report.sameOriginalAccount)
-        parts.push("Οι παλιές εγγραφές βρέθηκαν! Μη μεταφέρεις τίποτα ακόμη.");
-      else if(report.active.entries>0)
-        parts.push("Το Cloudflare έχει καταχωρήσεις. Αν η οθόνη είναι άδεια, έλεγξε τον συγχρονισμό.");
-      else if(localCount>0||localBase>0||veryOldLocalCount>0)
-        parts.push("Υπάρχει τοπικό ίχνος ιστορικού. Μην καθαρίσεις δεδομένα εφαρμογής/browser.");
-      else
-        parts.push("Δεν επιβεβαιώθηκαν εγγραφές σε αυτήν τη βάση. Έλεγξε και παλιότερη συσκευή/αντίγραφο.");
-      parts.push("Μόνο έλεγχος: δεν έγινε καμία μεταφορά, διαγραφή ή αποθήκευση.");
-      status.textContent=parts.join("\n");
-    }catch(error){
-      status.textContent="Ο έλεγχος δεν ολοκληρώθηκε: "+error.message;
-    }finally{
-      masterField.value="";
-      button.disabled=false;
-    }
-  });
-
-  // Existing optional migration of the very old, shared PASSCODE dataset
-  // stays available for users who still require it.
-  $("legacyTransfer")?.addEventListener("click",async()=>{
-    if(!current||busy)return;
-    const legacyCode=$("legacyAccountCode").value.trim();
-    if(!legacyCode){$("legacyStatus").textContent="Συμπλήρωσε τον παλιό κωδικό.";return;}
-    if(!confirm("Μεταφορά πολύ παλιού ιστορικού σε άδειο λογαριασμό;"))return;
-    busy=true;$("legacyTransfer").disabled=true;
-    try{
-      await api("/api/account/migrate",{legacyCode},current.session);
-      window.CarAppCopyLegacyLocal();
-      $("legacyAccountCode").value="";
-      $("legacyStatus").textContent="Η μεταφορά ολοκληρώθηκε. Επαναφόρτωση…";
-      location.reload();
-    }catch(error){$("legacyStatus").textContent=error.message;}
-    finally{busy=false;$("legacyTransfer").disabled=false;}
-  });
   window.addEventListener("storage",event=>{
     if(event.key!==ACTIVE||!current)return;
     try{
