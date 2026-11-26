@@ -1036,6 +1036,10 @@ function reconcileSettings(base,local,remote,conflicts){
   const keys=new Set([...Object.keys(base||{}),...Object.keys(local||{}),...Object.keys(remote||{})]);
   for(const key of keys){
     const b=base?.[key],l=local?.[key],r=remote?.[key];
+    if(key==="mileageReadings"){
+      out[key]=mergeMileageReadings(b,l,r);
+      continue;
+    }
     // During first upgrade we lack a common baseline; preserve the
     // existing server odometer unless there are known unsent local edits.
     if(!base){
@@ -1048,6 +1052,12 @@ function reconcileSettings(base,local,remote,conflicts){
     const picked=lc && (!rc||!equal(l,r)) ? l : r;
     if(lc&&rc&&!equal(l,r))conflicts.count++;
     if(picked!==undefined)out[key]=picked;
+  }
+  if(base&&!equal(local?.current,base.current)&&!equal(remote?.current,base.current)){
+    const l=mergeMileageReadings(local?.mileageReadings).at(-1);
+    const r=mergeMileageReadings(remote?.mileageReadings).at(-1);
+    if(l&&r&&l.km===intOf(local.current)&&r.km===intOf(remote.current))
+      out.current=mergeMileageReadings([l],[r]).at(-1).km;
   }
   return out;
 }
@@ -1215,6 +1225,65 @@ function estimateNextServiceDate(records,currentKm,targetKm,now=new Date()){
   return {date:projected,dailyKm,intervals:speeds.length};
 }
 
+/* Dated odometer readings, synced with settings. */
+const MILEAGE_DAY=86400000;
+function mileageDay(now=new Date()){
+  return Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+}
+function parseMileageDay(value){
+  if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const ms=Date.parse(value+"T00:00:00Z");
+  return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===value?ms:null;
+}
+function mergeMileageReadings(...lists){
+  const byDate=new Map();
+  for(const list of lists){
+    if(!Array.isArray(list))continue;
+    for(const r of list){
+      if(!r||parseMileageDay(r.date)===null||!Number.isSafeInteger(r.km)||r.km<=0||r.km>9999999||
+        !Number.isSafeInteger(r.recordedAt)||r.recordedAt<=0)continue;
+      const old=byDate.get(r.date);
+      if(!old||r.recordedAt>old.recordedAt||(r.recordedAt===old.recordedAt&&r.km>old.km))
+        byDate.set(r.date,{date:r.date,km:r.km,recordedAt:r.recordedAt});
+    }
+  }
+  return [...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-730);
+}
+function recordMileage(km,now=new Date()){
+  if(!Number.isSafeInteger(km)||km<=0||km>9999999)return;
+  const date=new Date(mileageDay(now)).toISOString().slice(0,10);
+  settings.mileageReadings=mergeMileageReadings(settings.mileageReadings,[{date,km,recordedAt:now.getTime()}]);
+}
+function serviceBaseline(records,last,targetKm,now=new Date()){
+  const date=parseMileageDay(last?.date),km=intOf(last?.km);
+  if(date===null||date>mileageDay(now)||!km||targetKm<=km)return null;
+  return estimateNextServiceDate(records,km,targetKm,new Date(last.date+"T12:00:00"));
+}
+function estimateFromMileage(readings,last,currentKm,targetKm,now=new Date()){
+  const serviceDate=parseMileageDay(last?.date),serviceKm=intOf(last?.km);
+  if(!Number.isFinite(currentKm)||currentKm<=0||currentKm>=targetKm)return null;
+  const saved=mergeMileageReadings(readings).filter(r=>parseMileageDay(r.date)<=mileageDay(now));
+  const latest=saved.at(-1);
+  if(!latest||latest.km!==currentKm)return null;
+  const end=parseMileageDay(latest.date);
+  if(serviceDate!==null&&(end<serviceDate||currentKm<serviceKm))return null;
+  const points=saved.filter(r=>serviceDate===null||parseMileageDay(r.date)>serviceDate)
+    .map(r=>({date:parseMileageDay(r.date),km:r.km}));
+  if(serviceDate!==null&&serviceDate<end&&serviceKm>0)points.unshift({date:serviceDate,km:serviceKm});
+  if(points.length<2)return null;
+  let segmentStart=0;
+  for(let i=1;i<points.length;i++)if(points[i].km<points[i-1].km)segmentStart=i;
+  const segment=points.slice(segmentStart),finish=segment.at(-1);
+  const eligible=segment.slice(0,-1).filter(p=>finish.date-p.date>=7*MILEAGE_DAY);
+  if(!eligible.length)return null;
+  const start=eligible.find(p=>finish.date-p.date<=60*MILEAGE_DAY)||eligible.at(-1);
+  const days=(finish.date-start.date)/MILEAGE_DAY,dailyKm=(finish.km-start.km)/days;
+  if(!Number.isFinite(dailyKm)||dailyKm<1||dailyKm>600)return null;
+  const remainingDays=Math.ceil((targetKm-currentKm)/dailyKm);
+  if(remainingDays<=0||remainingDays>3650)return null;
+  return {date:new Date(finish.date+remainingDays*MILEAGE_DAY),dailyKm,days,lastReading:latest.date};
+}
+
 /* Status colours scale with the configured service interval.
    Green: >25% away, Orange: 10–25%, Red: 0–10%, Burgundy: overdue. */
 function serviceRemainingStatus(left,interval){
@@ -1250,35 +1319,38 @@ function renderNext(){
         left===0?'Ήρθε η ώρα για service (0 χλμ. απομένουν)':'Απομένουν '+fmtKm(left);
       html+='<div class="left service-remaining '+urgency+'" style="color:'+statusColor+';font-weight:800"><span class="service-remaining-dot" aria-hidden="true"></span>'+message+'</div>';
     }
-    if(cur>0){
-      const left=next-cur;
-      if(cur<lk){
-        html+='<div class="service-eta-note">Ενημέρωσε τα τωρινά χλμ. για σωστή εκτίμηση.</div>';
-      }else if(left<=0){
-        html+='<div class="service-eta-inline is-due"><span>Επόμενο service: <strong>Άμεσα</strong></span></div>';
-      }else{
-        const forecast=estimateNextServiceDate(items,cur,next);
-        if(forecast){
-          const label=new Intl.DateTimeFormat("el-GR",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(forecast.date);
-          html+='<div class="service-eta-inline" aria-label="Εκτιμώμενη ημερομηνία service"><span>Περίπου <strong>'+esc(label)+'</strong></span></div>';
-        }else{
-          html+='<div class="service-eta-note">Για ημερομηνία χρειάζονται 2 service με χλμ. και ημερομηνία.</div>';
-        }
-      }
-    }else{
-      html+='<div class="service-eta-note">Βάλε τα τωρινά χλμ. για εκτίμηση ημερομηνίας.</div>';
-    }
+    const dateLabel=date=>new Intl.DateTimeFormat("el-GR",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(date);
+    const rateLabel=rate=>Math.round(rate).toLocaleString("el-GR")+" χλμ./ημέρα";
+    const baseline=serviceBaseline(items,last,next);
+    const dynamic=cur>=lk&&cur<next?estimateFromMileage(settings.mileageReadings,last,cur,next):null;
+    const due=cur>=next;
+    html+='<div class="service-forecast-pair" aria-label="Εκτιμήσεις επόμενου service">';
+    html+='<div class="service-forecast"><span>Βάσει προηγούμενων service</span><strong>'+(baseline?esc(dateLabel(baseline.date)):'—')+'</strong><small>'+(baseline?esc(rateLabel(baseline.dailyKm)):'Χρειάζονται 2 τακτικά service με ημερομηνία και χλμ.')+'</small></div>';
+    html+='<div class="service-forecast service-forecast-current'+(due?' is-due':'')+'"><span>Βάσει τωρινών χιλιομέτρων</span><strong>'+(due?'Άμεσα':dynamic?esc(dateLabel(dynamic.date)):'—')+'</strong><small>'+(due?'Έφτασες ή ξεπέρασες το όριο.':dynamic?esc(rateLabel(dynamic.dailyKm)+' · μέτρηση '+fmtDate(dynamic.lastReading)):cur<lk&&cur>0?'Ενημέρωσε τα τωρινά χλμ.':'Χρειάζονται μετρήσεις με τουλάχιστον 7 ημέρες διαφορά από προηγούμενη μέτρηση ή service και έγκυρος ρυθμός οδήγησης.')+'</small></div></div>';
+    if(dynamic&&dynamic.date.getTime()<mileageDay())html+='<div class="service-eta-note">Η πρόβλεψη βασίζεται σε παλαιότερη μέτρηση. Ενημέρωσε τα χλμ. για νέα εκτίμηση.</div>';
     html+='<div class="small service-last">Τελευταίο service: '+fmtKm(lk)+', στις '+fmtDate(last.date)+'</div>';
   }
-  html+='<div class="cfg"><div><label for="cur">Τώρα έχω (χλμ)</label><input id="cur" type="text" inputmode="numeric" placeholder="π.χ. 150000" value="'+esc(settings.current||"")+'"></div><div><label for="iv">Service κάθε (χλμ)</label><input id="iv" type="text" inputmode="numeric" value="'+esc(interval)+'"></div></div>';
+  html+='<div class="cfg"><div><label for="cur">Τώρα έχω (χλμ)</label><input id="cur" type="text" inputmode="numeric" placeholder="π.χ. 150000" value="'+esc(settings.current||"")+'"><button type="button" id="save-mileage" class="save-mileage">Καταγραφή χλμ.</button></div><div><label for="iv">Service κάθε (χλμ)</label><input id="iv" type="text" inputmode="numeric" value="'+esc(interval)+'"></div></div>';
   $("next").innerHTML=html;
 }
 $("next").addEventListener("change",e=>{
-  if(e.target.id==="cur"){settings.current=intOf(e.target.value)||"";}
-  if(e.target.id==="iv"){settings.interval=intOf(e.target.value)||10000;}
+  if(e.target.id==="cur"){
+    const km=intOf(e.target.value);
+    if(km>9999999){renderNext();return}
+    settings.current=km||"";
+    recordMileage(km);
+  }else if(e.target.id==="iv"){settings.interval=intOf(e.target.value)||10000;}
+  else return;
   store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
 });
 
+$("next").addEventListener("click",e=>{
+  if(!e.target.closest("#save-mileage"))return;
+  const km=intOf($("cur").value);
+  if(km<=0||km>9999999)return;
+  settings.current=km;recordMileage(km);
+  store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
+});
 /* Λίστα */
 function haystack(it){return [fmtDate(it.date),it.date,it.km,it.where,it.notes,it.what,it.labor,it.cost,it.tireName].concat((it.parts||[]).map(p=>p.name+" "+p.cost)).join(" ")}
 function updateHomeVehicleTitle(){
