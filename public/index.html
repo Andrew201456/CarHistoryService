@@ -468,7 +468,15 @@ nav button.on{color:var(--accent);font-weight:600}
 
 <section class="view on" id="v-list">
   <header class="home-header">
-    <div class="home-vehicle-heading"><h1 id="homeVehicleName">Καταχώρησε αυτοκίνητο</h1><p>Όλο το ιστορικό συντήρησης, με μια ματιά.</p></div>
+    <div class="home-vehicle-heading">
+      <h1 id="homeVehicleName">Καταχώρησε αυτοκίνητο</h1>
+      <p id="aiVehicleSubtitle">Όλο το ιστορικό συντήρησης, με μια ματιά.</p>
+      <button type="button" class="home-vehicle-edit" id="aiProfileOpen" aria-haspopup="dialog" aria-controls="aiVehicleDialog">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 15 11.5-11.5a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L9 20l-6 1 1-6Zm9.5-9.5 5 5"/></svg>
+        <span id="aiVehicleSummary">Στοιχεία αυτοκινήτου</span>
+        <span aria-hidden="true">›</span>
+      </button>
+    </div>
     <button type="button" id="installBtn" class="install-trigger" hidden>
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -654,11 +662,6 @@ nav button.on{color:var(--accent);font-weight:600}
     <button type="button" class="ai-new-chat" id="aiClear" aria-label="Νέα συνομιλία" title="Νέα συνομιλία"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M14 4h6v6M20 4l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
 
-  <button class="ai-car-summary" id="aiProfileOpen" type="button" aria-haspopup="dialog" aria-controls="aiVehicleDialog">
-    <span class="ai-car-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 10 1.7-4.3A2 2 0 0 1 8.5 4.5h7a2 2 0 0 1 1.8 1.2L19 10m-14 0h14c1.1 0 2 .9 2 2v5H3v-5c0-1.1.9-2 2-2Zm.5 7v2h3v-2m7 0v2h3v-2M6.8 13.5h.1m10.2 0h.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    <span class="ai-car-copy"><strong id="aiVehicleSummary">Καταχώρησε το αυτοκίνητό σου</strong><small id="aiVehicleSubtitle">Μάρκα, μοντέλο, χρονολογία, κινητήρας…</small></span>
-    <span class="ai-car-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-  </button>
   <div class="ai-context-line">
     <span class="ai-live-dot" aria-hidden="true"></span><span id="aiHistoryCount">Ιστορικό: —</span><span aria-hidden="true">·</span><span id="aiCurrentKm">Χιλιόμετρα: —</span>
   </div>
@@ -794,7 +797,7 @@ nav button.on{color:var(--accent);font-weight:600}
 <dialog id="aiVehicleDialog" class="ai-profile-dialog" aria-labelledby="aiProfileTitle">
   <form id="aiVehicleForm" class="ai-profile-form">
     <div class="ai-profile-head">
-      <div><span>ΤΟ ΟΧΗΜΑ ΜΟΥ</span><h2 id="aiProfileTitle">Στοιχεία αυτοκινήτου</h2><p>Αποθηκεύονται μαζί με το ιστορικό και βοηθούν τον AI Μηχανικό να δίνει πιο σχετικές απαντήσεις.</p></div>
+      <div><span>ΤΟ ΟΧΗΜΑ ΜΟΥ</span><h2 id="aiProfileTitle">Στοιχεία αυτοκινήτου</h2><p>Τα στοιχεία του οχήματός σου αποθηκεύονται στον λογαριασμό σου και συγχρονίζονται μαζί με το ιστορικό.</p></div>
       <button id="aiProfileClose" type="button" class="ai-dialog-x" aria-label="Κλείσιμο">×</button>
     </div>
     <div class="ai-profile-grid">
@@ -1363,6 +1366,11 @@ function updateHomeVehicleTitle(){
     .filter(Boolean).join(" ");
   const heading=$("homeVehicleName");
   if(heading)heading.textContent=title||"Καταχώρησε αυτοκίνητο";
+  const subtitle=$("aiVehicleSubtitle");
+  const details=["engine","fuel","trim"].map(key=>typeof values[key]==="string"?values[key].trim():"").filter(Boolean);
+  if(subtitle)subtitle.textContent=details.join(" · ")||"Όλο το ιστορικό συντήρησης, με μια ματιά.";
+  const action=$("aiVehicleSummary");
+  if(action)action.textContent=title?"Στοιχεία αυτοκινήτου":"Προσθήκη στοιχείων αυτοκινήτου";
 }
 window.CarHistoryUpdateHomeTitle=updateHomeVehicleTitle;
 function render(){
