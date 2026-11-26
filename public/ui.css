@@ -3,9 +3,9 @@
   --soft:color-mix(in srgb,var(--accent) 9%,var(--card));
   --shadow:0 8px 28px rgba(20,42,70,.055);
 }
-body {letter-spacing:-.1px}
+body {letter-spacing:normal}
 main {max-width:700px;padding:18px 16px calc(118px + env(safe-area-inset-bottom,0px))}
-h1 {font-size:1.65rem;letter-spacing:-.7px;margin:0}
+h1 {font-size:1.65rem;letter-spacing:normal;margin:0}
 button,input,textarea,select {font-family:inherit}
 button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible {
   outline:3px solid var(--accent);outline-offset:2px;
@@ -23,7 +23,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   border:1px solid var(--line)}
 .next:before {content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--accent)}
 .next .small:first-child {font-size:.78rem;text-transform:uppercase;font-weight:750;letter-spacing:1px}
-.next .big {font-size:clamp(1.7rem,6vw,2.1rem);margin-top:5px;letter-spacing:-.5px}
+.next .big {font-size:clamp(1.7rem,6vw,2.1rem);margin-top:5px;letter-spacing:normal}
 .next .cfg {gap:14px;margin-top:16px}
 .next .cfg input {min-width:0}
 .bar {height:8px;border-radius:100px;margin-top:13px}
@@ -32,7 +32,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   padding:15px;display:flex;flex-direction:column;align-items:flex-start;min-width:0;box-shadow:var(--shadow)}
 .overview-label {font-size:.76rem;color:var(--mute);font-weight:700;letter-spacing:.3px}
 .overview-card strong {font-size:clamp(1.3rem,5vw,1.7rem);line-height:1.15;margin:8px 0 5px;
-  letter-spacing:-.65px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+  letter-spacing:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .overview-card small {font-size:.72rem;color:var(--mute);line-height:1.3}
 .extra-panel {background:var(--card);border:1px solid var(--line);border-radius:15px;
   margin-bottom:11px;padding:0 16px}
@@ -79,7 +79,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .expense-entry strong {white-space:nowrap;font-weight:750;font-variant-numeric:tabular-nums}
 .empty-inline {font-size:.86rem;color:var(--mute);padding:12px 0 16px;line-height:1.5}
 .history-title {margin:25px 2px 12px}
-.history-title h2 {font-size:1.14rem;letter-spacing:-.25px;margin:0}
+.history-title h2 {font-size:1.14rem;letter-spacing:normal;margin:0}
 #q {background:var(--card);min-height:50px}
 .filters {display:flex;align-items:center;gap:8px;overflow:auto;padding:10px 1px 4px;
   scrollbar-width:none;-webkit-overflow-scrolling:touch}
@@ -247,7 +247,7 @@ button:not(:disabled):active {transform:scale(.992)}
 .next{padding:17px 17px 16px;border-radius:20px}
 .next .service-next-caption{font-size:.74rem;font-weight:750;letter-spacing:.02em}
 .next .service-next-km{font-size:clamp(1.7rem,6.2vw,2rem);font-weight:800;
-  line-height:1.16;letter-spacing:-.035em;font-variant-numeric:tabular-nums;margin:5px 0 9px}
+  line-height:1.16;letter-spacing:normal;font-variant-numeric:tabular-nums;margin:5px 0 9px}
 .next .bar{height:7px;margin:10px 0 8px;background:color-mix(in srgb,var(--accent) 12%,var(--line))}
 .next .bar i{background:var(--accent)}
 .next .bar.over i{background:var(--warn)}
@@ -283,7 +283,7 @@ nav button span:last-child{white-space:nowrap}
  background:var(--accent);color:var(--accent-ink)}
 .ai-brand-mark svg{width:26px;height:26px}
 .ai-top-eyebrow{display:block;color:var(--mute);font-size:.62rem;font-weight:750;letter-spacing:.75px;line-height:1.3}
-.ai-brand h1{font-size:1.37rem;letter-spacing:-.65px;font-weight:800;margin:2px 0 0;line-height:1.2}
+.ai-brand h1{font-size:1.37rem;letter-spacing:normal;font-weight:800;margin:2px 0 0;line-height:1.2}
 .ai-new-chat{display:grid;place-items:center;flex:none;width:41px;height:41px;min-height:41px;
  padding:0;background:var(--card);border:1px solid var(--line);border-radius:13px;color:var(--ink)}
 .ai-new-chat svg{width:20px;height:20px}
@@ -307,13 +307,13 @@ nav button span:last-child{white-space:nowrap}
 .ai-hello-symbol{width:54px;height:54px;display:grid;place-items:center;border-radius:20px;
  color:var(--accent);background:var(--soft);margin-bottom:16px}
 .ai-hello-symbol svg{width:26px;height:26px}
-.ai-hello h2{font-size:1.12rem;font-weight:800;letter-spacing:-.4px;margin:0 0 8px;line-height:1.3}
+.ai-hello h2{font-size:1.12rem;font-weight:800;letter-spacing:normal;margin:0 0 8px;line-height:1.3}
 .ai-hello p{max-width:350px;color:var(--mute);font-size:.85rem;line-height:1.6;margin:0 0 19px}
 .ai-suggestions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:420px}
 .ai-suggestions button{font-size:.77rem;font-weight:650;min-height:39px;padding:9px 12px;
  background:var(--card);border:1px solid var(--line);border-radius:100px;text-align:left;
  line-height:1.35;color:var(--ink)}
-.ai-suggestions button span{color:var(--accent);font-weight:900;margin-right:3px}
+.ai-suggestions button span{color:var(--accent);font-weight:750;margin-right:3px}
 .ai-conversation{display:flex;flex-direction:column;gap:18px;margin:5px 0 9px;
  padding:4px 2px 7px;max-height:52dvh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .ai-conversation:empty{display:none}
@@ -363,7 +363,7 @@ nav button span:last-child{white-space:nowrap}
 .ai-profile-form{padding:20px}
 .ai-profile-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:15px}
 .ai-profile-head span{font-size:.66rem;font-weight:800;color:var(--accent);letter-spacing:1px}
-.ai-profile-head h2{font-size:1.32rem;letter-spacing:-.5px;margin:3px 0 7px;line-height:1.3}
+.ai-profile-head h2{font-size:1.32rem;letter-spacing:normal;margin:3px 0 7px;line-height:1.3}
 .ai-profile-head p{margin:0;color:var(--mute);font-size:.79rem;line-height:1.55}
 .ai-dialog-x{display:grid;place-items:center;flex:none;font-size:23px;min-height:37px;width:37px;
  border-radius:11px;border:1px solid var(--line);padding:0;background:var(--soft)}
@@ -437,7 +437,7 @@ body.account-locked nav{display:none!important}
 }
 .account-card #accountLoginPanel h1{
   margin:0 0 22px;font-size:1.45rem;line-height:1.2;
-  font-weight:780;letter-spacing:-.4px;color:var(--ink);
+  font-weight:780;letter-spacing:normal;color:var(--ink);
 }
 .account-card #accountLoginForm label,
 .account-card #accountRegisterPanel .account-custom-form label{
@@ -552,7 +552,7 @@ body.account-locked nav{display:none!important}
   gap:12px;margin:7px 2px 10px;min-height:28px
 }
 .due-summary-heading>strong{
-  color:var(--mute);font-weight:840;font-size:.68rem;letter-spacing:1.05px;
+  color:var(--mute);font-weight:750;font-size:.68rem;letter-spacing:1.05px;
 }
 .due-summary-heading button,
 .due-empty button{
@@ -583,7 +583,7 @@ body.account-locked nav{display:none!important}
   font-size:.92rem;width:21px;height:21px;border-radius:7px;background:var(--soft)
 }
 .due-chip strong{
-  display:block;color:var(--ink);font-size:.99rem;font-weight:840;
+  display:block;color:var(--ink);font-size:.99rem;font-weight:750;
   font-variant-numeric:tabular-nums;line-height:1.36;
   overflow-wrap:anywhere;
 }
@@ -681,10 +681,10 @@ body.account-locked nav{display:none!important}
   display:flex;align-items:center;justify-content:space-between;
   gap:16px;margin:3px 0 22px
 }
-.account-page-header h1{margin:2px 0 6px;letter-spacing:-.65px}
+.account-page-header h1{margin:2px 0 6px;letter-spacing:normal}
 .account-page-header .note{margin:0;font-size:.83rem;line-height:1.55}
 .account-page-eyebrow{
-  font-size:.69rem;letter-spacing:1.25px;font-weight:850;color:var(--accent)
+  font-size:.69rem;letter-spacing:1.25px;font-weight:750;color:var(--accent)
 }
 .account-page-icon{
   flex:none;display:flex;align-items:center;justify-content:center;
@@ -698,7 +698,7 @@ body.account-locked nav{display:none!important}
   box-shadow:var(--shadow)
 }
 .account-section-head{margin-bottom:15px}
-.account-section-head h2{font-size:1.06rem;margin:0 0 5px;font-weight:810;color:var(--ink)}
+.account-section-head h2{font-size:1.06rem;margin:0 0 5px;font-weight:750;color:var(--ink)}
 .account-section-head p{font-size:.8rem;color:var(--mute);line-height:1.5;margin:0}
 .account-category-settings{border:1px solid var(--line);border-radius:13px;overflow:hidden}
 .account-category-option{
@@ -802,7 +802,7 @@ body.account-locked nav{display:none!important}
 .account-card .account-identity{margin-bottom:30px}
 .account-card #accountLoginPanel h1{
   margin-bottom:7px;font-size:1.7rem;
-  letter-spacing:-.55px
+  letter-spacing:normal
 }
 .account-login-subtitle{
   margin:0 0 23px;
@@ -1032,8 +1032,8 @@ body:not(.account-locked) .home-header{
 }
 body:not(.account-locked) .home-vehicle-heading h1{
   font-size:clamp(1.65rem,5.2vw,2.18rem);
-  font-weight:870;
-  letter-spacing:-.065em;
+  font-weight:750;
+  letter-spacing:normal;
   line-height:1.13;
   color:var(--ink)
 }
@@ -1072,8 +1072,8 @@ body:not(.account-locked) .next::before{
 body:not(.account-locked) .next .service-next-km,
 body:not(.account-locked) .next .big{
   font-variant-numeric:tabular-nums;
-  letter-spacing:-.045em;
-  font-weight:860
+  letter-spacing:normal;
+  font-weight:750
 }
 body:not(.account-locked) .next .bar{
   height:8px;
@@ -1115,8 +1115,8 @@ body:not(.account-locked) .overview-label{
 }
 body:not(.account-locked) .overview-card strong{
   font-size:clamp(1.45rem,5.2vw,1.88rem);
-  letter-spacing:-.055em;
-  font-weight:855;
+  letter-spacing:normal;
+  font-weight:750;
   margin-top:10px;
   color:var(--ink)
 }
@@ -1136,7 +1136,7 @@ body:not(.account-locked) .extra-panel[open]{
 body:not(.account-locked) .extra-panel summary{
   font-weight:780;
   min-height:59px;
-  letter-spacing:-.015em
+  letter-spacing:normal
 }
 body:not(.account-locked) .extra-panel[open] summary{
   border-color:color-mix(in srgb,var(--accent) 13%,var(--line))
@@ -1156,8 +1156,8 @@ body:not(.account-locked) .due-chip{
 }
 body:not(.account-locked) .due-chip::before{width:3px}
 body:not(.account-locked) .due-chip strong{
-  font-weight:830;
-  letter-spacing:-.02em
+  font-weight:750;
+  letter-spacing:normal
 }
 body:not(.account-locked) .due-icon{
   border-radius:9px;
@@ -1168,7 +1168,7 @@ body:not(.account-locked) .due-icon{
 /* History cards: crisp content separation with no additional metadata. */
 body:not(.account-locked) .history-title{margin-top:27px}
 body:not(.account-locked) .history-title h2{
-  font-size:1.18rem;font-weight:820;letter-spacing:-.035em
+  font-size:1.18rem;font-weight:750;letter-spacing:normal
 }
 body:not(.account-locked) .item{
   border-radius:19px;
@@ -1404,3 +1404,20 @@ body:not(.account-locked) .document-kind{
 .next .service-forecast.is-due strong{color:var(--warn)}
 .next .save-mileage{display:block;min-height:36px;margin:6px 0 0;padding:5px 10px;width:100%;font:inherit;font-size:.76rem;font-weight:700;border-radius:9px;border:1px solid #3b82f66b;background:#3b82f60c;color:var(--ink);cursor:pointer}
 @media(max-width:480px){.next .service-forecast-pair{grid-template-columns:1fr;gap:8px}}
+
+/* Vehicle profile entry point belongs to the home screen, not AI chat. */
+.home-vehicle-edit{display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;min-height:44px;max-width:100%;margin-top:12px;padding:9px 13px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink);font-size:.8rem;font-weight:720;text-align:left;cursor:pointer}
+.home-vehicle-edit svg{color:var(--accent);flex:none}
+.home-vehicle-edit span:last-child{font-size:1.2rem;line-height:1;color:var(--mute)}
+.home-vehicle-edit:hover{border-color:var(--accent)}
+#aiVehicleSubtitle{overflow-wrap:anywhere}
+
+/* Greek typography: consistent glyphs, accents, and comfortable spacing. */
+body{font-family:"Noto Sans","Segoe UI",Roboto,Arial,system-ui,sans-serif;letter-spacing:normal;line-height:1.55}
+button,input,textarea,select{font-family:inherit;letter-spacing:normal}
+h1,h2,h3,body:not(.account-locked) .home-vehicle-heading h1{font-weight:700;letter-spacing:normal;line-height:1.25}
+body:not(.account-locked) .home-vehicle-heading h1{font-size:clamp(1.55rem,5vw,2rem)}
+.next .small:first-child{text-transform:none;letter-spacing:normal}
+.ai-top-eyebrow,.account-page-eyebrow,.ai-profile-head span{letter-spacing:.02em;font-weight:650}
+.ai-message-text,.notes{line-height:1.65}
+nav button{letter-spacing:normal}

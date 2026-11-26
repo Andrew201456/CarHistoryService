@@ -149,7 +149,13 @@ assert(css.includes(".ai-profile-dialog"),"Vehicle profile needs its own styling
 assert(css.includes(".ai-conversation"),"Conversation styling should exist");
 assert(css.includes(".ai-conversation"));
 assert(css.includes(".ai-profile-dialog"));
-assert(sw.includes('carhistory-shell-v34'));
+assert(sw.includes('carhistory-shell-v36'));
 assert(sw.includes('"/ai-mechanic.js"'));
 assert(!worker.includes("OpenAI_API_KEY"),"AI must use existing binding, not exposed API keys");
 console.log("PASS: structured car profile, legacy car field, diagnostic context, authenticated chat and redesigned UI");
+
+const homeSection=html.slice(html.indexOf('id="v-list"'),html.indexOf('id="v-ai"'));
+const aiSection=html.slice(html.indexOf('id="v-ai"'),html.indexOf('id="v-account"'));
+assert(homeSection.includes('id="aiProfileOpen"'),"Vehicle editor should be accessible from home");
+assert(!aiSection.includes('id="aiProfileOpen"'),"AI tab must not contain the vehicle editor trigger");
+assert.equal([...html.matchAll(/id="aiProfileOpen"/g)].length,1);

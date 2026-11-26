@@ -86,20 +86,9 @@
     const legacy=String(settings.vehicleInfo||"").trim();
     return Object.fromEntries(Object.keys(fieldMap).map(k=>[k,k==="notes"?legacy.slice(0,350):""]));
   }
-  function hasProfile(profile){
-    return Object.values(profile).some(v=>String(v).trim());
-  }
   function updateVehicle(){
-    const p=getProfile();
-    const title=[p.make,p.model,p.year].filter(Boolean).join(" ");
-    $("aiVehicleSummary").textContent=title||"Πρόσθεσε το αυτοκίνητό σου";
-    // Keep the home page title in sync immediately after editing the vehicle,
-    // without requiring a reload or another authenticated cloud sync.
+    // Profile lives on the home screen; AI only reads the saved context.
     window.CarHistoryUpdateHomeTitle?.();
-    const details=[p.engine,p.fuel,p.trim].filter(Boolean);
-    $("aiVehicleSubtitle").textContent=details.join(" · ")||(
-      hasProfile(p)?"Άνοιξε για επεξεργασία":"Μάρκα, μοντέλο, χρονιά, κινητήρας…"
-    );
     $("aiHistoryCount").textContent=items.length+" καταχωρήσεις";
     const km=intOf(settings.current);
     $("aiCurrentKm").textContent=km?fmtKm(km):"Χλμ. μη δηλωμένα";
@@ -138,7 +127,8 @@
     store(); // existing local storage + authenticated cross-device sync
     updateVehicle();
     closeProfile();
-    setStatus("Τα στοιχεία του αυτοκινήτου αποθηκεύτηκαν.");
+    // The home screen's existing sync status reports persistence.
+    setStatus("");
   }
   function words(value){
     return String(value||"").toLowerCase().normalize("NFD")
