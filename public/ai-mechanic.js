@@ -148,14 +148,18 @@
   function relatedHistory(questionText){
     const sorted=[...items].filter(x=>x&&typeof x==="object")
       .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||intOf(b.km)-intOf(a.km));
-    const recent=sorted.slice(0,80);
+    // Put relevant older work ahead of the rest of the recent history so the
+    // server's context budget cannot crowd it out on long service logs.
+    const recent=sorted.slice(0,30);
     const terms=new Set(words(questionText));
-    const older=sorted.slice(80).filter(it=>{
-      if(!terms.size)return false;
+    const relevant=sorted.slice(30).map(it=>{
       const haystack=[it.notes,it.what,...(Array.isArray(it.parts)?it.parts:[]).map(p=>p.name)].join(" ");
-      return words(haystack).some(w=>terms.has(w));
-    }).slice(0,40);
-    return [...recent,...older].map(it=>({
+      const score=[...new Set(words(haystack))].filter(w=>terms.has(w)).length;
+      return {it,score};
+    }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,40).map(x=>x.it);
+    const prioritized=new Set([...recent,...relevant]);
+    const additional=sorted.slice(0,80).filter(it=>!prioritized.has(it));
+    return [...recent,...relevant,...additional].map(it=>({
       date:it.date||"",km:it.km||"",regular:it.regular!==false,kind:itemKind(it),
       parts:(Array.isArray(it.parts)?it.parts:[]).slice(0,12)
         .map(p=>({name:String(p.name||"").slice(0,115)})),
