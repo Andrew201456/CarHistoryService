@@ -165,8 +165,14 @@ function recordAccountLogin(ctx,env,req,username,kind){
   return work;
 }
 async function adminOverview(req,env){
-  if(typeof env.CAR_ADMIN_PASSWORD!=="string"||env.CAR_ADMIN_PASSWORD.length<24)
-    return jsonNoStore({error:"Ο διαχειριστής πρέπει να ορίσει ξεχωριστό CAR_ADMIN_PASSWORD (24+ χαρακτήρες)."},503);
+  // A dedicated admin secret takes precedence. Existing installations can
+  // use their already configured master credential without copying secrets.
+  const dedicated=env.CAR_ADMIN_PASSWORD;
+  const adminPassword=dedicated===undefined||dedicated===null
+    ?env.CAR_MASTER_ADMIN:dedicated;
+  const minLength=dedicated===undefined||dedicated===null?10:24;
+  if(typeof adminPassword!=="string"||adminPassword.length<minLength||adminPassword.length>256)
+    return jsonNoStore({error:"Δεν έχει ρυθμιστεί έγκυρος κωδικός διαχείρισης στο Cloudflare."},503);
   if(req.headers.get("Origin")&&req.headers.get("Origin")!==new URL(req.url).origin)
     return jsonNoStore({error:"Μη επιτρεπτή προέλευση."},403);
   if(!req.headers.get("Content-Type")?.startsWith("application/json"))
@@ -186,7 +192,7 @@ async function adminOverview(req,env){
     const ipHash=await sha256(auditIP(req)||"unknown");
     const gate=await auditStub(env).fetch("https://car-data.internal/admin-audit/gate",{method:"POST",body:JSON.stringify({ipHash})});
     if(!gate.ok)return jsonNoStore({error:"Πολλές προσπάθειες. Δοκίμασε αργότερα."},gate.status===429?429:503);
-    if(!safeEqual(await sha256(supplied),await sha256(env.CAR_ADMIN_PASSWORD)))
+    if(!safeEqual(await sha256(supplied),await sha256(adminPassword)))
       return jsonNoStore({error:"Λάθος κωδικός."},401);
     const response=await auditStub(env).fetch("https://car-data.internal/admin-audit/read");
     if(!response.ok)throw Error("audit unavailable");
