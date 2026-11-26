@@ -1,0 +1,92 @@
+name: Cloudflare permission audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloudflare-permission-audit.yml'
+permissions: {}
+concurrency:
+  group: cloudflare-permission-audit
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Read-only Cloudflare API audit
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, re, json, urllib.request, urllib.error, time
+          token = os.environ.get("CF_TOKEN", "")
+          account = os.environ.get("CF_ACCOUNT", "")
+          summary = os.environ["GITHUB_STEP_SUMMARY"]
+          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}", account):
+              print("Missing token or invalid account ID secret")
+              raise SystemExit(1)
+          root = "https://api.cloudflare.com/client/v4"
+          base = "/accounts/" + account
+          rows = []
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+          opener = urllib.request.build_opener(NoRedirect())
+          def probe(label, path, body=None, optional=False):
+              try:
+                  req = urllib.request.Request(root + path, headers={
+                      "Authorization": "Bearer " + token,
+                      "Content-Type": "application/json",
+                      "Accept": "application/json"
+                  }, data=None if body is None else json.dumps(body).encode())
+                  with opener.open(req, timeout=15) as response:
+                      status = response.status
+                      payload = json.load(response)
+                  ok = 200 <= status < 300 and (not isinstance(payload, dict) or payload.get("success", True))
+                  if label == "Token verification":
+                      ok = ok and isinstance(payload, dict) and payload.get("result", {}).get("status") == "active"
+                  state = "PASS" if ok else "REVIEW"
+                  result = payload.get("result") if isinstance(payload, dict) else payload
+              except urllib.error.HTTPError as exc:
+                  status = exc.code
+                  state = "REVIEW"
+                  result = None
+              except Exception:
+                  status = "network/response error"
+                  state = "REVIEW"
+                  result = None
+              rows.append((label, state, str(status), optional))
+              print(label + ": " + state + " (" + str(status) + ")")
+              return result if state == "PASS" else None
+          verified = probe("Token verification", "/user/tokens/verify")
+          probe("Account Settings", base)
+          scripts = probe("Workers Scripts", base + "/workers/scripts")
+          probe("Workers KV Storage", base + "/storage/kv/namespaces")
+          probe("D1", base + "/d1/database")
+          probe("R2 Storage", base + "/r2/buckets")
+          probe("Pages", base + "/pages/projects")
+          probe("Durable Objects", base + "/workers/durable_objects/namespaces")
+          probe("Workers AI model catalog", base + "/ai/models/search")
+          probe("Queues", base + "/queues")
+          probe("Vectorize", base + "/vectorize/v2/indexes")
+          probe("Containers", base + "/containers/applications", optional=True)
+          probe("Workers Builds Configuration", base + "/builds/tokens", optional=True)
+          now = int(time.time() * 1000)
+          probe("Workers Observability", base + "/workers/observability/telemetry/keys",
+                {"timeframe":{"from":now-3600000,"to":now},"limit":1}, optional=True)
+          probe("Agents observability", base + "/workers/observability/agents/traces", optional=True)
+          # Do not create tail sessions, run AI inference or mutate production resources.
+          for label in ["Workers Tail", "Workers Admin (write)", "Workers Agents Configuration (write)", "All Edit permissions (write)"]:
+              rows.append((label, "NOT TESTED", "Requires a separate scoped test", True))
+          with open(summary, "a", encoding="utf-8") as out:
+              out.write("## Cloudflare permission audit (read-only)\n\n")
+              out.write("| Capability | Result | HTTP / note |\n|---|---|---|\n")
+              for label, state, status, optional in rows:
+                  out.write(f"| {label} | {state} | {status} |\n")
+              out.write("\nPASS confirms this API call only, not write access or plan entitlement. REVIEW can mean permission, plan, API validation, or temporary issues. No resource data, IDs, tokens or response bodies are printed.\n")
+          if any(state != "PASS" for _, state, _, optional in rows if not optional):
+              raise SystemExit(1)
+          PY
