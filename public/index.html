@@ -1327,7 +1327,7 @@ function renderNext(){
         {"service-good":"#4ade80","service-warning":"#fbbf24","service-critical":"#f87171","service-overdue":"#fb7185"}:
         {"service-good":"#15803d","service-warning":"#b45309","service-critical":"#dc2626","service-overdue":"#881337"};
       const statusColor=colors[urgency];
-      html+='<div class="bar service-progress '+urgency+'"><i style="width:'+pct+'%;background-color:'+statusColor+'"></i></div>';
+      html+='<div class="service-progress-label"><span>Διάστημα service</span><strong>'+Math.round(pct)+'%</strong></div><div class="bar service-progress '+urgency+'" role="progressbar" aria-label="Ποσοστό διαστήματος service" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'"><i style="width:'+pct+'%;background-color:'+statusColor+'"></i></div>';
       const message=left<0?'Έχεις περάσει το service κατά '+fmtKm(-left):
         left===0?'Ήρθε η ώρα για service (0 χλμ. απομένουν)':'Απομένουν '+fmtKm(left);
       html+='<div class="left service-remaining '+urgency+'" style="color:'+statusColor+';font-weight:800"><span class="service-remaining-dot" aria-hidden="true"></span>'+message+'</div>';
@@ -1343,26 +1343,87 @@ function renderNext(){
     if(dynamic&&dynamic.date.getTime()<mileageDay())html+='<div class="service-eta-note">Η πρόβλεψη βασίζεται σε παλαιότερη μέτρηση. Ενημέρωσε τα χλμ. για νέα εκτίμηση.</div>';
     html+='<div class="small service-last">Τελευταίο service: '+fmtKm(lk)+', στις '+fmtDate(last.date)+'</div>';
   }
-  html+='<div class="cfg"><div><label for="cur">Τώρα έχω (χλμ)</label><input id="cur" type="text" inputmode="numeric" placeholder="π.χ. 150000" value="'+esc(settings.current||"")+'"><button type="button" id="save-mileage" class="save-mileage">Καταγραφή χλμ.</button></div><div><label for="iv">Service κάθε (χλμ)</label><input id="iv" type="text" inputmode="numeric" value="'+esc(interval)+'"></div></div>';
-  $("next").innerHTML=html;
+  // Keep the actual input nodes alive across background sync and refreshes.
+  // This also lets an inline confirm click survive the input's change event.
+  const panel=$("next");
+  let summary=$("serviceSummary");
+  if(!summary){
+    panel.innerHTML='<div id="serviceSummary"></div><div class="cfg mileage-config"><div class="mileage-field"><label for="cur">Τωρινά χιλιόμετρα</label><div class="mileage-control"><span class="mileage-gauge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a9 9 0 1 1 16 0H4Zm8-3 4-5M7 13h.01M12 8h.01M17 13h.01"/><circle cx="12" cy="15" r="1"/></svg></span><input id="cur" type="text" inputmode="numeric" autocomplete="off" placeholder="150000" aria-describedby="mileageHint"><span class="mileage-unit" aria-hidden="true">χλμ.</span><button type="button" id="save-mileage" class="mileage-confirm" aria-label="Καταγραφή σημερινών χιλιομέτρων" title="Καταγραφή σημερινών χιλιομέτρων"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></div><small id="mileageHint" class="mileage-hint" role="status" aria-live="polite"></small></div><div class="interval-field"><label for="iv">Service κάθε (χλμ.)</label><input id="iv" type="text" inputmode="numeric" autocomplete="off"></div></div>';
+    summary=$("serviceSummary");
+  }
+  // Update forecast markup only if its content actually changed.
+  if(summary.dataset.markup!==html){
+    const old=summary.querySelector(".service-progress i");
+    const previous=old?parseFloat(old.style.width)||0:0;
+    summary.innerHTML=html;summary.dataset.markup=html;
+    const fill=summary.querySelector(".service-progress i");
+    const target=fill?parseFloat(fill.style.width)||0:0;
+    if(fill&&target!==previous&&fill.animate&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      fill.animate([{width:previous+"%"},{width:target+"%"}],{duration:560,easing:"cubic-bezier(.2,.75,.25,1)"});
+    }
+  }
+  if(document.activeElement!==$("cur"))$("cur").value=settings.current||"";
+  if(document.activeElement!==$("iv"))$("iv").value=interval;
+  updateMileageControl();
 }
-$("next").addEventListener("change",e=>{
-  if(e.target.id==="cur"){
-    const km=intOf(e.target.value);
-    if(km>9999999){renderNext();return}
+function mileageInputValue(value){
+  const text=String(value??"").trim();
+  if(!text)return 0;
+  if(!/^[0-9. ]+$/.test(text))return null;
+  const km=Number(text.replace(/[. ]/g,""));
+  return Number.isSafeInteger(km)&&km>0&&km<=9999999?km:null;
+}
+function updateMileageControl(){
+  const input=$("cur"),button=$("save-mileage"),hint=$("mileageHint");
+  if(!input||!button||!hint)return;
+  const km=mileageInputValue(input.value);
+  const latest=mergeMileageReadings(settings.mileageReadings).at(-1);
+  const date=today();
+  const recorded=!!latest&&latest.km===km&&latest.date===date;
+  const dirty=km!==null&&km!==(intOf(settings.current)||0);
+  button.disabled=km===null||km===0;
+  button.classList.toggle("is-recorded",recorded&&!dirty);
+  input.setAttribute("aria-invalid",String(km===null));
+  let text;
+  if(km===null)text="Πληκτρολόγησε έγκυρα χιλιόμετρα.";
+  else if(dirty)text="Πάτησε ✓ ή ολοκλήρωσε την επεξεργασία.";
+  else if(recorded)text="✓ Καταγράφηκαν σήμερα";
+  else if(latest&&latest.km===km)text="Τελευταία μέτρηση: "+fmtDate(latest.date);
+  else text="Πάτησε ✓ για καταγραφή της σημερινής μέτρησης.";
+  if(hint.textContent!==text)hint.textContent=text;
+}
+function commitMileage(explicit=false){
+  const input=$("cur");
+  if(!input)return false;
+  const km=mileageInputValue(input.value);
+  if(km===null||(explicit&&!km)){updateMileageControl();return false;}
+  const latest=mergeMileageReadings(settings.mileageReadings).at(-1);
+  const already=km===(intOf(settings.current)||0)&&(!km||(latest?.date===today()&&latest.km===km));
+  if(!already){
     settings.current=km||"";
     recordMileage(km);
-  }else if(e.target.id==="iv"){settings.interval=intOf(e.target.value)||10000;}
-  else return;
+    store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
+  }else updateMileageControl();
+  if(explicit){
+    const button=$("save-mileage");
+    if(button?.animate&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      button.animate([{transform:"scale(.88)"},{transform:"scale(1.07)"},{transform:"scale(1)"}],{duration:250,easing:"ease-out"});
+  }
+  return true;
+}
+$("next").addEventListener("input",e=>{if(e.target.id==="cur")updateMileageControl();});
+$("next").addEventListener("change",e=>{
+  if(e.target.id==="cur"){commitMileage();return;}
+  if(e.target.id!=="iv")return;
+  settings.interval=intOf(e.target.value)||10000;
+  e.target.value=settings.interval;
   store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
 });
-
+$("next").addEventListener("keydown",e=>{
+  if(e.target.id==="cur"&&e.key==="Enter"){e.preventDefault();if(commitMileage(true))e.target.blur();}
+});
 $("next").addEventListener("click",e=>{
-  if(!e.target.closest("#save-mileage"))return;
-  const km=intOf($("cur").value);
-  if(km<=0||km>9999999)return;
-  settings.current=km;recordMileage(km);
-  store();renderNext();if(typeof window.renderExtras==="function")window.renderExtras();
+  if(e.target.closest("#save-mileage"))commitMileage(true);
 });
 /* Λίστα */
 function haystack(it){return [fmtDate(it.date),it.date,it.km,it.where,it.notes,it.what,it.labor,it.cost,it.tireName].concat((it.parts||[]).map(p=>p.name+" "+p.cost)).join(" ")}
