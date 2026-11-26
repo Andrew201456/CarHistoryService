@@ -4,7 +4,8 @@
   if(!window.CarHistoryAccountReady){window.addEventListener("carhistory:ready",initAfterAccount,{once:true});return;}
   const $ = id => document.getElementById(id);
   const CHAT_KEY="carServiceAiConversationV1:"+window.CarHistoryAccountScope;
-  const CHAT_LIMIT=12;
+  const CHAT_LIMIT=48;
+  const RECENT_LIMIT=12;
   const fieldMap={
     make:"aiCarMake",model:"aiCarModel",year:"aiCarYear",fuel:"aiCarFuel",
     engine:"aiCarEngine",cc:"aiCarCc",power:"aiCarPower",gearbox:"aiCarGearbox",
@@ -147,38 +148,52 @@
   function relatedHistory(questionText){
     const sorted=[...items].filter(x=>x&&typeof x==="object")
       .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||intOf(b.km)-intOf(a.km));
-    const recent=sorted.slice(0,80);
+    // Put relevant older work ahead of the rest of the recent history so the
+    // server's context budget cannot crowd it out on long service logs.
+    const recent=sorted.slice(0,30);
     const terms=new Set(words(questionText));
-    const older=sorted.slice(80).filter(it=>{
-      if(!terms.size)return false;
+    const relevant=sorted.slice(30).map(it=>{
       const haystack=[it.notes,it.what,...(Array.isArray(it.parts)?it.parts:[]).map(p=>p.name)].join(" ");
-      return words(haystack).some(w=>terms.has(w));
-    }).slice(0,40);
-    return [...recent,...older].map(it=>({
+      const score=[...new Set(words(haystack))].filter(w=>terms.has(w)).length;
+      return {it,score};
+    }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,40).map(x=>x.it);
+    const prioritized=new Set([...recent,...relevant]);
+    const additional=sorted.slice(0,80).filter(it=>!prioritized.has(it));
+    return [...recent,...relevant,...additional].map(it=>({
       date:it.date||"",km:it.km||"",regular:it.regular!==false,kind:itemKind(it),
       parts:(Array.isArray(it.parts)?it.parts:[]).slice(0,12)
         .map(p=>({name:String(p.name||"").slice(0,115)})),
       what:String(it.what||"").slice(0,250),notes:String(it.notes||"").slice(0,450)
     }));
   }
+  function conversationContext(){
+    const previous=messages.slice(-CHAT_LIMIT);
+    return previous.map((m,i)=>{
+      const recent=i>=previous.length-RECENT_LIMIT;
+      const limit=recent?(m.role==="user"?1800:2600):(m.role==="user"?1000:600);
+      return {role:m.role,content:m.content.slice(0,limit)};
+    });
+  }
   async function ask(text){
     if(busy)return;
     const content=String(text||"").trim();
-    if(content.length<5){setStatus("Περιέγραψε λίγο πιο αναλυτικά το σύμπτωμα.",true);return}
+    if(!content){setStatus("Γράψε την ερώτηση ή την απάντησή σου.",true);return}
+    if(content.length>1800){setStatus("Το μήνυμα πρέπει να έχει έως 1800 χαρακτήρες.",true);return}
     if(!navigator.onLine){
       setStatus("Χρειάζεται internet για την απάντηση. Το ιστορικό σου παραμένει διαθέσιμο.",true);
       return;
     }
     const pass=ACTIVE_TOKEN;
     if(!pass||!accountIsCurrent()){setStatus("Συνδέσου στον λογαριασμό σου.",true);return;}
-    const previous=messages.slice(-8).map(m=>({role:m.role,content:m.content.slice(0,1200)}));
+    const previous=conversationContext();
+    const topic=[content,...previous.filter(m=>m.role==="user").map(m=>m.content)].join(" ");
     const payload={
       question:content,vehicle:Object.fromEntries(Object.entries(getProfile()).filter(([key])=>key!=="vin")),currentKm:settings.current||"",
-      serviceIntervalKm:settings.interval||"",history:relatedHistory(content),
+      serviceIntervalKm:settings.interval||"",history:relatedHistory(topic),
       reminders:reminders.slice(0,30).map(r=>({name:r.name,dueKm:r.dueKm,repeatKm:r.repeatKm})),
       conversation:previous
     };
-    setBusy(true);setStatus("Αναλύω το ιστορικό…");
+    setBusy(true);setStatus(previous.length?"Σκέφτομαι την απάντηση…":"Ελέγχω το ιστορικό…");
     messages.push({role:"user",content});
     render();
     try{
@@ -193,6 +208,7 @@
         throw new Error("Η σύνδεση έληξε.");
       }
       if(!response.ok)throw new Error(data.error||"Το AI δεν απάντησε ("+response.status+").");
+      if(!accountIsCurrent()||ACTIVE_TOKEN!==pass)throw new Error("Η συνεδρία άλλαξε. Συνδέσου ξανά.");
       if(typeof data.answer!=="string"||!data.answer.trim())throw new Error("Το AI δεν επέστρεψε απάντηση.");
       messages.push({role:"assistant",content:data.answer.trim().slice(0,9000),
         usedEntries:Number.isInteger(data.usedEntries)?data.usedEntries:null});
@@ -208,6 +224,7 @@
   form.addEventListener("submit",event=>{event.preventDefault();ask(question.value)});
   $("aiClear").addEventListener("click",()=>{
     if(busy)return;
+    if(messages.length&&!window.confirm("Να ξεκινήσει νέα συνομιλία; Η προηγούμενη συζήτηση θα διαγραφεί από αυτή τη συσκευή."))return;
     messages=[];persist();render();setStatus("");question.value="";question.focus();
   });
   $("aiProfileOpen").addEventListener("click",openProfile);
