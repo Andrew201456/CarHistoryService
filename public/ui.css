@@ -1464,3 +1464,9 @@ body:not(.account-locked) .next .service-progress{margin-top:6px;height:9px}
   .next .mileage-control,.next .mileage-confirm{transition:none!important}
   .next .mileage-confirm:active{transform:none}
 }
+
+/* Minimal account: preferences, entry count, logout. */
+body:not(.account-locked) #v-account .account-count-card{padding:15px 18px}
+#v-account .account-count-card .account-info-row{margin:0;padding:0;border:0;min-height:36px}
+#v-account .account-count-card strong{font-size:1.15rem;font-variant-numeric:tabular-nums}
+#v-account .account-logout-bottom{display:block;width:100%;margin:18px 0 6px;min-height:50px;border-radius:14px}
