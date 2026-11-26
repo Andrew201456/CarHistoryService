@@ -170,9 +170,10 @@ async function adminOverview(req,env){
   const dedicated=env.CAR_ADMIN_PASSWORD;
   const adminPassword=dedicated===undefined||dedicated===null
     ?env.CAR_MASTER_ADMIN:dedicated;
-  const minLength=dedicated===undefined||dedicated===null?10:1;
-  if(typeof adminPassword!=="string"||adminPassword.length<minLength||adminPassword.length>256)
-    return jsonNoStore({error:"Δεν έχει ρυθμιστεί έγκυρος κωδικός διαχείρισης στο Cloudflare."},503);
+  // Admin sign-in accepts any nonempty configured secret. This does not
+  // change the separate master-password rules for account registration.
+  if(typeof adminPassword!=="string"||!adminPassword.length||adminPassword.length>256)
+    return jsonNoStore({error:"Λείπει ή δεν είναι έγκυρος ο κωδικός διαχειριστή (CAR_MASTER_ADMIN / CAR_ADMIN_PASSWORD)."},503);
   if(req.headers.get("Origin")&&req.headers.get("Origin")!==new URL(req.url).origin)
     return jsonNoStore({error:"Μη επιτρεπτή προέλευση."},403);
   if(!req.headers.get("Content-Type")?.startsWith("application/json"))
