@@ -56,11 +56,13 @@ const namespace={
     return objects.get(key);
   }
 };
+const kv=new Map();
 const env={
   CAR_DATA:namespace,
   CAR_MASTER_ADMIN:"TEST-MASTER-ONLY-DO-NOT-USE-2026",
   PASSCODE:"old-shared-code-for-test",
-  DATA:{get:async()=>null},AI:{run:async()=>({})},
+  DATA:{get:async(key,type)=>{const value=kv.get(key);return value===undefined?null:type==="json"?JSON.parse(value):value;},
+    put:async(key,value)=>kv.set(key,value)},AI:{run:async()=>({})},
   ASSETS:{fetch:async()=>new Response("missing",{status:404})}
 };
 const call=(path,method="GET",payload=null,session="",ip="192.0.2.41")=>{
@@ -238,3 +240,15 @@ for(let i=0;i<14;i++)
 assert.equal(throttled.status,429,"Opt-in login throttle should still work");
 delete env.CAR_LOGIN_LIMIT_ENABLED;
 console.log("PASS: master-gated accounts, 3 in-place history/document migrations, temporary unlimited debugging logins and restorable throttling");
+
+for(const username of ["ANDREAS","NICK","VASDIM"]){
+  const value=JSON.parse(kv.get("accounts:"+username));
+  assert.equal(value.username,username);
+  assert(value.firstIndexedAt);
+  assert(value.lastLoginAt);
+  assert.equal(value.passwordStorage,"PBKDF2-SHA256 (identity Durable Object)");
+  for(const key of ["password","salt","verifier","session","scope"])assert(!Object.hasOwn(value,key));
+}
+assert.equal((await call("/api/account/session","POST",{username:"NICK"},logins.ANDREAS.session)).status,200);
+assert.equal(kv.has("accounts:UNKNOWN"),false);
+console.log("PASS: private account directory without credential copies");
