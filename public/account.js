@@ -247,7 +247,7 @@
     checkingLock=true;
     const candidate=current;
     try{
-      const result=await api("/api/account/session",{},candidate.session,{timeoutMs:15000});
+      const result=await api("/api/account/session",{username:candidate.username},candidate.session,{timeoutMs:15000});
       if(result.scope!==candidate.scope)throw Error("Ασυμφωνία λογαριασμού.");
       window.setSt?.("Προσωρινό πρόβλημα σύνδεσης · η συνεδρία παραμένει ενεργή.",true);
     }catch(error){
@@ -283,7 +283,7 @@
     try{
       for(let attempt=0;attempt<2;attempt++){
         try{
-          const result=await api("/api/account/session",{},last.session,{signal:abort.signal,timeoutMs:15000});
+          const result=await api("/api/account/session",{username:last.username},last.session,{signal:abort.signal,timeoutMs:15000});
           if(serial!==requestSerial||abort.signal.aborted)return;
           if(result.scope!==last.scope)throw Error("Ασυμφωνία λογαριασμού.");
           start(last,{remember:saved.remember});
