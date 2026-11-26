@@ -1393,3 +1393,14 @@ body:not(.account-locked) .document-kind{
 @media(max-width:380px){
   .import-photo-list{grid-template-columns:1fr}
 }
+
+/* Independent service date forecasts. */
+.next .service-forecast-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:13px 0 10px}
+.next .service-forecast{display:flex;flex-direction:column;gap:5px;border:1px solid var(--line, #94a3b844);border-radius:12px;padding:12px;min-width:0;background:#64748b0b}
+.next .service-forecast-current{border-color:#3b82f66b;background:#3b82f60b}
+.next .service-forecast span{font-size:.75rem;line-height:1.4;color:var(--mute)}
+.next .service-forecast strong{font-size:1.04rem;line-height:1.35;font-weight:800;color:var(--ink)}
+.next .service-forecast small{font-size:.72rem;color:var(--mute);line-height:1.45}
+.next .service-forecast.is-due strong{color:var(--warn)}
+.next .save-mileage{display:block;min-height:36px;margin:6px 0 0;padding:5px 10px;width:100%;font:inherit;font-size:.76rem;font-weight:700;border-radius:9px;border:1px solid #3b82f66b;background:#3b82f60c;color:var(--ink);cursor:pointer}
+@media(max-width:480px){.next .service-forecast-pair{grid-template-columns:1fr;gap:8px}}
