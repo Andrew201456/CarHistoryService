@@ -1,0 +1,61 @@
+name: CarHistory admin deployment check
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/car-admin-check.yml'
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify admin configuration without reading secrets
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 - <<'PY'
+          import os, re, json, urllib.request, urllib.error
+          account=os.environ.get("CF_ACCOUNT","")
+          token=os.environ.get("CF_TOKEN","")
+          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}",account):
+              raise SystemExit("Missing credentials")
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,req,fp,code,msg,headers,newurl):
+                  return None
+          opener=urllib.request.build_opener(NoRedirect())
+          def api(path):
+              req=urllib.request.Request("https://api.cloudflare.com/client/v4/accounts/"+account+path,headers={"Authorization":"Bearer "+token})
+              try:
+                  with opener.open(req,timeout=15) as res: 
+                      data=json.load(res)
+                      if not data.get("success"): raise ValueError()
+                      return data["result"]
+              except Exception:
+                  raise SystemExit("Could not inspect Cloudflare configuration") from None
+          settings=api("/workers/scripts/carhistoryservice/settings")
+          names={b.get("name") for b in settings.get("bindings",[]) if b.get("type")=="secret_text"}
+          print("Existing master secret configured:", "CAR_MASTER_ADMIN" in names,flush=True)
+          print("Dedicated admin secret configured:", "CAR_ADMIN_PASSWORD" in names,flush=True)
+          sub=api("/workers/subdomain").get("subdomain","")
+          if not re.fullmatch(r"[a-z0-9-]+",sub):
+              raise SystemExit("No valid workers.dev subdomain")
+          base="https://carhistoryservice."+sub+".workers.dev"
+          print("Admin URL:",base+"/admin.html",flush=True)
+          def check(path,data=None):
+              req=urllib.request.Request(base+path,data=data,headers={"Content-Type":"application/json","Cache-Control":"no-cache"})
+              try:
+                  with opener.open(req,timeout=15) as res: return res.status,res.read(200000)
+              except urllib.error.HTTPError as e: return e.code,b""
+              except Exception: return 0,b""
+          status,body=check("/admin.html")
+          updated=status==200 and b"CARHISTORY SERVICE" in body and "ήδη υπάρχοντα master".encode() in body
+          print("Admin page HTTP:",status,flush=True)
+          print("Updated admin page detected:",updated,flush=True)
+          status,_=check("/api/admin/overview",b"{}")
+          print("Unauthenticated API HTTP:",status,flush=True)
+          if not updated or status!=401 or not ({"CAR_MASTER_ADMIN","CAR_ADMIN_PASSWORD"} & names):
+              raise SystemExit("Live verification incomplete")
+          PY
