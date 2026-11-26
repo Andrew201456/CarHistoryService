@@ -39,6 +39,14 @@ jobs:
           names={b.get("name") for b in settings.get("bindings",[]) if b.get("type")=="secret_text"}
           print("Existing master secret configured:", "CAR_MASTER_ADMIN" in names,flush=True)
           print("Dedicated admin secret configured:", "CAR_ADMIN_PASSWORD" in names,flush=True)
+          source_url="https://api.cloudflare.com/client/v4/accounts/"+account+"/workers/scripts/carhistoryservice"
+          try:
+              req=urllib.request.Request(source_url,headers={"Authorization":"Bearer "+token})
+              with opener.open(req,timeout=20) as res:
+                  source=res.read(10000000)
+              print("Deployed admin length fix detected:",b"CAR_MASTER_ADMIN / CAR_ADMIN_PASSWORD" in source,flush=True)
+          except Exception:
+              print("Deployed source check unavailable",flush=True)
           sub=api("/workers/subdomain").get("subdomain","")
           if not re.fullmatch(r"[a-z0-9-]+",sub):
               raise SystemExit("No valid workers.dev subdomain")
