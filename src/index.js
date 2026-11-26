@@ -180,13 +180,13 @@ async function adminOverview(req,env){
     return jsonNoStore({error:"Μη έγκυρο αίτημα."},415);
   const length=Number(req.headers.get("Content-Length")||0);
   if(length>4096)return jsonNoStore({error:"Μη έγκυρο αίτημα."},413);
-  let supplied;
+  let supplied,payload;
   try{
     const reader=req.body.getReader(),decoder=new TextDecoder();let body="",total=0;
     while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;
       if(total>4096){await reader.cancel();return jsonNoStore({error:"Μη έγκυρο αίτημα."},413);}
       body+=decoder.decode(value,{stream:true});}
-    body+=decoder.decode();supplied=JSON.parse(body).password;
+    body+=decoder.decode();payload=JSON.parse(body);supplied=payload.password;
   }catch{return jsonNoStore({error:"Μη έγκυρο αίτημα."},400);}
   if(typeof supplied!=="string"||supplied.length>256)return jsonNoStore({error:"Λάθος κωδικός."},401);
   try{
@@ -195,11 +195,14 @@ async function adminOverview(req,env){
     if(!gate.ok)return jsonNoStore({error:"Πολλές προσπάθειες. Δοκίμασε αργότερα."},gate.status===429?429:503);
     if(!safeEqual(await sha256(supplied),await sha256(adminPassword)))
       return jsonNoStore({error:"Λάθος κωδικός."},401);
+    const action=new URL(req.url).pathname;
+    if(action==="/api/admin/create")return await adminCreateAccount(env,payload);
+    if(action==="/api/admin/delete")return await adminDeleteAccount(env,payload);
     const response=await auditStub(env).fetch("https://car-data.internal/admin-audit/read");
     if(!response.ok)throw Error("audit unavailable");
-    const {events}=await response.json(),accounts=new Map();
+    const {events,deleted=[]}=await response.json(),accounts=new Map(),removed=new Set(deleted);
     const add=(username,row={})=>{
-      if(!validUser(username))return;
+      if(!validUser(username)||removed.has(username))return;
       const old=accounts.get(username)||{};
       accounts.set(username,{username,createdAt:indexDate(row.createdAt)||old.createdAt||null,
         lastLoginAt:[indexDate(row.lastLoginAt),old.lastLoginAt].filter(Boolean).sort().at(-1)||null,
@@ -212,7 +215,7 @@ async function adminOverview(req,env){
         const username=key.name.slice("accounts:".length);
         if(validUser(username)){
           const value=await env.DATA.get(key.name,"json");
-          if(value?.username===username)add(username,value);
+          if(value?.username===username&&!removed.has(username))add(username,value);
         }
       }
       if(page.list_complete)break;
@@ -223,11 +226,56 @@ async function adminOverview(req,env){
     for(const username of LEGACY_USER_SCOPES.keys()){
       const res=await identityFetch(identityStub(env,username),"describe",{});
       if(res.ok){const value=await res.json();if(value.username===username){add(username,value);await indexAccount(env,username,{onlyIfMissing:true});}}
-      else if(res.status!==404)partial=true;
+      else if(res.status!==404&&res.status!==410)partial=true;
     }
     for(const event of events)add(event.username,{lastLoginAt:event.at});
     return jsonNoStore({accounts:[...accounts.values()].sort((a,b)=>a.username.localeCompare(b.username)),events,partial,retentionDays:30,maxEvents:ADMIN_AUDIT_MAX});
   }catch{return jsonNoStore({error:"Προσωρινή αδυναμία ανάγνωσης διαχείρισης."},503);}
+}
+async function adminCreateAccount(env,payload){
+  const username=cleanUsername(payload.username),password=payload.newPassword;
+  if(!validUser(username)||!validPassword(password))
+    return jsonNoStore({error:"Username 2–32 χαρακτήρες (λατινικά) και password 4–128 χαρακτήρες."},400);
+  if(LEGACY_USER_SCOPES.has(username))
+    return jsonNoStore({error:"Το username είναι δεσμευμένο."},409);
+  const registry=identityStub(env,username);
+  const exists=await identityFetch(registry,"exists",{});
+  if(exists.ok)return jsonNoStore({error:"Το username χρησιμοποιείται ή έχει διαγραφεί."},409);
+  if(exists.status!==404)return jsonNoStore({error:"Δεν ήταν δυνατός ο έλεγχος του username."},503);
+  const salt=passwordSalt(),verifier=await passwordVerifier(password,salt);
+  const scope=await sha256("new-car-account:"+crypto.randomUUID()+crypto.randomUUID());
+  const stub=accountScopeStub(env,scope);
+  const created=await stub.fetch("https://car-data.internal/create-account",{method:"POST"});
+  if(!created.ok)return jsonNoStore({error:"Δεν δημιουργήθηκε ο λογαριασμός."},503);
+  const claimed=await identityFetch(registry,"create",{username,scope,salt,verifier});
+  if(!claimed.ok){
+    if(claimed.status===409)await stub.fetch("https://car-data.internal/account-purge",{method:"POST"});
+    return jsonNoStore({error:claimed.status===409?"Το username χρησιμοποιείται ή έχει διαγραφεί.":"Η δημιουργία χρειάζεται έλεγχο."},claimed.status===409?409:503);
+  }
+  await indexAccount(env,username,{expectedScope:scope});
+  const desc=await identityFetch(registry,"describe",{});
+  const row=desc.ok?await desc.json():{};
+  return jsonNoStore({ok:true,account:{username,createdAt:indexDate(row.createdAt),lastLoginAt:null,passwordUpdatedAt:indexDate(row.passwordUpdatedAt)}},201);
+}
+async function adminDeleteAccount(env,payload){
+  const username=cleanUsername(payload.username);
+  if(!validUser(username)||payload.confirmed!==true||payload.confirmUsername!==username)
+    return jsonNoStore({error:"Απαιτούνται δύο επιβεβαιώσεις και το ακριβές username."},400);
+  const registry=identityStub(env,username);
+  const marked=await identityFetch(registry,"delete",{username});
+  if(marked.status===404)return jsonNoStore({error:"Ο λογαριασμός δεν βρέθηκε."},404);
+  if(marked.status===409)return jsonNoStore({error:"Ασυμφωνία ιστορικού λογαριασμού. Δεν έγινε διαγραφή."},409);
+  if(!marked.ok)return jsonNoStore({error:"Η διαγραφή δεν ολοκληρώθηκε. Δοκίμασε ξανά."},503);
+  const {scope}=await marked.json();
+  if(!/^[a-f0-9]{64}$/.test(scope||""))return jsonNoStore({error:"Μη έγκυρος λογαριασμός."},503);
+  // The identity is now disabled. Retrying uses the same immutable scope.
+  const purged=await accountScopeStub(env,scope).fetch("https://car-data.internal/account-purge",{method:"POST"});
+  if(!purged.ok)return jsonNoStore({error:"Ο λογαριασμός απενεργοποιήθηκε. Επανάλαβε τη διαγραφή για τον καθαρισμό των δεδομένων."},503);
+  const forgotten=await auditStub(env).fetch("https://car-data.internal/admin-audit/forget",{method:"POST",body:JSON.stringify({username})});
+  if(!forgotten.ok)return jsonNoStore({error:"Τα δεδομένα διαγράφηκαν. Επανάλαβε για τον καθαρισμό του μητρώου."},503);
+  try{await env.DATA.delete(accountIndexKey(username));}
+  catch{return jsonNoStore({ok:true,warning:"Ο λογαριασμός διαγράφηκε. Η παλιά καταχώριση KV μπορεί να παραμένει προσωρινά."});}
+  return jsonNoStore({ok:true});
 }
 async function pruneAdminAudit(storage){
   return storage.transaction(async tx=>{
@@ -318,7 +366,8 @@ async function handlePrivateDocuments(req,state){
     const id=crypto.randomUUID();
     const meta={id,clientKey,kind,title,expiry,cost,fileName,mime,size,
       parts:Math.ceil(size/DOCUMENT_CHUNK),status:"pending",createdAt:Date.now()};
-    await storage.put(docKey(id),meta);
+    const saved=await storage.transaction(async tx=>{if(await tx.get("account-deleted"))return false;await tx.put(docKey(id),meta);return true;});
+    if(!saved)return jsonDocument({error:"account deleted"},401);
     return jsonDocument({id,status:"pending",chunkSize:DOCUMENT_CHUNK},201);
   }
   const id=segments[1];
@@ -338,7 +387,8 @@ async function handlePrivateDocuments(req,state){
     const bytes=await req.arrayBuffer();
     const expected=Math.min(DOCUMENT_CHUNK,meta.size-index*DOCUMENT_CHUNK);
     if(bytes.byteLength!==expected)return jsonDocument({error:"Μη έγκυρο μέγεθος τμήματος."},413);
-    await storage.put(docPart(id,index),new Uint8Array(bytes));
+    const saved=await storage.transaction(async tx=>{if(await tx.get("account-deleted"))return false;await tx.put(docPart(id,index),new Uint8Array(bytes));return true;});
+    if(!saved)return jsonDocument({error:"account deleted"},401);
     return jsonDocument({ok:true,index});
   }
   if(segments.length===3&&segments[2]==="complete"&&req.method==="POST"){
@@ -350,7 +400,8 @@ async function handlePrivateDocuments(req,state){
         return jsonDocument({error:"Η αποστολή είναι ελλιπής. Προσπάθησε ξανά."},409);
     }
     meta.status="ready";
-    await storage.put(docKey(id),meta);
+    const saved=await storage.transaction(async tx=>{if(await tx.get("account-deleted"))return false;await tx.put(docKey(id),meta);return true;});
+    if(!saved)return jsonDocument({error:"account deleted"},401);
     return jsonDocument({ok:true,document:cleanDocumentMeta(meta)});
   }
   if(segments.length===2&&req.method==="GET"){
@@ -447,7 +498,7 @@ async function getLegacyData(env){
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
-    if(url.pathname==="/api/admin/overview")return req.method==="POST"?adminOverview(req,env):jsonNoStore({error:"Μη επιτρεπτή μέθοδος."},405);
+    if(["/api/admin/overview","/api/admin/create","/api/admin/delete"].includes(url.pathname))return req.method==="POST"?adminOverview(req,env):jsonNoStore({error:"Μη επιτρεπτή μέθοδος."},405);
 
     // Every account uses a separate SQLite Durable Object. A code for another
     // account CANNOT select, read or write this account's data.
@@ -871,6 +922,7 @@ export class CarServiceStore {
           country:typeof e.country==="string"&&/^[A-Z]{2}$/.test(e.country)?e.country:null};
         const events=await storage.transaction(async tx=>{
           const old=await tx.get("admin-audit-events")||[];
+          if(await tx.get("admin-deleted:"+e.username))return old;
           const next=[event,...old.filter(v=>Date.parse(v.at)>Date.now()-ADMIN_AUDIT_DAYS)]
             .sort((a,b)=>b.at.localeCompare(a.at)).slice(0,ADMIN_AUDIT_MAX);
           await tx.put("admin-audit-events",next);return next;
@@ -878,12 +930,38 @@ export class CarServiceStore {
         await scheduleAdminAudit(storage,events);
         return json({ok:true});
       }
+      if(url.pathname==="/admin-audit/forget"&&request.method==="POST"){
+        const {username}=await request.json();
+        if(!validUser(username))return json({},400);
+        const events=await storage.transaction(async tx=>{
+          await tx.put("admin-deleted:"+username,true);
+          const next=(await tx.get("admin-audit-events")||[]).filter(e=>e.username!==username);
+          await tx.put("admin-audit-events",next);return next;
+        });
+        await scheduleAdminAudit(storage,events);return json({ok:true});
+      }
       if(url.pathname==="/admin-audit/read"&&request.method==="GET"){
         const events=await pruneAdminAudit(storage);
-        await scheduleAdminAudit(storage,events);return json({events});
+        await scheduleAdminAudit(storage,events);const deleted=[...(await storage.list({prefix:"admin-deleted:"})).keys()].map(k=>k.slice("admin-deleted:".length));return json({events,deleted});
       }
       return json({},404);
     }
+
+    if(url.pathname==="/account-purge"&&request.method==="POST"){
+      const storage=this.state.storage;
+      await storage.put("account-deleted",true);
+      // Remove all live account data, documents and sessions in bounded batches.
+      // Retain only the tombstone so stale clients cannot revive the vault.
+      while(true){
+        const rows=await storage.list({limit:16});
+        const keys=[...rows.keys()].filter(k=>k!=="account-deleted");
+        if(!keys.length)break;
+        await storage.delete(keys);
+      }
+      return json({ok:true});
+    }
+    if(await this.state.storage.get("account-deleted"))
+      return json({error:"account deleted"},401);
 
     if(url.pathname==="/docs"||url.pathname.startsWith("/docs/"))
       return handlePrivateDocuments(request,this.state);
@@ -892,11 +970,23 @@ export class CarServiceStore {
       const identity=await this.state.storage.get("identity");
       if(action==="exists")return json({exists:!!identity},identity?200:404);
       if(action==="describe")
-        return identity?json({username:identity.username,scope:identity.scope,
+        return identity?.deletedAt?json({error:"deleted"},410):identity?json({username:identity.username,scope:identity.scope,
           createdAt:identity.createdAt||null,passwordUpdatedAt:identity.passwordUpdatedAt||null}):
           json({error:"not found"},404);
       let input={};
       try{input=await request.json();}catch{}
+      if(action==="delete"){
+        if(!validUser(input.username))return json({},400);
+        const removed=await this.state.storage.transaction(async tx=>{
+          const latest=await tx.get("identity");
+          if(!latest||latest.username!==input.username)return null;
+          if(!/^[a-f0-9]{64}$/.test(latest.scope||"")||(LEGACY_USER_SCOPES.has(input.username)&&LEGACY_USER_SCOPES.get(input.username)!==latest.scope))return {conflict:true};
+          if(!latest.deletedAt)await tx.put("identity",{username:latest.username,scope:latest.scope,deletedAt:new Date().toISOString()});
+          return {scope:latest.scope};
+        });
+        return removed?.conflict?json({error:"scope mismatch"},409):removed?json(removed):json({},404);
+      }
+      if(identity?.deletedAt)return json({error:"deleted"},410);
       if(action==="create"){
         if(!validUser(input.username)||!/^[a-f0-9]{64}$/.test(input.scope||"")||
            !/^[a-f0-9]{32}$/.test(input.salt||"")||
@@ -929,7 +1019,7 @@ export class CarServiceStore {
         const salt=passwordSalt(),verifier=await passwordVerifier(input.newPassword,salt);
         const updated=await this.state.storage.transaction(async tx=>{
           const latest=await tx.get("identity");
-          if(!latest||latest.verifier!==identity.verifier)return false;
+          if(!latest||latest.deletedAt||latest.verifier!==identity.verifier)return false;
           await tx.put("identity",{...latest,salt,verifier,passwordUpdatedAt:new Date().toISOString()});return true;
         });
         return json({ok:updated},updated?200:409);
@@ -978,11 +1068,12 @@ export class CarServiceStore {
       if(!existing)return json({error:"account missing"},404);
       const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",
         new TextEncoder().encode(secret))),b=>b.toString(16).padStart(2,"0")).join("");
-      await this.state.storage.put("session:"+digest,{
-        expires:Date.now()+30*86400000,
-        epoch:(await this.state.storage.get("sessionEpoch"))||0
+      const issued=await this.state.storage.transaction(async tx=>{
+        if(await tx.get("account-deleted")||!await tx.get("dataset"))return false;
+        await tx.put("session:"+digest,{expires:Date.now()+30*86400000,epoch:(await tx.get("sessionEpoch"))||0});
+        return true;
       });
-      return json({ok:true});
+      return json({ok:issued},issued?200:401);
     }
     if(url.pathname==="/session-verify"&&request.method==="POST"){
       let secret="";
@@ -1042,7 +1133,7 @@ export class CarServiceStore {
         !data.settings||typeof data.settings!=="object")return json({error:"invalid snapshot"},400);
       const saved=await this.state.storage.transaction(async tx=>{
         const current=await tx.get("dataset");
-        if(!current||current.revision!==1||current.items.length||
+        if(await tx.get("account-deleted")||!current||current.revision!==1||current.items.length||
             current.reminders.length||Object.keys(current.settings).length)return false;
         await tx.put("dataset",{items:data.items,settings:data.settings,
           reminders:data.reminders,revision:2});
@@ -1060,7 +1151,7 @@ export class CarServiceStore {
 
     if (url.pathname === "/create-account" && request.method === "POST") {
       const created=await this.state.storage.transaction(async tx=>{
-        if(await tx.get("dataset"))return false;
+        if(await tx.get("account-deleted")||await tx.get("dataset"))return false;
         await tx.put("dataset",{items:[],settings:{},reminders:[],revision:1});
         await tx.put("sessionRequired",true);
         return true;
@@ -1075,7 +1166,7 @@ export class CarServiceStore {
       if (!legacy || typeof legacy !== "object") legacy = {};
       await this.state.storage.transaction(async tx => {
         const current = await tx.get("dataset");
-        if (current) return;
+        if (current||await tx.get("account-deleted")) return;
         await tx.put("dataset", {
           items: Array.isArray(legacy.items) ? legacy.items : [],
           settings: legacy.settings && typeof legacy.settings === "object" ? legacy.settings : {},
@@ -1108,7 +1199,7 @@ export class CarServiceStore {
 
     const outcome = await this.state.storage.transaction(async tx => {
       const current = await tx.get("dataset");
-      if (!current) return { status: 409, body: { error: "not initialized" } };
+      if (await tx.get("account-deleted")||!current) return { status: 409, body: { error: "not initialized" } };
       if (next.revision !== current.revision) {
         return { status: 409, body: { error: "revision conflict", revision: current.revision } };
       }
