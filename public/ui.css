@@ -1402,7 +1402,6 @@ body:not(.account-locked) .document-kind{
 .next .service-forecast strong{font-size:1.04rem;line-height:1.35;font-weight:800;color:var(--ink)}
 .next .service-forecast small{font-size:.72rem;color:var(--mute);line-height:1.45}
 .next .service-forecast.is-due strong{color:var(--warn)}
-.next .save-mileage{display:block;min-height:36px;margin:6px 0 0;padding:5px 10px;width:100%;font:inherit;font-size:.76rem;font-weight:700;border-radius:9px;border:1px solid #3b82f66b;background:#3b82f60c;color:var(--ink);cursor:pointer}
 @media(max-width:480px){.next .service-forecast-pair{grid-template-columns:1fr;gap:8px}}
 
 /* Vehicle profile entry point belongs to the home screen, not AI chat. */
@@ -1421,3 +1420,47 @@ body:not(.account-locked) .home-vehicle-heading h1{font-size:clamp(1.55rem,5vw,2
 .ai-top-eyebrow,.account-page-eyebrow,.ai-profile-head span{letter-spacing:.02em;font-weight:650}
 .ai-message-text,.notes{line-height:1.65}
 nav button{letter-spacing:normal}
+
+/* Responsive odometer control — one surface, no detached action button. */
+body:not(.account-locked) .next .mileage-config{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);align-items:start;gap:14px;margin-top:17px;padding-top:6px}
+.next .mileage-field,.next .interval-field{min-width:0}
+.next .mileage-control{display:flex;align-items:center;gap:7px;min-width:0;min-height:54px;padding:4px 5px 4px 10px;background:var(--card);border:1px solid var(--line);border-radius:15px;transition:border-color .18s,box-shadow .18s}
+.next .mileage-control:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent)}
+.next .mileage-gauge{display:grid;place-items:center;color:var(--accent);flex:none;width:21px}
+.next .mileage-gauge svg,.next .mileage-confirm svg{width:21px;height:21px;display:block}
+body:not(.account-locked) .next .mileage-control input#cur{min-width:0;flex:1;width:0;min-height:44px;margin:0;padding:0;background:none;border:0;border-radius:0;outline:none;box-shadow:none;font-size:clamp(1rem,4.5vw,1.22rem);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:normal}
+.next .mileage-unit{font-size:.72rem;color:var(--mute);flex:none}
+.next .mileage-confirm{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;border-radius:11px;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent);color:var(--accent-ink);transition:transform .16s,background .2s,border-color .2s}
+.next .mileage-confirm.is-recorded{color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--card));border-color:color-mix(in srgb,var(--ok) 30%,var(--line))}
+.next .mileage-confirm:disabled{opacity:.42;cursor:default}
+.next .mileage-confirm:not(:disabled):active{transform:scale(.91)}
+.next .mileage-hint{display:block;font-size:.72rem;line-height:1.45;color:var(--mute);margin:7px 0 0;min-height:1.45em;overflow-wrap:anywhere}
+.next .mileage-control:has(.is-recorded)+.mileage-hint{color:var(--ok)}
+body:not(.account-locked) .next .interval-field input{min-height:54px}
+.next .service-progress-label{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--mute);font-size:.72rem;margin-top:14px;font-variant-numeric:tabular-nums}
+.next .service-progress-label strong{color:var(--ink);font-weight:700}
+body:not(.account-locked) .next .service-progress{margin-top:6px;height:9px}
+.next .service-progress i{border-radius:999px}
+@media(max-width:520px){body:not(.account-locked) .next .mileage-config{grid-template-columns:1fr;gap:2px}}
+@media(max-width:340px){.next .mileage-control{gap:5px;padding-left:7px}.next .mileage-gauge{display:none}}
+
+/* Motion: short entrance and press feedback, with no continuous animation. */
+@keyframes car-view-in{from{opacity:.65;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes car-card-in{from{opacity:.55;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:no-preference){
+  body:not(.account-locked) .view.on{animation:car-view-in .24s ease-out}
+  body:not(.account-locked) #v-list.on .next{animation:car-card-in .35s cubic-bezier(.2,.75,.25,1)}
+  body:not(.account-locked) #v-list.on .overview-grid{animation:car-card-in .42s cubic-bezier(.2,.75,.25,1)}
+  body:not(.account-locked) #v-list.on .home-header{animation:car-card-in .26s ease-out}
+  body:not(.account-locked) :is(.next,.overview-card,.due-chip,.item,.home-vehicle-edit,.documents-shortcut){transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+  body:not(.account-locked) :is(nav button,.home-vehicle-edit,.documents-shortcut,button.main,.actions button):active{transform:scale(.97)}
+  body:not(.account-locked) .extra-panel summary .summary-right span:last-child{transition:transform .2s ease}
+  body:not(.account-locked) .extra-panel[open] summary .summary-right span:last-child{transform:rotate(180deg)}
+}
+@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+  body:not(.account-locked) :is(.overview-card,.due-chip,.item,.documents-shortcut):hover{transform:translateY(-2px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .next .mileage-control,.next .mileage-confirm{transition:none!important}
+  .next .mileage-confirm:active{transform:none}
+}
