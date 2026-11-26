@@ -146,6 +146,94 @@ function updateAccountDirectory(ctx,env,username,options={}){
   return work;
 }
 
+
+const ADMIN_AUDIT_DAYS=30*86400000;
+const ADMIN_AUDIT_MAX=500;
+const auditStub=env=>env.CAR_DATA.get(env.CAR_DATA.idFromName("car-service-admin-audit-v1"));
+function auditIP(req){
+  const ip=req.headers.get("CF-Connecting-IP")||"";
+  return /^[0-9a-fA-F:.]{3,45}$/.test(ip)?ip:null;
+}
+function recordAccountLogin(ctx,env,req,username,kind){
+  const event={username,kind,at:new Date().toISOString(),ip:auditIP(req),
+    country:/^[A-Z]{2}$/.test(req.cf?.country||"")?req.cf.country:null};
+  const work=Promise.resolve().then(async()=>{
+    const res=await auditStub(env).fetch("https://car-data.internal/admin-audit/record",{method:"POST",body:JSON.stringify(event)});
+    if(!res.ok)throw Error("audit unavailable");
+  }).catch(()=>console.warn("Account audit temporarily unavailable"));
+  if(ctx?.waitUntil){ctx.waitUntil(work);return Promise.resolve();}
+  return work;
+}
+async function adminOverview(req,env){
+  if(typeof env.CAR_ADMIN_PASSWORD!=="string"||env.CAR_ADMIN_PASSWORD.length<24)
+    return jsonNoStore({error:"Ο διαχειριστής πρέπει να ορίσει ξεχωριστό CAR_ADMIN_PASSWORD (24+ χαρακτήρες)."},503);
+  if(req.headers.get("Origin")&&req.headers.get("Origin")!==new URL(req.url).origin)
+    return jsonNoStore({error:"Μη επιτρεπτή προέλευση."},403);
+  if(!req.headers.get("Content-Type")?.startsWith("application/json"))
+    return jsonNoStore({error:"Μη έγκυρο αίτημα."},415);
+  const length=Number(req.headers.get("Content-Length")||0);
+  if(length>4096)return jsonNoStore({error:"Μη έγκυρο αίτημα."},413);
+  let supplied;
+  try{
+    const reader=req.body.getReader(),decoder=new TextDecoder();let body="",total=0;
+    while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;
+      if(total>4096){await reader.cancel();return jsonNoStore({error:"Μη έγκυρο αίτημα."},413);}
+      body+=decoder.decode(value,{stream:true});}
+    body+=decoder.decode();supplied=JSON.parse(body).password;
+  }catch{return jsonNoStore({error:"Μη έγκυρο αίτημα."},400);}
+  if(typeof supplied!=="string"||supplied.length>256)return jsonNoStore({error:"Λάθος κωδικός."},401);
+  try{
+    const correct=safeEqual(await sha256(supplied),await sha256(env.CAR_ADMIN_PASSWORD));
+    const gate=await auditStub(env).fetch("https://car-data.internal/admin-audit/gate",{method:"POST",body:JSON.stringify({correct})});
+    if(!gate.ok)return jsonNoStore({error:gate.status===429?"Πολλές προσπάθειες. Δοκίμασε αργότερα.":"Λάθος κωδικός."},gate.status===429?429:401);
+    const response=await auditStub(env).fetch("https://car-data.internal/admin-audit/read");
+    if(!response.ok)throw Error("audit unavailable");
+    const {events}=await response.json(),accounts=new Map();
+    const add=(username,row={})=>{
+      if(!validUser(username))return;
+      const old=accounts.get(username)||{};
+      accounts.set(username,{username,createdAt:indexDate(row.createdAt)||old.createdAt||null,
+        lastLoginAt:[indexDate(row.lastLoginAt),old.lastLoginAt].filter(Boolean).sort().at(-1)||null,
+        passwordUpdatedAt:indexDate(row.passwordUpdatedAt)||old.passwordUpdatedAt||null});
+    };
+    let cursor,partial=false;
+    for(let n=0;n<5;n++){
+      const page=await env.DATA.list({prefix:"accounts:",limit:100,...(cursor?{cursor}:{})});
+      for(const key of page.keys){
+        const username=key.name.slice("accounts:".length);
+        if(validUser(username)){
+          const value=await env.DATA.get(key.name,"json");
+          if(value?.username===username)add(username,value);
+        }
+      }
+      if(page.list_complete)break;
+      cursor=page.cursor;
+      if(n===4||!cursor){partial=true;break;}
+    }
+    // Old accounts may not yet be in eventually consistent KV. Only include real identities.
+    for(const username of LEGACY_USER_SCOPES.keys()){
+      const res=await identityFetch(identityStub(env,username),"describe",{});
+      if(res.ok){const value=await res.json();if(value.username===username){add(username,value);await indexAccount(env,username,{onlyIfMissing:true});}}
+      else if(res.status!==404)partial=true;
+    }
+    for(const event of events)add(event.username,{lastLoginAt:event.at});
+    return jsonNoStore({accounts:[...accounts.values()].sort((a,b)=>a.username.localeCompare(b.username)),events,partial,retentionDays:30,maxEvents:ADMIN_AUDIT_MAX});
+  }catch{return jsonNoStore({error:"Προσωρινή αδυναμία ανάγνωσης διαχείρισης."},503);}
+}
+async function pruneAdminAudit(storage){
+  return storage.transaction(async tx=>{
+    const previous=await tx.get("admin-audit-events")||[];
+    const events=previous.filter(e=>Date.parse(e.at)>Date.now()-ADMIN_AUDIT_DAYS).slice(0,ADMIN_AUDIT_MAX);
+    if(events.length!==previous.length)await tx.put("admin-audit-events",events);
+    return events;
+  });
+}
+async function scheduleAdminAudit(storage,events){
+  if(typeof storage.setAlarm!=="function")return;
+  if(events.length)await storage.setAlarm(Math.max(Date.now()+1000,Date.parse(events.at(-1).at)+ADMIN_AUDIT_DAYS+1000));
+  else if(typeof storage.deleteAlarm==="function")await storage.deleteAlarm();
+}
+
 const jsonNoStore = (body, status=200) =>
   Response.json(body, {status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /* Private cloud documents in the EXISTING per-account SQLite Durable Object.
@@ -350,6 +438,7 @@ async function getLegacyData(env){
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    if(url.pathname==="/api/admin/overview")return req.method==="POST"?adminOverview(req,env):jsonNoStore({error:"Μη επιτρεπτή μέθοδος."},405);
 
     // Every account uses a separate SQLite Durable Object. A code for another
     // account CANNOT select, read or write this account's data.
@@ -389,6 +478,7 @@ export default {
       if(!claimed.ok)return jsonNoStore({error:"Δεν ολοκληρώθηκε η εγγραφή."},503);
       const session=await newSession(stub,scope);
       await updateAccountDirectory(ctx,env,username,{expectedScope:scope,loginAt:new Date().toISOString()});
+      await recordAccountLogin(ctx,env,req,username,"create");
       return jsonNoStore({username,scope,session},201);
     }
 
@@ -475,6 +565,7 @@ export default {
       if(!data.ok)return jsonNoStore({error:"Το ιστορικό του λογαριασμού δεν είναι διαθέσιμο."},503);
       const session=await newSession(account,scope);
       await updateAccountDirectory(ctx,env,username,{expectedScope:scope,loginAt:new Date().toISOString()});
+      await recordAccountLogin(ctx,env,req,username,"login");
       return jsonNoStore({username,scope,session});
     }
 
@@ -737,10 +828,52 @@ export class CarServiceStore {
     this.env = env;
   }
 
+  async alarm(){
+    const events=await pruneAdminAudit(this.state.storage);
+    await scheduleAdminAudit(this.state.storage,events);
+  }
+
   async fetch(request) {
     const url = new URL(request.url);
     const json = (data, status = 200) =>
       Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
+
+
+    // Only the Worker can reach these internal Durable Object routes.
+    if(url.pathname.startsWith("/admin-audit/")){
+      const storage=this.state.storage;
+      if(url.pathname==="/admin-audit/gate"&&request.method==="POST"){
+        const {correct}=await request.json();
+        const allowed=await storage.transaction(async tx=>{
+          const now=Date.now(),old=await tx.get("admin-audit-gate");
+          const gate=old&&now-old.since<600000?old:{since:now,attempts:0};
+          if(correct===true)return 200;
+          if(gate.attempts>=20)return 429;
+          gate.attempts++;await tx.put("admin-audit-gate",gate);return 401;
+        });
+        return json({ok:allowed===200},allowed);
+      }
+      if(url.pathname==="/admin-audit/record"&&request.method==="POST"){
+        const e=await request.json();
+        if(!validUser(e.username)||!indexDate(e.at)||!["create","login"].includes(e.kind))return json({},400);
+        const event={username:e.username,kind:e.kind,at:e.at,
+          ip:typeof e.ip==="string"&&/^[0-9a-fA-F:.]{3,45}$/.test(e.ip)?e.ip:null,
+          country:typeof e.country==="string"&&/^[A-Z]{2}$/.test(e.country)?e.country:null};
+        const events=await storage.transaction(async tx=>{
+          const old=await tx.get("admin-audit-events")||[];
+          const next=[event,...old.filter(v=>Date.parse(v.at)>Date.now()-ADMIN_AUDIT_DAYS)]
+            .sort((a,b)=>b.at.localeCompare(a.at)).slice(0,ADMIN_AUDIT_MAX);
+          await tx.put("admin-audit-events",next);return next;
+        });
+        await scheduleAdminAudit(storage,events);
+        return json({ok:true});
+      }
+      if(url.pathname==="/admin-audit/read"&&request.method==="GET"){
+        const events=await pruneAdminAudit(storage);
+        await scheduleAdminAudit(storage,events);return json({events});
+      }
+      return json({},404);
+    }
 
     if(url.pathname==="/docs"||url.pathname.startsWith("/docs/"))
       return handlePrivateDocuments(request,this.state);
