@@ -215,7 +215,7 @@ async function adminOverview(req,env){
         const username=key.name.slice("accounts:".length);
         if(validUser(username)){
           const value=await env.DATA.get(key.name,"json");
-          if(value?.username===username)add(username,value);
+          if(value?.username===username&&!removed.has(username))add(username,value);
         }
       }
       if(page.list_complete)break;
@@ -264,6 +264,7 @@ async function adminDeleteAccount(env,payload){
   const registry=identityStub(env,username);
   const marked=await identityFetch(registry,"delete",{username});
   if(marked.status===404)return jsonNoStore({error:"Ο λογαριασμός δεν βρέθηκε."},404);
+  if(marked.status===409)return jsonNoStore({error:"Ασυμφωνία ιστορικού λογαριασμού. Δεν έγινε διαγραφή."},409);
   if(!marked.ok)return jsonNoStore({error:"Η διαγραφή δεν ολοκληρώθηκε. Δοκίμασε ξανά."},503);
   const {scope}=await marked.json();
   if(!/^[a-f0-9]{64}$/.test(scope||""))return jsonNoStore({error:"Μη έγκυρος λογαριασμός."},503);
@@ -979,10 +980,11 @@ export class CarServiceStore {
         const removed=await this.state.storage.transaction(async tx=>{
           const latest=await tx.get("identity");
           if(!latest||latest.username!==input.username)return null;
+          if(!/^[a-f0-9]{64}$/.test(latest.scope||"")||(LEGACY_USER_SCOPES.has(input.username)&&LEGACY_USER_SCOPES.get(input.username)!==latest.scope))return {conflict:true};
           if(!latest.deletedAt)await tx.put("identity",{username:latest.username,scope:latest.scope,deletedAt:new Date().toISOString()});
           return {scope:latest.scope};
         });
-        return removed?json(removed):json({},404);
+        return removed?.conflict?json({error:"scope mismatch"},409):removed?json(removed):json({},404);
       }
       if(identity?.deletedAt)return json({error:"deleted"},410);
       if(action==="create"){
