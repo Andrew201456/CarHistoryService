@@ -1,0 +1,143 @@
+name: CarHistory account directory backfill
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/car-account-backfill.yml'
+permissions: {}
+concurrency:
+  group: car-account-backfill
+  cancel-in-progress: false
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Index existing identities (no passwords)
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 - <<'PY'
+          WORKER="\nconst expires=__EXPIRY__;\nconst expected=\"__HASH__\";\nconst reply=(value,status=200)=>Response.json(value,{status,headers:{\"Cache-Control\":\"no-store\"}});\nexport default {async fetch(req,env){\n  if(req.method!==\"POST\"||new URL(req.url).pathname!==\"/index\"||Date.now()>expires)return reply({},404);\n  const auth=req.headers.get(\"Authorization\")||\"\";\n  const digest=Array.from(new Uint8Array(await crypto.subtle.digest(\"SHA-256\",new TextEncoder().encode(auth))),b=>b.toString(16).padStart(2,\"0\")).join(\"\");\n  let diff=0;for(let i=0;i<64;i++)diff|=digest.charCodeAt(i)^expected.charCodeAt(i);\n  if(diff)return reply({},403);\n  let ids;try{ids=(await req.json()).ids;}catch{return reply({},400);}\n  if(!Array.isArray(ids)||ids.length>10||ids.some(id=>typeof id!==\"string\"||!/^[a-f0-9]{64}$/.test(id)))return reply({},400);\n  const count={identities:0,added:0,existing:0,other:0,errors:0};\n  for(const id of ids){\n    try{\n      const stub=env.CAR_DATA.get(env.CAR_DATA.idFromString(id));\n      const res=await stub.fetch(\"https://car-data.internal/identity/describe\",{method:\"POST\",body:\"{}\"});\n      if(res.status===404){count.other++;continue;}\n      if(!res.ok){count.errors++;continue;}\n      const identity=await res.json(), username=identity.username;\n      if(typeof username!==\"string\"||!/^[A-Z][A-Z0-9._-]{1,31}$/.test(username)||env.CAR_DATA.idFromName(\"car-service-identity-\"+username).toString()!==id){count.errors++;continue;}\n      count.identities++;\n      const key=\"accounts:\"+username;\n      // Never replace any existing record; the login path remains authoritative.\n      if(await env.DATA.get(key)!==null){count.existing++;continue;}\n      const date=v=>typeof v===\"string\"&&/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(v)&&Number.isFinite(Date.parse(v))?v:null;\n      await env.DATA.put(key,JSON.stringify({username,createdAt:date(identity.createdAt),firstIndexedAt:new Date().toISOString(),lastLoginAt:null,passwordUpdatedAt:date(identity.passwordUpdatedAt),passwordStorage:\"PBKDF2-SHA256 (identity Durable Object)\"}));\n      count.added++;\n    }catch{count.errors++;}\n  }\n  return reply(count);\n}};\n"
+          import os, re, json, uuid, secrets, hashlib, time, urllib.request, urllib.error, urllib.parse
+          token=os.environ.get("CF_TOKEN","")
+          account=os.environ.get("CF_ACCOUNT","")
+          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}",account):
+              raise SystemExit("Missing Cloudflare credentials")
+          root="https://api.cloudflare.com/client/v4/accounts/"+account
+          kv="3d1521ea06854860a25e5775775d9fce"
+          target="carhistoryservice"
+          name="car-account-index-"+uuid.uuid4().hex[:16]
+          auth="Bearer "+secrets.token_hex(32)
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,req,fp,code,msg,headers,newurl):
+                  return None
+          opener=urllib.request.build_opener(NoRedirect())
+          class SafeError(Exception):
+              pass
+          def request(url,method,authorization,body=None,ctype="application/json"):
+              if isinstance(body,dict): body=json.dumps(body).encode()
+              req=urllib.request.Request(url,data=body,method=method,headers={"Authorization":authorization,"Content-Type":ctype})
+              try:
+                  with opener.open(req,timeout=25) as res:
+                      return res.read()
+              except urllib.error.HTTPError as e:
+                  raise SafeError("HTTP "+str(e.code)) from None
+              except Exception:
+                  raise SafeError("network error") from None
+          def api(path,method="GET",body=None,ctype="application/json"):
+              result=json.loads(request(root+path,method,"Bearer "+token,body,ctype))
+              if not result.get("success"): raise SafeError("Cloudflare API rejected operation")
+              return result
+          def pages(path,params):
+              cursor=None
+              seen=set()
+              while True:
+                  query=dict(params)
+                  if cursor: query["cursor"]=cursor
+                  response=api(path+"?"+urllib.parse.urlencode(query))
+                  yield from response.get("result",[])
+                  info=response.get("result_info") or {}
+                  cursor=info.get("cursor") or (info.get("cursors") or {}).get("after")
+                  if not cursor: break
+                  if cursor in seen: raise SafeError("Repeated pagination cursor")
+                  seen.add(cursor)
+                  if len(seen)>100: raise SafeError("Pagination safety limit")
+          def index_count():
+              return sum(1 for item in pages("/storage/kv/namespaces/"+kv+"/keys",{"prefix":"accounts:","limit":1000}) if item.get("name","").startswith("accounts:"))
+          def main():
+              # Verify the exact production namespace and binding before touching any data.
+              settings=api("/workers/scripts/"+target+"/settings")["result"]
+              bindings=settings.get("bindings",[])
+              if not any(b.get("name")=="DATA" and b.get("type")=="kv_namespace" and b.get("namespace_id")==kv for b in bindings):
+                  raise SafeError("Production KV binding differs from repository")
+              namespaces=[]
+              for page in range(1,101):
+                  data=api("/workers/durable_objects/namespaces?per_page=100&page="+str(page))
+                  entries=data.get("result",[])
+                  namespaces.extend(n for n in entries if n.get("script")==target and n.get("class")=="CarServiceStore")
+                  if len(entries)<100 or page >= (data.get("result_info") or {}).get("total_pages",101): break
+              if len(namespaces)!=1: raise SafeError("Cannot uniquely identify production Durable Object namespace")
+              ns=namespaces[0].get("id","")
+              if not re.fullmatch(r"[a-fA-F0-9]{32}",ns): raise SafeError("Invalid namespace ID")
+              ids=sorted(set(o["id"] for o in pages("/workers/durable_objects/namespaces/"+ns+"/objects",{"limit":100}) if o.get("hasStoredData") is not False and re.fullmatch(r"[a-f0-9]{64}",o.get("id",""))))
+              if len(ids)>500: raise SafeError("More than 500 objects; review batch limits first")
+              before=index_count()
+              print("Stored objects to inspect:",len(ids),flush=True)
+              print("Existing account directory keys:",before,flush=True)
+              if not ids: return
+              sub=api("/workers/subdomain")["result"].get("subdomain","")
+              if not re.fullmatch(r"[a-z0-9-]+",sub): raise SafeError("No existing workers.dev subdomain")
+              path="/workers/scripts/"+name
+              try:
+                  request(root+path,"GET","Bearer "+token)
+              except SafeError as e:
+                  if str(e)!="HTTP 404": raise
+              else:
+                  raise SafeError("Unexpected temporary name collision")
+              code=WORKER.replace("__EXPIRY__",str(int((time.time()+600)*1000))).replace("__HASH__",hashlib.sha256(auth.encode()).hexdigest())
+              metadata={"main_module":"index.js","compatibility_date":"2025-01-01","bindings":[{"name":"CAR_DATA","type":"durable_object_namespace","class_name":"CarServiceStore","script_name":target},{"name":"DATA","type":"kv_namespace","namespace_id":kv}],"observability":{"enabled":False}}
+              boundary=uuid.uuid4().hex
+              body=("--"+boundary+"\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n"+json.dumps(metadata)+"\r\n--"+boundary+"\r\nContent-Disposition: form-data; name=\"index.js\"; filename=\"index.js\"\r\nContent-Type: application/javascript+module\r\n\r\n"+code+"\r\n--"+boundary+"--\r\n").encode()
+              totals=dict(identities=0,added=0,existing=0,other=0,errors=0)
+              print("Temporary helper:",name,flush=True)
+              try:
+                  api(path,"PUT",body,"multipart/form-data; boundary="+boundary)
+                  api(path+"/subdomain","POST",{"enabled":True,"previews_enabled":False})
+                  url="https://"+name+"."+sub+".workers.dev/index"
+                  for start in range(0,len(ids),10):
+                      for attempt in range(4):
+                          try:
+                              batch=json.loads(request(url,"POST",auth,{"ids":ids[start:start+10]}))
+                              break
+                          except SafeError:
+                              if start!=0 or attempt==3: raise
+                              time.sleep(5)
+                      if set(batch)!=set(totals) or any(type(v) is not int or v<0 for v in batch.values()):
+                          raise SafeError("Invalid helper response")
+                      for key in totals: totals[key]+=batch[key]
+                  print("Confirmed identities:",totals["identities"],flush=True)
+                  print("New directory entries:",totals["added"],flush=True)
+                  print("Already indexed:",totals["existing"],flush=True)
+                  print("Other objects:",totals["other"],flush=True)
+                  print("Errors:",totals["errors"],flush=True)
+                  print("Visible directory keys now:",index_count(),flush=True)
+                  if totals["errors"]: raise SafeError("Some objects could not be indexed")
+              finally:
+                  try:
+                      api(path,"DELETE")
+                      print("Temporary helper deleted",flush=True)
+                  except SafeError as e:
+                      if str(e)!="HTTP 404":
+                          print("CLEANUP REQUIRED:",name,flush=True)
+                          raise
+          try:
+              main()
+          except SafeError as e:
+              raise SystemExit("Account backfill incomplete: "+str(e)) from None
+          except Exception:
+              raise SystemExit("Account backfill incomplete: unexpected response") from None
+          
+          PY
