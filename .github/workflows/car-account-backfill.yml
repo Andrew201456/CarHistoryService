@@ -20,7 +20,7 @@ jobs:
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           python3 - <<'PY'
-          WORKER="\nconst expires=__EXPIRY__;\nconst expected=\"__HASH__\";\nconst reply=(value,status=200)=>Response.json(value,{status,headers:{\"Cache-Control\":\"no-store\"}});\nexport default {async fetch(req,env){\n  if(req.method!==\"POST\"||new URL(req.url).pathname!==\"/index\"||Date.now()>expires)return reply({},404);\n  const auth=req.headers.get(\"Authorization\")||\"\";\n  const digest=Array.from(new Uint8Array(await crypto.subtle.digest(\"SHA-256\",new TextEncoder().encode(auth))),b=>b.toString(16).padStart(2,\"0\")).join(\"\");\n  let diff=0;for(let i=0;i<64;i++)diff|=digest.charCodeAt(i)^expected.charCodeAt(i);\n  if(diff)return reply({},403);\n  let ids;try{ids=(await req.json()).ids;}catch{return reply({},400);}\n  if(!Array.isArray(ids)||ids.length>10||ids.some(id=>typeof id!==\"string\"||!/^[a-f0-9]{64}$/.test(id)))return reply({},400);\n  const count={identities:0,added:0,existing:0,other:0,errors:0};\n  for(const id of ids){\n    try{\n      const stub=env.CAR_DATA.get(env.CAR_DATA.idFromString(id));\n      const res=await stub.fetch(\"https://car-data.internal/identity/describe\",{method:\"POST\",body:\"{}\"});\n      if(res.status===404){count.other++;continue;}\n      if(!res.ok){count.errors++;continue;}\n      const identity=await res.json(), username=identity.username;\n      if(typeof username!==\"string\"||!/^[A-Z][A-Z0-9._-]{1,31}$/.test(username)||env.CAR_DATA.idFromName(\"car-service-identity-\"+username).toString()!==id){count.errors++;continue;}\n      count.identities++;\n      const key=\"accounts:\"+username;\n      // Never replace any existing record; the login path remains authoritative.\n      if(await env.DATA.get(key)!==null){count.existing++;continue;}\n      const date=v=>typeof v===\"string\"&&/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(v)&&Number.isFinite(Date.parse(v))?v:null;\n      await env.DATA.put(key,JSON.stringify({username,createdAt:date(identity.createdAt),firstIndexedAt:new Date().toISOString(),lastLoginAt:null,passwordUpdatedAt:date(identity.passwordUpdatedAt),passwordStorage:\"PBKDF2-SHA256 (identity Durable Object)\"}));\n      count.added++;\n    }catch{count.errors++;}\n  }\n  return reply(count);\n}};\n"
+          WORKER="\nconst expires=__EXPIRY__;\nconst expected=\"__HASH__\";\nconst reply=(value,status=200)=>Response.json(value,{status,headers:{\"Cache-Control\":\"no-store\"}});\nexport default {async fetch(req,env){\n  if(req.method!==\"POST\"||new URL(req.url).pathname!==\"/index\"||Date.now()>expires)return reply({},404);\n  const auth=req.headers.get(\"X-Car-Index-Key\")||\"\";\n  const digest=Array.from(new Uint8Array(await crypto.subtle.digest(\"SHA-256\",new TextEncoder().encode(auth))),b=>b.toString(16).padStart(2,\"0\")).join(\"\");\n  let diff=0;for(let i=0;i<64;i++)diff|=digest.charCodeAt(i)^expected.charCodeAt(i);\n  if(diff)return reply({},403);\n  let ids;try{ids=(await req.json()).ids;}catch{return reply({},400);}\n  if(!Array.isArray(ids)||ids.length>10||ids.some(id=>typeof id!==\"string\"||!/^[a-f0-9]{64}$/.test(id)))return reply({},400);\n  const count={identities:0,added:0,existing:0,other:0,errors:0};\n  for(const id of ids){\n    try{\n      const stub=env.CAR_DATA.get(env.CAR_DATA.idFromString(id));\n      const res=await stub.fetch(\"https://car-data.internal/identity/describe\",{method:\"POST\",body:\"{}\"});\n      if(res.status===404){count.other++;continue;}\n      if(!res.ok){count.errors++;continue;}\n      const identity=await res.json(), username=identity.username;\n      if(typeof username!==\"string\"||!/^[A-Z][A-Z0-9._-]{1,31}$/.test(username)||env.CAR_DATA.idFromName(\"car-service-identity-\"+username).toString()!==id){count.errors++;continue;}\n      count.identities++;\n      const key=\"accounts:\"+username;\n      // Never replace any existing record; the login path remains authoritative.\n      if(await env.DATA.get(key)!==null){count.existing++;continue;}\n      const date=v=>typeof v===\"string\"&&/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(v)&&Number.isFinite(Date.parse(v))?v:null;\n      await env.DATA.put(key,JSON.stringify({username,createdAt:date(identity.createdAt),firstIndexedAt:new Date().toISOString(),lastLoginAt:null,passwordUpdatedAt:date(identity.passwordUpdatedAt),passwordStorage:\"PBKDF2-SHA256 (identity Durable Object)\"}));\n      count.added++;\n    }catch{count.errors++;}\n  }\n  return reply(count);\n}};\n"
           import os, re, json, uuid, secrets, hashlib, time, urllib.request, urllib.error, urllib.parse
           token=os.environ.get("CF_TOKEN","")
           account=os.environ.get("CF_ACCOUNT","")
@@ -30,21 +30,24 @@ jobs:
           kv="3d1521ea06854860a25e5775775d9fce"
           target="carhistoryservice"
           name="car-account-index-"+uuid.uuid4().hex[:16]
-          auth="Bearer "+secrets.token_hex(32)
+          auth=secrets.token_hex(32)
           class NoRedirect(urllib.request.HTTPRedirectHandler):
               def redirect_request(self,req,fp,code,msg,headers,newurl):
                   return None
           opener=urllib.request.build_opener(NoRedirect())
           class SafeError(Exception):
               pass
-          def request(url,method,authorization,body=None,ctype="application/json"):
+          def request(url,method,authorization,body=None,ctype="application/json",header="Authorization"):
               if isinstance(body,dict): body=json.dumps(body).encode()
-              req=urllib.request.Request(url,data=body,method=method,headers={"Authorization":authorization,"Content-Type":ctype})
+              req=urllib.request.Request(url,data=body,method=method,headers={header:authorization,"Content-Type":ctype})
               try:
                   with opener.open(req,timeout=25) as res:
                       return res.read()
               except urllib.error.HTTPError as e:
-                  raise SafeError("HTTP "+str(e.code)) from None
+                  kind=""
+                  if header=="X-Car-Index-Key":
+                      kind=" (helper response)" if e.read(32).strip()==b"{}" else " (gateway response)"
+                  raise SafeError("HTTP "+str(e.code)+kind) from None
               except Exception:
                   raise SafeError("network error") from None
           def api(path,method="GET",body=None,ctype="application/json"):
@@ -105,12 +108,14 @@ jobs:
               print("Temporary helper:",name,flush=True)
               try:
                   api(path,"PUT",body,"multipart/form-data; boundary="+boundary)
+                  print("Helper uploaded",flush=True)
                   api(path+"/subdomain","POST",{"enabled":True,"previews_enabled":False})
+                  print("Helper route enabled",flush=True)
                   url="https://"+name+"."+sub+".workers.dev/index"
                   for start in range(0,len(ids),10):
                       for attempt in range(4):
                           try:
-                              batch=json.loads(request(url,"POST",auth,{"ids":ids[start:start+10]}))
+                              batch=json.loads(request(url,"POST",auth,{"ids":ids[start:start+10]},header="X-Car-Index-Key"))
                               break
                           except SafeError:
                               if start!=0 or attempt==3: raise
