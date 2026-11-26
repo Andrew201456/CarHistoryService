@@ -1,5 +1,5 @@
 /* Cache only the application shell; never cache authenticated /api requests. */
-const CACHE="carhistory-shell-v40";
+const CACHE="carhistory-shell-v41";
 const ASSETS=[
  "/","/index.html","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/account.js","/manifest.webmanifest",
  "/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
@@ -23,12 +23,12 @@ self.addEventListener("activate",event=>{
 self.addEventListener("fetch",event=>{
   if(event.request.method!=="GET")return;
   const url=new URL(event.request.url);
-  if(url.origin!==self.location.origin||url.pathname.startsWith("/api/"))return;
+  if(url.origin!==self.location.origin||url.pathname.startsWith("/api/")||/^\/admin(?:\.html)?\/?$/.test(url.pathname))return;
   if(event.request.mode==="navigate"){
     event.respondWith(fetch(event.request,{cache:"no-store"}).then(response=>{
-      if(response.ok)event.waitUntil(caches.open(CACHE).then(cache=>cache.put("/index.html",response.clone())));
+      if(response.ok&&(url.pathname==="/"||url.pathname==="/index.html"))event.waitUntil(caches.open(CACHE).then(cache=>cache.put("/index.html",response.clone())));
       return response;
-    }).catch(()=>caches.match("/index.html")));
+    }).catch(()=>url.pathname==="/"||url.pathname==="/index.html"?caches.match("/index.html"):Response.error()));
     return;
   }
   // A stale cache-first account.js paired with a freshly fetched index.html
