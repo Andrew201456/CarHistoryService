@@ -1,0 +1,83 @@
+name: CarHistory production build repair
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/car-admin-build-repair.yml'
+permissions: {}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check existing build integration and start approved main build
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 - <<'PY'
+          import os, re, json, urllib.request, urllib.error, time
+          token=os.environ.get("CF_TOKEN","")
+          account=os.environ.get("CF_ACCOUNT","")
+          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}",account):
+              raise SystemExit("Missing credentials")
+          root="https://api.cloudflare.com/client/v4/accounts/"+account
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,req,fp,code,msg,headers,newurl):
+                  return None
+          opener=urllib.request.build_opener(NoRedirect())
+          def api(path,body=None,raw=False):
+              req=urllib.request.Request(root+path,data=None if body is None else json.dumps(body).encode(),headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"})
+              try:
+                  with opener.open(req,timeout=20) as res: 
+                      if raw: return res.read(10000000)
+                      data=json.load(res)
+                      if not data.get("success"): raise ValueError()
+                      return data["result"]
+              except urllib.error.HTTPError as e:
+                  raise SystemExit("Cloudflare API HTTP "+str(e.code)) from None
+              except Exception:
+                  raise SystemExit("Cloudflare API check failed") from None
+          marker=b"CAR_MASTER_ADMIN / CAR_ADMIN_PASSWORD"
+          if marker in api("/workers/scripts/carhistoryservice",raw=True):
+              print("Admin fix already deployed",flush=True)
+              raise SystemExit(0)
+          scripts=api("/workers/scripts")
+          tags=[s.get("tag") for s in scripts if s.get("id")=="carhistoryservice"]
+          if len(tags)!=1 or not re.fullmatch(r"[a-fA-F0-9-]{32,36}",tags[0] or ""):
+              raise SystemExit("Cannot uniquely identify production Worker")
+          path="/builds/workers/"+tags[0]
+          triggers=api(path+"/triggers")
+          matching=[]
+          for t in triggers:
+              r=t.get("repo_connection") or {}
+              if r.get("provider_type")=="github" and str(r.get("provider_account_name","")).lower()=="andrew201456" and str(r.get("repo_name","")).lower()=="carhistoryservice" and t.get("branch_includes")==["main"] and not t.get("branch_excludes") and not t.get("deleted_on"):
+                  matching.append(t)
+          print("Matching existing production build triggers:",len(matching),flush=True)
+          if len(matching)!=1:
+              raise SystemExit("No unambiguous production build trigger; no deployment started")
+          trigger=matching[0].get("trigger_uuid","")
+          if not re.fullmatch(r"[a-fA-F0-9-]{36}",trigger):
+              raise SystemExit("Invalid production trigger ID")
+          builds=api(path+"/builds")
+          main=[b for b in builds if (b.get("build_trigger_metadata") or {}).get("branch")=="main"]
+          if main:
+              latest=main[0]
+              print("Latest production build status:",str(latest.get("status","unknown"))[:40],flush=True)
+              print("Latest production build outcome:",str(latest.get("build_outcome","unknown"))[:40],flush=True)
+          if any(not b.get("build_outcome") and str(b.get("status","")).lower() not in ("complete","completed","failed","success","cancelled","terminated") for b in main[:5]):
+              print("Existing production build active; not starting duplicate",flush=True)
+          else:
+              sha=os.environ.get("GITHUB_SHA","")
+              if os.environ.get("GITHUB_REF")!="refs/heads/main" or not re.fullmatch(r"[a-f0-9]{40}",sha):
+                  raise SystemExit("Only the current main revision can be deployed")
+              api("/builds/triggers/"+trigger+"/builds",{"branch":"main","commit_hash":sha})
+              print("Production build requested using existing configuration",flush=True)
+          for i in range(8):
+              if marker in api("/workers/scripts/carhistoryservice",raw=True):
+                  print("Admin fix confirmed in deployed code",flush=True)
+                  raise SystemExit(0)
+              time.sleep(5)
+          print("Deployment not yet confirmed",flush=True)
+          PY
