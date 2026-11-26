@@ -74,10 +74,20 @@ assert.equal(modificationsContext.history[0].works[0],"Stage 1 / ECU remap");
 assert.ok(!JSON.stringify(context).includes("private-name"),"Unneeded workshop names must not be forwarded");
 assert.match(prepared.messages[0].content,/φρένων/);
 assert.match(prepared.messages[0].content,/μην.*επινοείς/i);
-assert.throws(()=>buildDiagnosticMessages({...payload,question:"x"}));
+assert.throws(()=>buildDiagnosticMessages({...payload,question:""}));
 assert.throws(()=>buildDiagnosticMessages({...payload,history:new Array(126).fill(history[0])}));
-assert.throws(()=>buildDiagnosticMessages({...payload,conversation:new Array(13).fill({role:"user",content:"Hi"})}));
+assert.throws(()=>buildDiagnosticMessages({...payload,conversation:new Array(49).fill({role:"user",content:"Hi"})}));
 assert.throws(()=>buildDiagnosticMessages({...payload,question:"a".repeat(1801)}));
+
+const oldDialogue=[{role:"user",content:"Χάνει λάδια από τον κινητήρα."},{role:"assistant",content:"Έχεις δει κηλίδα;"}];
+for(let i=0;i<20;i++)oldDialogue.push({role:"user",content:"Διευκρίνιση "+i},{role:"assistant",content:"Έλεγχος "+i});
+const follow=buildDiagnosticMessages({...payload,question:"Ναι",conversation:oldDialogue});
+const memory=JSON.parse(follow.messages[1].content.slice(follow.messages[1].content.indexOf("{")));
+assert.equal(memory.earlierConversation[0].content,"Χάνει λάδια από τον κινητήρα.");
+assert.equal(follow.messages.at(-1).content,"Ναι");
+assert.equal(follow.messages.at(-2).content,"Έλεγχος 19");
+assert.equal(follow.messages.length,15);
+assert.equal(buildDiagnosticMessages({...payload,question:"Όχι"}).messages.at(-1).content,"Όχι");
 
 let called;
 const env={
@@ -99,9 +109,9 @@ assert.equal(called.model,DIAGNOSTIC_MODEL);
 assert.equal(called.options.messages[0].role,"system");
 assert.equal(called.options.messages.at(-1).content,payload.question);
 assert.ok(called.options.max_tokens<=2000);
-assert.equal((await handleDiagnosticRequest(mkReq({...payload,question:"x"}),env)).status,400);
+assert.equal((await handleDiagnosticRequest(mkReq({...payload,question:""}),env)).status,400);
 assert.equal((await handleDiagnosticRequest(mkReq(payload),{})).status,503);
-const huge=new Request("https://service.example/api/diagnose",{method:"POST",body:"x".repeat(130001)});
+const huge=new Request("https://service.example/api/diagnose",{method:"POST",body:"x".repeat(260001)});
 assert.equal((await handleDiagnosticRequest(huge,env)).status,413);
 
 const worker=read("src/index.js");
@@ -130,7 +140,7 @@ assert(script.includes('fetch("/api/diagnose"'));
 assert(script.includes('headers:{"Authorization":"Bearer "+pass,"Content-Type":"application/json"}'));
 assert(script.includes("settings.vehicleProfile=values;"),"The structured profile must be persisted");
 assert(script.includes("store(); // existing local storage + authenticated cross-device sync"),"The profile must use the existing sync");
-assert(script.includes("vehicle:getProfile()"),"The AI request must include the saved vehicle profile");
+assert(script.includes("Object.entries(getProfile()).filter"),"The AI request must include the saved vehicle profile");
 assert(script.includes("kind:itemKind(it)"),"AI history must carry service categories");
 assert(script.includes("profileDialog.showModal()"),"Car profile editor should open as a dialog");
 assert(!html.includes('id="aiVehiclePanel"'),"Old accordion UI should be gone");
@@ -139,7 +149,7 @@ assert(css.includes(".ai-profile-dialog"),"Vehicle profile needs its own styling
 assert(css.includes(".ai-conversation"),"Conversation styling should exist");
 assert(css.includes(".ai-conversation"));
 assert(css.includes(".ai-profile-dialog"));
-assert(sw.includes('carhistory-shell-v32'));
+assert(sw.includes('carhistory-shell-v34'));
 assert(sw.includes('"/ai-mechanic.js"'));
 assert(!worker.includes("OpenAI_API_KEY"),"AI must use existing binding, not exposed API keys");
 console.log("PASS: structured car profile, legacy car field, diagnostic context, authenticated chat and redesigned UI");
