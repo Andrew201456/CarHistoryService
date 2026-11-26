@@ -170,7 +170,7 @@ async function adminOverview(req,env){
   const dedicated=env.CAR_ADMIN_PASSWORD;
   const adminPassword=dedicated===undefined||dedicated===null
     ?env.CAR_MASTER_ADMIN:dedicated;
-  const minLength=dedicated===undefined||dedicated===null?10:24;
+  const minLength=dedicated===undefined||dedicated===null?10:1;
   if(typeof adminPassword!=="string"||adminPassword.length<minLength||adminPassword.length>256)
     return jsonNoStore({error:"Δεν έχει ρυθμιστεί έγκυρος κωδικός διαχείρισης στο Cloudflare."},503);
   if(req.headers.get("Origin")&&req.headers.get("Origin")!==new URL(req.url).origin)
