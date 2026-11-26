@@ -1404,3 +1404,10 @@ body:not(.account-locked) .document-kind{
 .next .service-forecast.is-due strong{color:var(--warn)}
 .next .save-mileage{display:block;min-height:36px;margin:6px 0 0;padding:5px 10px;width:100%;font:inherit;font-size:.76rem;font-weight:700;border-radius:9px;border:1px solid #3b82f66b;background:#3b82f60c;color:var(--ink);cursor:pointer}
 @media(max-width:480px){.next .service-forecast-pair{grid-template-columns:1fr;gap:8px}}
+
+/* Vehicle profile entry point belongs to the home screen, not AI chat. */
+.home-vehicle-edit{display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;min-height:44px;max-width:100%;margin-top:12px;padding:9px 13px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink);font-size:.8rem;font-weight:720;text-align:left;cursor:pointer}
+.home-vehicle-edit svg{color:var(--accent);flex:none}
+.home-vehicle-edit span:last-child{font-size:1.2rem;line-height:1;color:var(--mute)}
+.home-vehicle-edit:hover{border-color:var(--accent)}
+#aiVehicleSubtitle{overflow-wrap:anywhere}
