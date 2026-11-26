@@ -1,0 +1,170 @@
+name: Cloudflare sandbox write tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloudflare-sandbox-tests.yml'
+permissions: {}
+concurrency:
+  group: cloudflare-sandbox-tests
+  cancel-in-progress: false
+jobs:
+  sandbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Test isolated temporary resources
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 - <<'PY'
+          import os, re, json, uuid, urllib.request, urllib.error, time
+          token = os.environ.get("CF_TOKEN", "")
+          account = os.environ.get("CF_ACCOUNT", "")
+          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}", account):
+              raise SystemExit("Missing token or invalid account ID")
+          root = "https://api.cloudflare.com/client/v4/accounts/" + account
+          name = "cf-audit-" + uuid.uuid4().hex[:20]
+          rows = []
+          print("Temporary resource name:", name, flush=True)
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+          opener = urllib.request.build_opener(NoRedirect())
+          class APIError(Exception):
+              pass
+          def api(method, path, body=None, content_type="application/json", raw=False):
+              if isinstance(body, dict):
+                  body = json.dumps(body).encode()
+              req = urllib.request.Request(root + path, method=method, data=body, headers={
+                  "Authorization": "Bearer " + token, "Content-Type": content_type})
+              try:
+                  with opener.open(req, timeout=15) as response:
+                      data = response.read()
+              except urllib.error.HTTPError as exc:
+                  raise APIError("HTTP " + str(exc.code)) from None
+              except Exception:
+                  raise APIError("network error") from None
+              if raw:
+                  return data
+              try:
+                  payload = json.loads(data)
+              except Exception:
+                  raise APIError("unexpected response") from None
+              if not isinstance(payload, dict) or not payload.get("success"):
+                  raise APIError("API rejected operation")
+              return payload.get("result")
+          def check(label, fn):
+              try:
+                  value = fn()
+                  rows.append((label, "PASS"))
+                  print(label + ": PASS", flush=True)
+                  return True, value
+              except APIError as exc:
+                  message = "REVIEW (" + str(exc) + ")"
+              except Exception:
+                  message = "REVIEW (validation failed)"
+              rows.append((label, message))
+              print(label + ": " + message, flush=True)
+              return False, None
+          def require(condition):
+              if not condition:
+                  raise APIError("unexpected test result")
+          def resource_id(result, field):
+              value = result.get(field) if isinstance(result, dict) else None
+              require(isinstance(value, str) and re.fullmatch(r"[a-fA-F0-9-]{32,36}", value))
+              return value
+          def kv():
+              base = "/storage/kv/namespaces"
+              ns = None
+              try:
+                  ok, ns = check("KV create namespace", lambda: resource_id(api("POST", base, {"title":name}), "id"))
+                  if not ok:
+                      return
+                  key = base + "/" + ns + "/values/audit"
+                  ok, _ = check("KV write value", lambda: api("PUT", key, b"audit-ok", "text/plain"))
+                  if ok:
+                      def read():
+                          for attempt in range(4):
+                              try:
+                                  if api("GET", key, raw=True) == b"audit-ok":
+                                      return
+                              except APIError:
+                                  pass
+                              if attempt < 3:
+                                  time.sleep(4)
+                          raise APIError("value not visible yet")
+                      check("KV read value", read)
+                      check("KV delete value", lambda: api("DELETE", key))
+              finally:
+                  if ns:
+                      check("KV cleanup namespace", lambda: api("DELETE", base + "/" + ns))
+          def d1():
+              base = "/d1/database"
+              db = None
+              try:
+                  ok, db = check("D1 create database", lambda: resource_id(api("POST", base, {"name":name}), "uuid"))
+                  if not ok:
+                      return
+                  def query(sql):
+                      result = api("POST", base + "/" + db + "/query", {"sql":sql})
+                      require(isinstance(result, list) and len(result) > 0 and all(r.get("success") is True for r in result))
+                      return result[0].get("results", [])
+                  ok, _ = check("D1 create table", lambda: query("CREATE TABLE audit (value TEXT NOT NULL)"))
+                  if ok:
+                      ok, _ = check("D1 insert row", lambda: query("INSERT INTO audit VALUES ('audit-ok')"))
+                      if ok:
+                          check("D1 read row", lambda: require(query("SELECT value FROM audit") == [{"value":"audit-ok"}]))
+                          check("D1 update row", lambda: query("UPDATE audit SET value='updated'"))
+                          check("D1 verify update", lambda: require(query("SELECT value FROM audit") == [{"value":"updated"}]))
+                          check("D1 delete row", lambda: query("DELETE FROM audit"))
+                          check("D1 verify deletion", lambda: require(query("SELECT value FROM audit") == []))
+              finally:
+                  if db:
+                      check("D1 cleanup database", lambda: api("DELETE", base + "/" + db))
+          def worker():
+              path = "/workers/scripts/" + name
+              def absent():
+                  try:
+                      api("GET", path, raw=True)
+                  except APIError as exc:
+                      if str(exc) == "HTTP 404":
+                          return
+                      raise
+                  raise APIError("name already exists")
+              ok, _ = check("Worker confirm unused name", absent)
+              if not ok:
+                  return
+              def upload(version):
+                  boundary = uuid.uuid4().hex
+                  metadata = json.dumps({"main_module":"index.js","compatibility_date":"2025-01-01"})
+                  script = 'export default { fetch() { return new Response("audit-' + version + '"); } };'
+                  body = (
+                      "--" + boundary + "\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n" + metadata +
+                      "\r\n--" + boundary + "\r\nContent-Disposition: form-data; name=\"index.js\"; filename=\"index.js\"\r\nContent-Type: application/javascript+module\r\n\r\n" + script +
+                      "\r\n--" + boundary + "--\r\n"
+                  ).encode()
+                  return api("PUT", path, body, "multipart/form-data; boundary=" + boundary)
+              created = False
+              try:
+                  created, _ = check("Worker upload/deploy", lambda: upload("v1"))
+                  if created:
+                      check("Worker read script", lambda: require(b"audit-v1" in api("GET", path, raw=True)))
+                      ok, _ = check("Worker update/deploy", lambda: upload("v2"))
+                      if ok:
+                          check("Worker verify update", lambda: require(b"audit-v2" in api("GET", path, raw=True)))
+              finally:
+                  if created:
+                      check("Worker cleanup", lambda: api("DELETE", path))
+          for test in [kv, d1, worker]:
+              test()
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("## Cloudflare sandbox write tests\n\nTemporary resource name: " + name + "\n\n| Test | Result |\n|---|---|\n")
+              for label, result in rows:
+                  out.write(f"| {label} | {result} |\n")
+              out.write("\nOnly randomly named test resources and synthetic data are used. Cleanup is attempted in finally blocks; interrupted runs or ambiguous API failures may leave a temporary resource. No production resources, secrets or routes are modified. Worker upload is tested via API, not a public HTTP request.\n")
+          if any(result != "PASS" for _, result in rows):
+              raise SystemExit(1)
+          PY
