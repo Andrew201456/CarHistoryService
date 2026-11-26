@@ -257,7 +257,9 @@ async function getAccount(req,env){
     const result=await stub.fetch("https://car-data.internal/session-verify",{
       method:"POST",body:JSON.stringify({secret})
     });
-    return result.ok?{stub,scope}:null;
+    if(result.status===401)return null;
+    if(!result.ok)throw new Error("Session verification temporarily unavailable");
+    return {stub,scope};
   }
   // Keep compatibility ONLY for historical long-form codes. Older four-digit
   // accounts (from v11) lack sessionRequired too, so explicitly exclude them.
@@ -447,9 +449,13 @@ export default {
     }
 
     if (url.pathname === "/api/account/session" && req.method === "POST") {
-      const account=await getAccount(req,env);
-      return account?jsonNoStore({scope:account.scope}):
-        jsonNoStore({error:"Η σύνδεση έχει λήξει. Συνδέσου ξανά."},401);
+      try{
+        const account=await getAccount(req,env);
+        return account?jsonNoStore({scope:account.scope}):
+          jsonNoStore({error:"Η σύνδεση έχει λήξει. Συνδέσου ξανά."},401);
+      }catch{
+        return jsonNoStore({error:"Ο έλεγχος σύνδεσης δεν είναι προσωρινά διαθέσιμος."},503);
+      }
     }
 
     // Read-only incident diagnostic. Never changes any Durable Object,
