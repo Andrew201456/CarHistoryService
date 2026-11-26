@@ -183,9 +183,11 @@ async function adminOverview(req,env){
   }catch{return jsonNoStore({error:"Μη έγκυρο αίτημα."},400);}
   if(typeof supplied!=="string"||supplied.length>256)return jsonNoStore({error:"Λάθος κωδικός."},401);
   try{
-    const correct=safeEqual(await sha256(supplied),await sha256(env.CAR_ADMIN_PASSWORD));
-    const gate=await auditStub(env).fetch("https://car-data.internal/admin-audit/gate",{method:"POST",body:JSON.stringify({correct})});
-    if(!gate.ok)return jsonNoStore({error:gate.status===429?"Πολλές προσπάθειες. Δοκίμασε αργότερα.":"Λάθος κωδικός."},gate.status===429?429:401);
+    const ipHash=await sha256(auditIP(req)||"unknown");
+    const gate=await auditStub(env).fetch("https://car-data.internal/admin-audit/gate",{method:"POST",body:JSON.stringify({ipHash})});
+    if(!gate.ok)return jsonNoStore({error:"Πολλές προσπάθειες. Δοκίμασε αργότερα."},gate.status===429?429:503);
+    if(!safeEqual(await sha256(supplied),await sha256(env.CAR_ADMIN_PASSWORD)))
+      return jsonNoStore({error:"Λάθος κωδικός."},401);
     const response=await auditStub(env).fetch("https://car-data.internal/admin-audit/read");
     if(!response.ok)throw Error("audit unavailable");
     const {events}=await response.json(),accounts=new Map();
@@ -197,8 +199,8 @@ async function adminOverview(req,env){
         passwordUpdatedAt:indexDate(row.passwordUpdatedAt)||old.passwordUpdatedAt||null});
     };
     let cursor,partial=false;
-    for(let n=0;n<5;n++){
-      const page=await env.DATA.list({prefix:"accounts:",limit:100,...(cursor?{cursor}:{})});
+    for(let n=0;n<1;n++){
+      const page=await env.DATA.list({prefix:"accounts:",limit:25,...(cursor?{cursor}:{})});
       for(const key of page.keys){
         const username=key.name.slice("accounts:".length);
         if(validUser(username)){
@@ -208,7 +210,7 @@ async function adminOverview(req,env){
       }
       if(page.list_complete)break;
       cursor=page.cursor;
-      if(n===4||!cursor){partial=true;break;}
+      partial=true;break;
     }
     // Old accounts may not yet be in eventually consistent KV. Only include real identities.
     for(const username of LEGACY_USER_SCOPES.keys()){
@@ -843,15 +845,16 @@ export class CarServiceStore {
     if(url.pathname.startsWith("/admin-audit/")){
       const storage=this.state.storage;
       if(url.pathname==="/admin-audit/gate"&&request.method==="POST"){
-        const {correct}=await request.json();
+        const {ipHash}=await request.json();
+        if(typeof ipHash!=="string"||!/^[a-f0-9]{64}$/.test(ipHash))return json({},400);
         const allowed=await storage.transaction(async tx=>{
           const now=Date.now(),old=await tx.get("admin-audit-gate");
-          const gate=old&&now-old.since<600000?old:{since:now,attempts:0};
-          if(correct===true)return 200;
-          if(gate.attempts>=20)return 429;
-          gate.attempts++;await tx.put("admin-audit-gate",gate);return 401;
+          const gate=old&&now-old.since<600000&&old.ips?old:{since:now,attempts:0,ips:{}};
+          if(gate.attempts>=300||(gate.ips[ipHash]||0)>=30)return false;
+          gate.attempts++;gate.ips[ipHash]=(gate.ips[ipHash]||0)+1;
+          await tx.put("admin-audit-gate",gate);return true;
         });
-        return json({ok:allowed===200},allowed);
+        return json({ok:allowed},allowed?200:429);
       }
       if(url.pathname==="/admin-audit/record"&&request.method==="POST"){
         const e=await request.json();
