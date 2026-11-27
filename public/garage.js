@@ -2,18 +2,20 @@
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
-const FALLBACK="/garage-car.svg", FOCUS="/focus-estate.svg", LIMIT=48000;
+const FALLBACK="/garage-car.svg", FOCUS="/car-focus.webp", LIMIT=48000;
 function validAvatar(v){return typeof v==="string"&&v.length<=LIMIT&&/^data:image\/(?:png|webp|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(v);}
 function automatic(profile){
  const p=profile||{},make=String(p.make||"").toLowerCase(),model=String(p.model||"").toLowerCase(),trim=String(p.trim||"").toLowerCase();
- return /\bford\b/.test(make)&&/\bfocus\b/.test(model)&&Number(p.year)>=2005&&Number(p.year)<=2007&&/wagon|estate|station|combi|touring|στέισον|σταισιον/.test(model+" "+trim)?FOCUS:FALLBACK;
+ return /\bford\b/.test(make)&&/\bfocus\b/.test(model)&&Number(p.year)>=2005&&Number(p.year)<=2007&&!/hatchback|sedan|saloon|cabrio|coupe|3θυρο|5θυρο/.test(model+" "+trim)?FOCUS:FALLBACK;
 }
 function source(profile,avatar){return validAvatar(avatar)?avatar:automatic(profile);}
 function setImage(el,src){if(el&&el.getAttribute("src")!==src)el.setAttribute("src",src);}
 function render(){
  const hero=$("garageHero");
  if(!hero)return;
- setImage($("garageCar"),source(settings.vehicleProfile,settings.vehicleAvatar));
+ const src=source(settings.vehicleProfile,settings.vehicleAvatar);
+ setImage($("garageCar"),src);
+ hero.title=validAvatar(settings.vehicleAvatar)?"Η δική σου φωτογραφία · πάτησε για αλλαγή":src===FOCUS?"Ενδεικτική απεικόνιση Focus Mk2 · πάτησε για αλλαγή":"Ενδεικτικό αυτοκίνητο · πάτησε για αλλαγή";
  const state=document.querySelector("#next .service-remaining");
  hero.dataset.state=["service-good","service-warning","service-critical","service-overdue"].find(c=>state?.classList.contains(c))||"unknown";
 }
@@ -29,7 +31,7 @@ function open(){
 }
 function cancel(){serial++;file=null;draft="";changed=false;setBusy(false);}
 function commit(){
- if(busy)return false;
+ if(busy||!accountIsCurrent())return false;
  if(changed){if(validAvatar(draft))settings.vehicleAvatar=draft;else delete settings.vehicleAvatar;}
  return true;
 }

@@ -1,8 +1,8 @@
 /* Cache only the application shell; never cache authenticated /api requests. */
-const CACHE="carhistory-shell-v43";
+const CACHE="carhistory-shell-v44";
 const ASSETS=[
  "/","/index.html","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/account.js","/manifest.webmanifest",
- "/garage.js","/garage-car.svg","/focus-estate.svg","/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
+ "/garage.js","/garage-car.svg","/car-focus.webp","/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
 ];
 self.addEventListener("install",event=>{
   event.waitUntil((async()=>{
@@ -34,7 +34,7 @@ self.addEventListener("fetch",event=>{
   // A stale cache-first account.js paired with a freshly fetched index.html
   // can break the login button. Prefer the network for app scripts/styles,
   // while retaining cached copies for true offline operation.
-  if(["/account.js","/ui.css","/features.js","/documents.js","/ai-mechanic.js"].includes(url.pathname)){
+  if(["/account.js","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/garage.js"].includes(url.pathname)){
     event.respondWith(fetch(event.request,{cache:"no-store"}).then(response=>{
       if(response.ok){
         const cachedCopy=response.clone();
