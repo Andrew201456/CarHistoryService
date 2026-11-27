@@ -495,6 +495,10 @@ nav button.on{color:var(--accent);font-weight:600}
       </svg>
       Εγκατάσταση
     </button>
+    <div class="garage-stage" id="garageStage" data-service="unknown">
+      <div class="garage-stage-copy"><span>MY GARAGE</span><small id="garageArtLabel">Ενδεικτική απεικόνιση</small></div>
+      <div class="garage-car-wrap"><img id="garageCarImage" src="/car-generic.svg" alt="" width="180" height="151" decoding="async"></div>
+    </div>
   </header>
   <div id="syncst" role="status" aria-live="polite"></div>
   <div class="next" id="next"></div>
@@ -762,6 +766,14 @@ nav button.on{color:var(--accent);font-weight:600}
     <div class="ai-profile-head">
       <div><span>ΤΟ ΟΧΗΜΑ ΜΟΥ</span><h2 id="aiProfileTitle">Στοιχεία αυτοκινήτου</h2><p>Τα στοιχεία του οχήματός σου αποθηκεύονται στον λογαριασμό σου και συγχρονίζονται μαζί με το ιστορικό.</p></div>
       <button id="aiProfileClose" type="button" class="ai-dialog-x" aria-label="Κλείσιμο">×</button>
+    </div>
+    <div class="garage-photo-editor">
+      <div class="garage-photo-preview"><img id="garagePhotoPreview" src="/car-generic.svg" alt="Προεπισκόπηση αυτοκινήτου" width="160" height="100"></div>
+      <div class="garage-photo-controls"><strong>Εικόνα αυτοκινήτου</strong><small>Αυτόματη απεικόνιση ή δική σου φωτογραφία. Η μικρή εικόνα συγχρονίζεται στον λογαριασμό.</small>
+        <label class="garage-upload" for="garagePhotoInput">+ Επιλογή φωτογραφίας</label><input id="garagePhotoInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" class="garage-file-input">
+        <label class="garage-cutout"><input id="garageCutout" type="checkbox" checked> Αφαίρεση μονόχρωμου φόντου</label>
+        <button id="garagePhotoReset" type="button" class="garage-reset">Αυτόματη εικόνα</button>
+      </div><p id="garagePhotoStatus" role="status" class="garage-photo-status"></p>
     </div>
     <div class="ai-profile-grid">
       <label>Μάρκα<input id="aiCarMake" name="make" type="text" autocomplete="off" maxlength="70" placeholder="π.χ. Ford"></label>
@@ -1280,6 +1292,8 @@ function serviceRemainingStatus(left,interval){
 
 /* Επόμενο service */
 function renderNext(){
+  const garage=$("garageStage");
+  if(garage)garage.dataset.service="unknown";
   const reg=items.filter(i=>itemKind(i)==="regular"&&intOf(i.km)>0);
   const interval=intOf(settings.interval)||10000;
   let html="";
@@ -1292,6 +1306,7 @@ function renderNext(){
     if(cur>0){
       const left=next-cur,pct=Math.max(0,Math.min(100,(cur-lk)/interval*100));
       const urgency=serviceRemainingStatus(left,interval);
+      if(garage)garage.dataset.service=urgency;
       // Inline colour ensures the status stays visible even with a stale /ui.css PWA cache.
       const darkTheme=document.documentElement.dataset.theme==="dark"||
         (document.documentElement.dataset.theme!=="light"&&window.matchMedia?.("(prefers-color-scheme: dark)").matches);
@@ -1414,6 +1429,7 @@ function updateHomeVehicleTitle(){
   if(subtitle)subtitle.textContent=details.join(" · ")||"Όλο το ιστορικό συντήρησης, με μια ματιά.";
   const action=$("aiVehicleSummary");
   if(action)action.textContent=title?"Στοιχεία αυτοκινήτου":"Προσθήκη στοιχείων αυτοκινήτου";
+  window.CarArt?.render(values,settings.vehicleImage);
 }
 window.CarHistoryUpdateHomeTitle=updateHomeVehicleTitle;
 function render(){
@@ -2118,6 +2134,7 @@ $("impAdd").onclick=()=>{
   }else document.documentElement.classList.remove("account-restoring");
 })();
 </script>
+<script src="/car-art.js"></script>
 <script src="/features.js"></script>
 <script src="/documents.js"></script>
 <script src="/ai-mechanic.js"></script>
