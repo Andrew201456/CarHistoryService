@@ -263,6 +263,7 @@
     messages=[];persist();render();setStatus("");question.value="";question.focus();
   });
   $("aiProfileOpen").addEventListener("click",openProfile);
+  $("garageStage")?.addEventListener("click",openProfile);
   $("aiProfileClose").addEventListener("click",closeProfile);
   $("aiProfileCancel").addEventListener("click",closeProfile);
   profileForm.addEventListener("submit",saveProfile);
