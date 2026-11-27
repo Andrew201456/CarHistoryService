@@ -1672,3 +1672,9 @@ body:not(.account-locked) .home-header{flex-wrap:wrap}
 @media(min-width:550px){.garage-stage{min-height:144px}.garage-car-wrap{height:136px;max-width:220px}}
 @media(max-width:350px){.garage-stage{padding:7px 10px}.garage-photo-editor{grid-template-columns:1fr}.garage-photo-preview{height:100px}}
 @media(prefers-reduced-motion:reduce){.garage-car-wrap img,.garage-car-wrap::before{animation:none}}
+
+button.garage-stage{text-align:left;color:var(--ink);cursor:pointer;transition:border-color .18s,background .18s}
+button.garage-stage:hover{border-color:var(--accent)}
+.garage-stage-copy>.garage-art-hint{margin-top:7px;letter-spacing:normal;font-size:.7rem;font-weight:650;color:var(--accent)}
+.garage-empty img{display:block;max-width:96px;height:auto;margin:0 auto 12px;opacity:.85}
+@media(prefers-reduced-motion:no-preference){button.garage-stage:active .garage-car-wrap img{animation:none;transform:translateY(-3px) scale(.97)}}
