@@ -13,47 +13,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Prepare temporary encryption key
+      - name: Clean up temporary provisioning namespace
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           python3 - <<'PY'
-          import os, re, json, urllib.request, urllib.error, subprocess, tempfile
-          token = os.environ["CF_TOKEN"]
-          account = os.environ["CF_ACCOUNT"]
-          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}", account):
+          import os,re,json,urllib.request,urllib.error
+          token=os.environ["CF_TOKEN"]
+          account=os.environ["CF_ACCOUNT"]
+          if not token or not re.fullmatch(r"[a-fA-F0-9]{32}",account):
               raise SystemExit("Missing credentials")
-          root = "https://api.cloudflare.com/client/v4/accounts/" + account
+          root="https://api.cloudflare.com/client/v4/accounts/"+account
+          path="/storage/kv/namespaces/825626c7c857413c81d24fdaa23bb118"
           class NoRedirect(urllib.request.HTTPRedirectHandler):
-              def redirect_request(self, *args, **kwargs): return None
-          opener = urllib.request.build_opener(NoRedirect())
-          def api(method, path, body=None, raw=False):
-              if isinstance(body,dict): body=json.dumps(body).encode()
-              req=urllib.request.Request(root+path,method=method,data=body,headers={"Authorization":"Bearer "+token,"Content-Type":"application/octet-stream" if isinstance(body,bytes) and raw else "application/json"})
-              try:
-                  with opener.open(req,timeout=20) as res: data=res.read()
-              except urllib.error.HTTPError as e: raise RuntimeError("HTTP "+str(e.code)) from None
-              if raw and method=="GET": return data
-              result=json.loads(data)
-              if not result.get("success"): raise RuntimeError("API rejected")
+              def redirect_request(self,*args,**kwargs): return None
+          opener=urllib.request.build_opener(NoRedirect())
+          def api(method):
+              req=urllib.request.Request(root+path,method=method,headers={"Authorization":"Bearer "+token})
+              with opener.open(req,timeout=20) as res: result=json.loads(res.read())
+              if not result.get("success"):raise RuntimeError("API rejected cleanup")
               return result.get("result")
-          ns=None
           try:
-              with tempfile.TemporaryDirectory() as tmp:
-                  key=tmp+"/private.pem"
-                  subprocess.run(["openssl","genpkey","-algorithm","RSA","-pkeyopt","rsa_keygen_bits:2048","-out",key],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-                  public=subprocess.check_output(["openssl","pkey","-in",key,"-pubout"],stderr=subprocess.DEVNULL).decode()
-                  result=api("POST","/storage/kv/namespaces",{"title":"planner-provision-marmich-27nov26"})
-                  ns=result["id"]
-                  if not re.fullmatch(r"[a-fA-F0-9]{32}",ns): raise RuntimeError("Invalid resource ID")
-                  with open(key,"rb") as f: api("PUT","/storage/kv/namespaces/"+ns+"/values/key?expiration_ttl=900",f.read(),raw=True)
-                  print("Temporary namespace:",ns,flush=True)
-                  print(public,flush=True)
-                  print("Encryption key prepared; private key expires automatically.",flush=True)
-          except Exception as e:
-              if ns:
-                  try: api("DELETE","/storage/kv/namespaces/"+ns)
-                  except Exception: print("Temporary namespace cleanup requires review")
-              raise SystemExit("Provisioning preparation failed: "+str(e))
+              meta=api("GET")
+          except urllib.error.HTTPError as e:
+              if e.code==404:
+                  print("Temporary namespace already absent")
+                  raise SystemExit(0)
+              raise SystemExit("Cleanup check HTTP "+str(e.code))
+          if meta.get("title")!="planner-provision-marmich-27nov26":
+              raise SystemExit("Unexpected namespace; nothing deleted")
+          api("DELETE")
+          print("Temporary provisioning namespace deleted.")
           PY
