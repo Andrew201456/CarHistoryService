@@ -109,6 +109,7 @@ outlineOpen?.addEventListener("click",async()=>{
  if(!outline||!outlineCanvas||busy)return;
  const saved=changed?draft:settings.vehicleAvatar;
  if(!file&&!validAvatar(saved))return;
+ if(file&&(file.size>15*1024*1024||!/^image\/(?:jpeg|png|webp|heic|heif|avif)$/i.test(file.type||""))){status("Επίλεξε φωτογραφία JPG, PNG ή WebP έως 15 MB.");return;}
  const ticket=++serial,scope=window.CarHistoryAccountScope;
  let url;setBusy(true);hideOutline();status("Άνοιγμα φωτογραφίας…");
  try{
