@@ -93,15 +93,59 @@
     const km=intOf(settings.current);
     $("aiCurrentKm").textContent=km?fmtKm(km):"Χλμ. μη δηλωμένα";
   }
+  let photoDraft=null,photoChanged=false,photoBusy=false,photoSequence=0;
+  const photoInput=$("garagePhotoInput"),photoPreview=$("garagePhotoPreview"),photoStatus=$("garagePhotoStatus"),photoReset=$("garagePhotoReset"),photoSave=$("aiSaveVehicle");
+  function paintPhoto(){
+    if(!photoPreview||!window.CarArt)return;
+    const profile=Object.fromEntries(["make","model","year"].map(k=>[k,$(fieldMap[k])?.value||""]));
+    const art=window.CarArt.select(profile,photoDraft);
+    if(photoPreview.getAttribute("src")!==art.src)photoPreview.src=art.src;
+  }
+  function finishPhoto(){
+    photoBusy=false;
+    if(photoSave)photoSave.disabled=false;
+  }
+  function resetPhotoDraft(){
+    ++photoSequence;finishPhoto();
+    photoDraft=window.CarArt?.valid(settings.vehicleImage)?settings.vehicleImage:null;
+    photoChanged=false;
+    if(photoInput)photoInput.value="";
+    if(photoStatus)photoStatus.textContent="";
+    paintPhoto();
+  }
+  photoInput?.addEventListener("change",async()=>{
+    const file=photoInput.files?.[0];
+    if(!file||!window.CarArt)return;
+    const sequence=++photoSequence;
+    photoBusy=true;photoSave.disabled=true;
+    photoStatus.textContent="Ετοιμάζεται η εικόνα…";
+    try{
+      const result=await window.CarArt.prepare(file,$("garageCutout")?.checked!==false);
+      if(sequence!==photoSequence||!profileDialog.open||!accountIsCurrent())return;
+      photoDraft=result.src;photoChanged=true;paintPhoto();
+      photoStatus.textContent=result.state==="complex"?"Το φόντο είναι σύνθετο. Κρατήθηκε η φωτογραφία. Για καθαρό icon χρησιμοποίησε PNG με διαφάνεια.":result.state==="removed"?"Το μονόχρωμο φόντο αφαιρέθηκε. Πάτησε Αποθήκευση.":"Η εικόνα είναι έτοιμη. Πάτησε Αποθήκευση.";
+    }catch(error){if(sequence===photoSequence&&profileDialog.open)photoStatus.textContent=error.message||"Η επεξεργασία απέτυχε."}
+    finally{if(sequence===photoSequence){photoInput.value="";finishPhoto()}}
+  });
+  photoReset?.addEventListener("click",()=>{
+    ++photoSequence;finishPhoto();photoDraft=null;photoChanged=true;
+    if(photoInput)photoInput.value="";
+    if(photoStatus)photoStatus.textContent="Θα χρησιμοποιηθεί η αυτόματη εικόνα μετά την αποθήκευση.";
+    paintPhoto();
+  });
+  for(const key of ["make","model","year"])$(fieldMap[key])?.addEventListener("input",paintPhoto);
+  profileDialog.addEventListener("close",()=>{++photoSequence;finishPhoto();photoDraft=null;photoChanged=false});
   function openProfile(){
     const p=getProfile();
     for(const [key,id] of Object.entries(fieldMap))if($(id))$(id).value=p[key];
     for(const key of ["year","cc","power","vin"])$(fieldMap[key])?.setCustomValidity("");
+    resetPhotoDraft();
     profileDialog.showModal();
   }
   function closeProfile(){profileDialog.close();}
   function saveProfile(event){
     event.preventDefault();
+    if(photoBusy||!accountIsCurrent())return;
     const values=Object.fromEntries(Object.entries(fieldMap)
       .map(([key,id])=>[key,safeField($(id)?.value ?? settings.vehicleProfile?.[key],key)]));
     if(values.vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(values.vin)){
@@ -124,6 +168,7 @@
       }
     }
     settings.vehicleProfile=values;
+    if(photoChanged)settings.vehicleImage=window.CarArt?.valid(photoDraft)?photoDraft:null;
     store(); // existing local storage + authenticated cross-device sync
     updateVehicle();
     closeProfile();
