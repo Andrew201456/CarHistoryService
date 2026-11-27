@@ -1639,3 +1639,44 @@ body:not(.account-locked) nav.glass-nav .glass-selection{border-radius:24px;tran
  .car-ambient::before,.car-ambient::after{animation:none;transform:none;opacity:.82}
  body:not(.account-locked) nav.glass-nav .glass-selection{transition:none!important}
 }
+
+/* Garage: a compact floating vehicle, subtle service-state glow and playful details. */
+body:not(.account-locked) .home-header{display:grid;grid-template-columns:minmax(0,1fr) clamp(106px,32vw,160px);align-items:center;gap:12px}
+body:not(.account-locked) .home-header .install-trigger{grid-column:1/-1;justify-self:start}
+.garage-hero{position:relative;display:grid;place-items:center;isolation:isolate;width:100%;height:118px;min-height:0;margin:0;padding:7px 4px 11px;background:transparent;border:0;border-radius:22px;cursor:pointer}
+.garage-hero img{position:relative;z-index:1;display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 7px rgba(13,28,47,.23));animation:garage-float 4s ease-in-out infinite}
+.garage-glow{position:absolute;inset:11% 1% 10%;z-index:-1;background:radial-gradient(ellipse at center,var(--car-aurora-blue),transparent 70%);opacity:.85}
+.garage-hero[data-state="service-good"] .garage-glow{background:radial-gradient(ellipse at center,rgba(74,203,159,.38),transparent 70%)}
+.garage-hero[data-state="service-warning"] .garage-glow{background:radial-gradient(ellipse at center,rgba(242,176,66,.43),transparent 70%)}
+.garage-hero[data-state="service-critical"] .garage-glow,.garage-hero[data-state="service-overdue"] .garage-glow{background:radial-gradient(ellipse at center,rgba(239,96,112,.40),transparent 70%)}
+.garage-hero::after{content:"";position:absolute;bottom:7px;left:15%;right:15%;height:8px;z-index:-1;border-radius:50%;background:rgba(22,39,62,.17);filter:blur(4px);animation:garage-shadow 4s ease-in-out infinite}
+.garage-pencil{position:absolute;right:3px;bottom:3px;z-index:2;display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--car-hero-edge);border-radius:10px;background:var(--card);color:var(--accent);font-size:1.04rem;box-shadow:var(--shadow)}
+@keyframes garage-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes garage-shadow{0%,100%{transform:scaleX(1);opacity:.7}50%{transform:scaleX(.82);opacity:.35}}
+.garage-editor{display:grid;grid-template-columns:125px minmax(0,1fr);gap:13px;align-items:center;padding:13px;margin:12px 0 18px;background:var(--bg);border:1px solid var(--line);border-radius:19px}
+.garage-preview{display:grid;place-items:center;min-height:108px;padding:8px;border-radius:15px;background:radial-gradient(ellipse at center,var(--soft),transparent)}
+.garage-preview img{display:block;width:100%;height:104px;object-fit:contain}
+.garage-editor-controls{min-width:0}
+.garage-editor-controls>label{margin:0 0 6px;font-weight:650;font-size:.81rem}
+.garage-editor-controls input[type="file"]{font-size:.77rem;min-height:44px;padding:8px}
+.garage-editor-controls .garage-cutout{display:flex;align-items:center;gap:8px;margin:9px 0}
+.garage-cutout input[type="checkbox"]{appearance:auto;-webkit-appearance:auto;accent-color:var(--accent);width:20px;height:20px;min-height:0;padding:0;flex:none;margin:0}
+.garage-editor-controls button{min-height:40px;padding:6px 11px;font-size:.79rem;border-radius:12px}
+.garage-editor-controls small{display:block;line-height:1.4;margin-top:8px;color:var(--mute);font-size:.73rem}
+#garagePhotoStatus:empty{display:none}
+#garagePhotoStatus{color:var(--ink)}
+/* A tiny car follows the existing service percentage, with no change to the calculation. */
+body:not(.account-locked) .next .service-progress{overflow:visible;position:relative;margin-bottom:12px}
+.next .service-progress i{position:relative}
+.next .service-progress i::after{content:"";position:absolute;width:27px;height:16px;right:-5px;top:50%;transform:translateY(-50%);background:url("/garage-car.svg") center/contain no-repeat;pointer-events:none;filter:drop-shadow(0 1px 2px #0004)}
+#v-list #list>.empty::before{content:"";display:block;width:112px;height:62px;margin:0 auto 13px;background:url("/garage-car.svg") center/contain no-repeat}
+@media(max-width:420px){
+ body:not(.account-locked) .home-header{grid-template-columns:minmax(0,1fr) clamp(96px,31vw,130px);gap:8px}
+ .garage-hero{height:96px}
+ .garage-editor{grid-template-columns:1fr;gap:9px}
+ .garage-preview img{width:min(100%,165px);height:94px}
+}
+@media(prefers-reduced-motion:reduce){.garage-hero img,.garage-hero::after{animation:none}}
+
+/* A miniature garage companion in the AI welcome panel. */
+body:not(.account-locked) .ai-hello::before{content:"";display:block;width:94px;height:53px;margin:0 auto 8px;background:url("/garage-car.svg") center/contain no-repeat}

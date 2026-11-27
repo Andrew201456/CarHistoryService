@@ -97,6 +97,7 @@
     const p=getProfile();
     for(const [key,id] of Object.entries(fieldMap))if($(id))$(id).value=p[key];
     for(const key of ["year","cc","power","vin"])$(fieldMap[key])?.setCustomValidity("");
+    window.CarGarage?.open();
     profileDialog.showModal();
   }
   function closeProfile(){profileDialog.close();}
@@ -123,6 +124,7 @@
         input.reportValidity();return;
       }
     }
+    if(window.CarGarage && !window.CarGarage.commit())return;
     settings.vehicleProfile=values;
     store(); // existing local storage + authenticated cross-device sync
     updateVehicle();
@@ -218,6 +220,7 @@
     messages=[];persist();render();setStatus("");question.value="";question.focus();
   });
   $("aiProfileOpen").addEventListener("click",openProfile);
+  $("garageHero")?.addEventListener("click",openProfile);
   $("aiProfileClose").addEventListener("click",closeProfile);
   $("aiProfileCancel").addEventListener("click",closeProfile);
   profileForm.addEventListener("submit",saveProfile);
