@@ -1680,3 +1680,20 @@ body:not(.account-locked) .next .service-progress{overflow:visible;position:rela
 
 /* A miniature garage companion in the AI welcome panel. */
 body:not(.account-locked) .ai-hello::before{content:"";display:block;width:94px;height:53px;margin:0 auto 8px;background:url("/garage-car.svg") center/contain no-repeat}
+
+/* v45: a definite image box prevents portrait replaced elements overflowing on iOS. */
+body:not(.account-locked) .garage-hero{display:block;position:relative;min-width:0;min-height:0;overflow:hidden;padding:0;align-self:center;justify-self:stretch}
+body:not(.account-locked) .garage-hero img{position:absolute;inset:8px 5px 13px;width:calc(100% - 10px);height:calc(100% - 21px);max-width:100%;max-height:calc(100% - 21px);object-fit:contain;object-position:center;min-width:0;min-height:0;border-radius:12px;animation:garage-float 4s ease-in-out infinite}
+body:not(.account-locked) .garage-hero[data-photo="rect"] img{animation:none;filter:none;border-radius:13px}
+.garage-preview{position:relative;display:block;height:114px;min-height:0;overflow:hidden;padding:0}
+.garage-preview img{position:absolute;inset:7px;width:calc(100% - 14px);height:calc(100% - 14px);max-width:100%;max-height:100%;object-fit:contain;margin:0 auto}
+.garage-outline[hidden]{display:none!important}
+.garage-outline{grid-column:1/-1;min-width:0;display:grid;gap:8px}
+.garage-outline p{font-size:.77rem;line-height:1.5;color:var(--mute);margin:0}
+.garage-outline canvas{display:block;max-width:100%;width:auto;height:auto;max-height:360px;object-fit:contain;margin:auto;touch-action:manipulation;border:1px solid var(--line);border-radius:12px;cursor:crosshair}
+.garage-outline-actions{display:flex;flex-wrap:wrap;gap:6px}
+.garage-outline-actions button{flex:1;min-width:70px;min-height:44px;padding:8px;font-size:.75rem}
+.garage-outline-actions button:last-child{background:var(--accent);color:var(--accent-ink);font-weight:750}
+#garageOutlineOpen{margin:6px 0;min-height:44px}
+#garageOutlineOpen[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){body:not(.account-locked) .garage-hero img{animation:none}}
