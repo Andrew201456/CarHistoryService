@@ -1677,3 +1677,6 @@ body:not(.account-locked) .next .service-progress{overflow:visible;position:rela
  .garage-preview img{width:min(100%,165px);height:94px}
 }
 @media(prefers-reduced-motion:reduce){.garage-hero img,.garage-hero::after{animation:none}}
+
+/* A miniature garage companion in the AI welcome panel. */
+body:not(.account-locked) .ai-hello::before{content:"";display:block;width:94px;height:53px;margin:0 auto 8px;background:url("/garage-car.svg") center/contain no-repeat}
