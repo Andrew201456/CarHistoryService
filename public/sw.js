@@ -1,7 +1,7 @@
 /* Cache only the application shell; never cache authenticated /api requests. */
 const CACHE="carhistory-shell-v43";
 const ASSETS=[
- "/","/index.html","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/car-art.js","/car-focus.svg","/car-generic.svg","/account.js","/manifest.webmanifest",
+ "/","/index.html","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/car-art.js","/car-focus.webp","/car-generic.svg","/account.js","/manifest.webmanifest",
  "/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
 ];
 self.addEventListener("install",event=>{

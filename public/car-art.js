@@ -2,7 +2,7 @@
 (function(){
 "use strict";
 const LIMIT=90000;
-const generic="/car-generic.svg",focus="/car-focus.svg";
+const generic="/car-generic.svg",focus="/car-focus.webp";
 function valid(value){return typeof value==="string"&&value.length<=LIMIT&&/^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(value)}
 function select(profile,image){
  if(valid(image))return {src:image,kind:"custom"};
