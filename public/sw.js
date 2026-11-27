@@ -1,5 +1,5 @@
 /* Cache only the application shell; never cache authenticated /api requests. */
-const CACHE="carhistory-shell-v44";
+const CACHE="carhistory-shell-v45";
 const ASSETS=[
  "/","/index.html","/ui.css","/features.js","/documents.js","/ai-mechanic.js","/account.js","/manifest.webmanifest",
  "/garage.js","/garage-car.svg","/car-focus.webp","/app-icon-192.png","/app-icon-512.png","/icon.png","/apple-touch-icon.png"
