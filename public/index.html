@@ -495,10 +495,10 @@ nav button.on{color:var(--accent);font-weight:600}
       </svg>
       Εγκατάσταση
     </button>
-    <div class="garage-stage" id="garageStage" data-service="unknown">
-      <div class="garage-stage-copy"><span>MY GARAGE</span><small id="garageArtLabel">Ενδεικτική απεικόνιση</small></div>
-      <div class="garage-car-wrap"><img id="garageCarImage" src="/car-generic.svg" alt="" width="180" height="151" decoding="async"></div>
-    </div>
+    <button type="button" class="garage-stage" id="garageStage" data-service="unknown" aria-label="Αλλαγή εικόνας αυτοκινήτου" aria-haspopup="dialog" aria-controls="aiVehicleDialog">
+      <span class="garage-stage-copy"><span>MY GARAGE</span><small id="garageArtLabel">Ενδεικτική απεικόνιση</small><span class="garage-art-hint">Αλλαγή εικόνας ›</span></span>
+      <span class="garage-car-wrap"><img id="garageCarImage" src="/car-generic.svg" alt="" width="180" height="151" decoding="async"></span>
+    </button>
   </header>
   <div id="syncst" role="status" aria-live="polite"></div>
   <div class="next" id="next"></div>
@@ -1455,7 +1455,7 @@ function render(){
   const L=$("list");
   if(!res.length){
     const allHidden=HISTORY_KINDS.every(kind=>!isKindVisible(kind));
-    L.innerHTML='<div class="empty">'+(allHidden?
+    L.innerHTML='<div class="empty garage-empty"><img src="/car-generic.svg" alt="" width="96" height="46" loading="lazy">'+(allHidden?
       "Έχεις κρύψει όλες τις κατηγορίες. Μπορείς να τις εμφανίσεις ξανά από το Account.":
       items.length?"Δεν βρέθηκε τίποτα στις ορατές κατηγορίες.":
       "Δεν υπάρχουν καταχωρήσεις ακόμα. Πάτα «Προσθήκη» για να βάλεις την πρώτη.")+'</div>';
