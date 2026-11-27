@@ -387,6 +387,7 @@ nav button.on{color:var(--accent);font-weight:600}
 </style>
 </head>
 <body class="account-locked">
+<div class="car-ambient" aria-hidden="true"></div>
 <section id="accountGate" class="account-gate" aria-label="Πρόσβαση λογαριασμού">
   <div class="account-card">
     <div class="account-identity">
@@ -478,6 +479,7 @@ nav button.on{color:var(--accent);font-weight:600}
 <section class="view on" id="v-list">
   <header class="home-header">
     <div class="home-vehicle-heading">
+      <div class="vehicle-eyebrow"><span aria-hidden="true"></span> ΤΟ ΑΥΤΟΚΙΝΗΤΟ ΜΟΥ</div>
       <h1 id="homeVehicleName">Καταχώρησε αυτοκίνητο</h1>
       <p id="aiVehicleSubtitle">Όλο το ιστορικό συντήρησης, με μια ματιά.</p>
       <button type="button" class="home-vehicle-edit" id="aiProfileOpen" aria-haspopup="dialog" aria-controls="aiVehicleDialog">
@@ -499,8 +501,8 @@ nav button.on{color:var(--accent);font-weight:600}
   <div id="dueSummary" class="due-summary" aria-label="Προθεσμίες αυτοκινήτου" aria-live="polite"></div>
   <button type="button" id="documentsShortcut" class="documents-shortcut">📁 Έγγραφα αυτοκινήτου <span aria-hidden="true">›</span></button>
   <div class="overview-grid" aria-label="Σύνοψη">
-    <div class="overview-card"><span class="overview-label">Έξοδα φέτος</span><strong id="yearSpent">—</strong><small id="yearSpentLabel"></small></div>
-    <div class="overview-card"><span class="overview-label">Επισκέψεις</span><strong id="serviceCount">—</strong><small>Συνολικές καταχωρήσεις</small></div>
+    <div class="overview-card overview-cost"><span class="overview-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h15V5Zm0 5h-5a2 2 0 0 0 0 4h5M16 12h.01"/></svg></span><span class="overview-label">Έξοδα φέτος</span><strong id="yearSpent">—</strong><small id="yearSpentLabel"></small></div>
+    <div class="overview-card overview-visits"><span class="overview-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M9 3v4m6-4v4M8 11h8m-8 4h5"/></svg></span><span class="overview-label">Επισκέψεις</span><strong id="serviceCount">—</strong><small>Συνολικές καταχωρήσεις</small></div>
   </div>
   <details class="extra-panel obligations-panel" id="obligationsPanel">
     <summary><span>Υποχρεώσεις αυτοκινήτου</span><span class="summary-right"><b id="obligationsCount"></b><span aria-hidden="true">⌄</span></span></summary>
@@ -1447,7 +1449,7 @@ function render(){
     const parts=(it.parts||[]).filter(p=>p.name||p.cost);
     const t=total(it);
     const noteTxt=[it.what,it.notes].filter(Boolean).join("\n");
-    return `<div class="item"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":itemKind(it)==="improvements"?"βελτίωση":itemKind(it)==="expenses"?"έξοδο":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
+    return `<div class="item history-card" data-kind="${itemKind(it)}"><div class="top"><span><span class="date">${hl(fmtDate(it.date),q)}</span>${'<span class="tag">'+(itemKind(it)==="regular"?"service":itemKind(it)==="tires"?"ελαστικά":itemKind(it)==="improvements"?"βελτίωση":itemKind(it)==="expenses"?"έξοδο":"επισκευή")+'</span>'}</span><span class="km">${intOf(it.km)?hl(fmtKm(intOf(it.km)),q):""}</span></div>
     ${parts.length?`<ul class="parts">${parts.map(p=>`<li><span>${hl(p.name||"",q)}</span><span class="c">${p.cost?hl(money(num(p.cost)),q):""}</span></li>`).join("")}</ul>`:""}
     ${itemKind(it)==="tires"&&intOf(it.km)>0&&intOf(it.tireLifeKm)>0?`<div class="tire-history-note"><strong>${esc(it.tireName||"Ελαστικά")}</strong> · Εκτιμώμενη αλλαγή στα ${fmtKm(intOf(it.km)+intOf(it.tireLifeKm))}${intOf(settings.current)>0?" · "+(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)>=0?"Απομένουν "+fmtKm(intOf(it.km)+intOf(it.tireLifeKm)-intOf(settings.current)):"Έχουν ξεπεραστεί κατά "+fmtKm(intOf(settings.current)-intOf(it.km)-intOf(it.tireLifeKm))):""}</div>`:""}
     ${noteTxt?`<div class="notes">${hl(noteTxt,q)}</div>`:""}

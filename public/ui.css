@@ -1540,3 +1540,102 @@ body:not(.account-locked) nav.glass-nav button:focus-visible{outline-offset:-2px
   body:not(.account-locked) nav.glass-nav button{transition:none!important;animation:none!important}
   body:not(.account-locked) nav.glass-nav button:active{transform:none}
 }
+
+/* v42: moving aurora, glass dashboard and colour-coded service journal.
+   Only the signed-in application is restyled. */
+body:not(.account-locked){
+  isolation:isolate;min-height:100vh;
+  --car-aurora-blue:rgba(91,154,244,.37);
+  --car-aurora-violet:rgba(162,122,230,.27);
+  --car-aurora-mint:rgba(43,187,169,.29);
+  --car-hero-glass:rgba(255,255,255,.77);
+  --car-hero-edge:rgba(255,255,255,.94);
+  --car-stat-cost:#e2f5ef;--car-stat-cost-ink:#236d58;
+  --car-stat-visits:#e7edff;--car-stat-visits-ink:#425f9c;
+  --car-note-sheen:rgba(255,255,255,.45);
+}
+@media(prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) body:not(.account-locked){
+  --car-aurora-blue:rgba(43,100,213,.38);--car-aurora-violet:rgba(139,74,213,.30);--car-aurora-mint:rgba(27,156,149,.26);
+  --car-hero-glass:rgba(22,37,55,.77);--car-hero-edge:rgba(156,198,231,.21);
+  --car-stat-cost:#203c39;--car-stat-cost-ink:#99e3c9;--car-stat-visits:#283b61;--car-stat-visits-ink:#b6caff;
+  --car-note-sheen:rgba(255,255,255,.10);
+ }
+}
+:root[data-theme="dark"] body:not(.account-locked){
+ --car-aurora-blue:rgba(43,100,213,.38);--car-aurora-violet:rgba(139,74,213,.30);--car-aurora-mint:rgba(27,156,149,.26);
+ --car-hero-glass:rgba(22,37,55,.77);--car-hero-edge:rgba(156,198,231,.21);
+ --car-stat-cost:#203c39;--car-stat-cost-ink:#99e3c9;--car-stat-visits:#283b61;--car-stat-visits-ink:#b6caff;
+ --car-note-sheen:rgba(255,255,255,.10);
+}
+.car-ambient{display:none}
+body:not(.account-locked) .car-ambient{display:block;position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.car-ambient::before,.car-ambient::after{content:"";position:absolute;inset:-22%;pointer-events:none;transform-origin:center}
+.car-ambient::before{background:radial-gradient(ellipse at 70% 22%,var(--car-aurora-blue),transparent 43%),radial-gradient(ellipse at 23% 72%,var(--car-aurora-violet),transparent 43%);animation:car-aurora-drift 15s ease-in-out infinite alternate}
+.car-ambient::after{background:radial-gradient(ellipse at 75% 73%,var(--car-aurora-mint),transparent 45%),radial-gradient(ellipse at 21% 29%,var(--car-aurora-violet),transparent 36%);animation:car-aurora-wave 21s ease-in-out infinite alternate}
+@keyframes car-aurora-drift{0%{transform:translate3d(-13%,-8%,0) scale(1.02);opacity:.8}50%{transform:translate3d(4%,12%,0) scale(1.13);opacity:1}100%{transform:translate3d(14%,-6%,0) scale(1.06);opacity:.9}}
+@keyframes car-aurora-wave{0%{transform:translate3d(12%,8%,0) scale(1.07);opacity:.8}50%{transform:translate3d(-12%,-10%,0) scale(1.17);opacity:1}100%{transform:translate3d(5%,-12%,0) scale(1.06);opacity:.85}}
+body:not(.account-locked) .home-header{
+ padding:19px 20px;align-items:flex-start;border-radius:26px;
+ background:var(--car-hero-glass);border:1px solid var(--car-hero-edge);
+ box-shadow:var(--shadow);
+}
+.vehicle-eyebrow{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--accent);font-size:.65rem;letter-spacing:.1em;font-weight:800}
+.vehicle-eyebrow>span{display:inline-block;width:7px;height:7px;flex:none;border-radius:50%;background:var(--lux-cyan);box-shadow:0 0 0 4px var(--lux-halo)}
+body:not(.account-locked) .home-vehicle-heading h1{font-size:clamp(1.6rem,6.1vw,2.4rem);font-weight:780;line-height:1.2}
+body:not(.account-locked) .home-vehicle-edit{background:var(--car-note-sheen);border-radius:14px}
+body:not(.account-locked) .next{border-radius:27px;border-color:var(--car-hero-edge);box-shadow:0 14px 36px var(--lux-halo),var(--shadow)}
+body:not(.account-locked) .next .service-next-caption{font-size:.8rem;color:var(--mute);font-weight:700}
+body:not(.account-locked) .next .service-next-km{font-size:clamp(2rem,7.9vw,2.9rem);line-height:1.15;letter-spacing:-.035em;margin:8px 0}
+body:not(.account-locked) .next .service-forecast{border-radius:16px;padding:13px;background:var(--bg)}
+body:not(.account-locked) .next .service-forecast-current{background:var(--soft)}
+body:not(.account-locked) .next .service-progress{height:11px}
+body:not(.account-locked) .next .service-remaining{margin-top:11px}
+body:not(.account-locked) .overview-grid{gap:11px}
+body:not(.account-locked) .overview-card{padding:16px;border:1px solid var(--car-hero-edge);border-radius:22px;gap:4px}
+body:not(.account-locked) .overview-card::before{display:none}
+body:not(.account-locked) .overview-cost{background:var(--car-stat-cost);color:var(--car-stat-cost-ink)}
+body:not(.account-locked) .overview-visits{background:var(--car-stat-visits);color:var(--car-stat-visits-ink)}
+body:not(.account-locked) .overview-card :is(.overview-label,strong,small){color:inherit}
+body:not(.account-locked) .overview-card strong{font-size:clamp(1.4rem,5.9vw,2rem);margin-top:3px}
+.overview-glyph{display:grid;place-items:center;width:39px;height:39px;border-radius:13px;background:var(--car-note-sheen);margin-bottom:5px}
+.overview-glyph svg{width:22px;height:22px}
+body:not(.account-locked) .due-chip{border-radius:19px;box-shadow:var(--shadow);background:var(--car-hero-glass)}
+body:not(.account-locked) .extra-panel{border-radius:21px}
+body:not(.account-locked) .documents-shortcut{border-radius:19px;background:var(--car-hero-glass)}
+body:not(.account-locked) .history-title h2{font-size:1.28rem;font-weight:780}
+body:not(.account-locked) .history-card{--history-tint:var(--accent);border-radius:22px;border-left:4px solid var(--history-tint);padding:17px}
+body:not(.account-locked) .history-card[data-kind="regular"]{--history-tint:var(--accent)}
+body:not(.account-locked) .history-card[data-kind="repair"]{--history-tint:#d4784e}
+body:not(.account-locked) .history-card[data-kind="tires"]{--history-tint:#6c91d5}
+body:not(.account-locked) .history-card[data-kind="improvements"]{--history-tint:var(--lux-violet)}
+body:not(.account-locked) .history-card[data-kind="expenses"]{--history-tint:#b58d45}
+body:not(.account-locked) .history-card .tag{background:var(--soft);background:color-mix(in srgb,var(--history-tint) 13%,var(--card));border:0;color:var(--ink);padding:3px 9px;border-radius:9px;font-weight:650}
+body:not(.account-locked) .history-card .date{font-size:1.03rem;font-weight:780}
+body:not(.account-locked) .history-card .km{font-variant-numeric:tabular-nums;font-weight:650}
+body:not(.account-locked) .history-card .parts{margin-top:13px}
+body:not(.account-locked) .history-card .parts li{padding:8px 0}
+body:not(.account-locked) .history-card .parts li>span:first-child{min-width:0;overflow-wrap:anywhere}
+body:not(.account-locked) .history-card .total{background:var(--soft);border:0;padding:12px;border-radius:14px;color:var(--ink)}
+body:not(.account-locked) .history-card .actions button{border-radius:13px;min-height:44px}
+body:not(.account-locked) .history-card .actions button[data-e]{background:var(--soft)}
+body:not(.account-locked) :is(#v-form,#v-import)>h1{font-size:clamp(1.55rem,5.5vw,2rem);font-weight:780}
+body:not(.account-locked) :is(#v-form,#v-import) label{font-weight:650}
+body:not(.account-locked) :is(#v-form,#v-import) :is(input:not([type="checkbox"]):not([type="file"]),textarea,select){border-radius:15px}
+body:not(.account-locked) :is(#v-form,#v-import) :is(.entry-kind,.tire-fields,.import-photo-picker){border-radius:21px}
+body:not(.account-locked) :is(#v-form,#v-import) button.main{border-radius:16px;box-shadow:0 6px 20px var(--lux-halo)}
+body:not(.account-locked) .ai-hello{border-radius:24px}
+body:not(.account-locked) .ai-composer{border-radius:23px}
+body:not(.account-locked) nav.glass-nav{--glass-pad:6px;border-radius:30px}
+body:not(.account-locked) nav.glass-nav .glass-selection{border-radius:24px;transition:transform .48s cubic-bezier(.22,.85,.25,1.12)}
+@media(max-width:420px){
+ body:not(.account-locked) .home-header{padding:15px 14px;gap:8px;border-radius:23px;flex-wrap:wrap}
+ body:not(.account-locked) .next{padding:17px 15px;border-radius:23px}
+ body:not(.account-locked) .overview-card{padding:14px 12px;border-radius:19px}
+ body:not(.account-locked) .history-card{padding:14px 13px;border-radius:19px}
+ body:not(.account-locked) nav.glass-nav{--glass-pad:5px}
+}
+@media(prefers-reduced-motion:reduce){
+ .car-ambient::before,.car-ambient::after{animation:none;transform:none;opacity:.82}
+ body:not(.account-locked) nav.glass-nav .glass-selection{transition:none!important}
+}
