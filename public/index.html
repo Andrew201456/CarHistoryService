@@ -488,6 +488,7 @@ nav button.on{color:var(--accent);font-weight:600}
         <span aria-hidden="true">›</span>
       </button>
     </div>
+    <button type="button" id="garageHero" class="garage-hero" data-state="unknown" aria-label="Αλλαγή εικόνας αυτοκινήτου"><span class="garage-glow" aria-hidden="true"></span><img id="garageCar" src="/garage-car.svg" alt="" width="140" height="100"><span class="garage-pencil" aria-hidden="true">✎</span></button>
     <button type="button" id="installBtn" class="install-trigger" hidden>
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -763,6 +764,7 @@ nav button.on{color:var(--accent);font-weight:600}
       <div><span>ΤΟ ΟΧΗΜΑ ΜΟΥ</span><h2 id="aiProfileTitle">Στοιχεία αυτοκινήτου</h2><p>Τα στοιχεία του οχήματός σου αποθηκεύονται στον λογαριασμό σου και συγχρονίζονται μαζί με το ιστορικό.</p></div>
       <button id="aiProfileClose" type="button" class="ai-dialog-x" aria-label="Κλείσιμο">×</button>
     </div>
+    <div class="garage-editor"><div class="garage-preview"><img id="garagePreview" src="/garage-car.svg" alt="Προεπισκόπηση εικονιδίου αυτοκινήτου" width="160" height="105"></div><div class="garage-editor-controls"><label for="garagePhoto">Εικόνα αυτοκινήτου (προαιρετικά)</label><input id="garagePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif"><label class="garage-cutout"><input id="garageCutout" type="checkbox" checked> Αφαίρεση μονόχρωμου φόντου</label><button id="garageRemove" type="button">Αυτόματο εικονίδιο</button><small id="garagePhotoStatus" role="status"></small><small>Για καθαρό εικονίδιο προτίμησε PNG με διαφάνεια ή φωτογραφία με μονόχρωμο φόντο.</small></div></div>
     <div class="ai-profile-grid">
       <label>Μάρκα<input id="aiCarMake" name="make" type="text" autocomplete="off" maxlength="70" placeholder="π.χ. Ford"></label>
       <label>Μοντέλο<input id="aiCarModel" name="model" type="text" autocomplete="off" maxlength="70" placeholder="π.χ. Focus"></label>
@@ -1337,6 +1339,7 @@ function renderNext(){
   if(document.activeElement!==$("cur"))$("cur").value=settings.current||"";
   if(document.activeElement!==$("iv"))$("iv").value=interval;
   updateMileageControl();
+  window.CarGarage?.render();
 }
 function mileageInputValue(value){
   const text=String(value??"").trim();
@@ -1414,6 +1417,7 @@ function updateHomeVehicleTitle(){
   if(subtitle)subtitle.textContent=details.join(" · ")||"Όλο το ιστορικό συντήρησης, με μια ματιά.";
   const action=$("aiVehicleSummary");
   if(action)action.textContent=title?"Στοιχεία αυτοκινήτου":"Προσθήκη στοιχείων αυτοκινήτου";
+  window.CarGarage?.render();
 }
 window.CarHistoryUpdateHomeTitle=updateHomeVehicleTitle;
 function render(){
@@ -2120,6 +2124,7 @@ $("impAdd").onclick=()=>{
 </script>
 <script src="/features.js"></script>
 <script src="/documents.js"></script>
+<script src="/garage.js"></script>
 <script src="/ai-mechanic.js"></script>
 </body>
 </html>
