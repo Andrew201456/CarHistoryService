@@ -19,6 +19,7 @@ function render(){
 }
 let changed=false,draft="",file=null,serial=0,busy=false;
 const field=$("garagePhoto"),remove=$("garageRemove"),cutout=$("garageCutout"),preview=$("garagePreview"),message=$("garagePhotoStatus"),save=$("aiSaveVehicle"),dialog=$("aiVehicleDialog");
+if(!field||!remove||!cutout||!preview||!message||!save||!dialog||!$("garageCar"))return;
 const formProfile=()=>({make:$("aiCarMake").value,model:$("aiCarModel").value,year:$("aiCarYear").value,trim:$("aiCarTrim").value});
 function refreshPreview(){setImage(preview,source(formProfile(),changed?draft:settings.vehicleAvatar));}
 function status(text){message.textContent=text;}
