@@ -13,7 +13,10 @@ function select(profile,image){
 function render(profile,image){
  const art=select(profile,image),img=document.getElementById("garageCarImage"),label=document.getElementById("garageArtLabel");
  if(!img)return;
- if(img.getAttribute("src")!==art.src)img.src=art.src;
+ if(img.getAttribute("src")!==art.src){
+  img.onerror=()=>{img.onerror=null;img.src=generic;if(label)label.textContent="Ενδεικτική απεικόνιση"};
+  img.src=art.src;
+ }
  if(label)label.textContent=art.kind==="custom"?"Το δικό σου αυτοκίνητο":art.kind==="focus"?"Ενδεικτικό Focus Mk2":"Ενδεικτική απεικόνιση";
 }
 function removeFlatBackground(image){
